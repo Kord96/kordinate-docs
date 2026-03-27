@@ -11,8 +11,8 @@ export default defineConfig({
 			description: 'Project documentation',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/Kord96' }],
 			logo: {
-				light: './src/assets/logo_light.png',
-				dark: './src/assets/logo_dark.png',
+				light: './src/assets/logo_light.webp',
+				dark: './src/assets/logo_dark.webp',
 			},
 			customCss: ['./src/styles/custom.css'],
 			sidebar: [
@@ -51,6 +51,15 @@ export default defineConfig({
 								{ label: 'Feature Inventory', slug: 'kordinate/dev/features' },
 							],
 						},
+					],
+				},
+				{
+					label: 'Sous Storefront',
+					collapsed: true,
+					items: [
+						{ label: 'Overview', slug: 'sous-storefront/overview' },
+						{ label: 'Components', slug: 'sous-storefront/components' },
+						{ label: 'Data Flows', slug: 'sous-storefront/flows' },
 					],
 				},
 			],
