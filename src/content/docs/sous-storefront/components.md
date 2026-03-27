@@ -2,118 +2,243 @@
 title: Components
 ---
 
-Component reference organized by architectural layer. Each component's source file, exports, and role are listed below.
+[Open interactive architecture viewer](/sous-storefront/architecture/)
+
+## Component Hierarchy
+
+```mermaid
+graph TD
+    Root["App Root\napp/root.tsx"]
+
+    Root --> RL["Root Layout"]
+    Root --> CO["Checkout Page"]
+    Root --> SU["Success Page"]
+    Root --> Toaster["Toaster"]
+
+    RL --> Header
+    Header --> NavMenu
+    Header --> Logo
+    Header --> Cart["Cart Sheet"]
+    Header --> Toggle["ThemeToggle"]
+
+    NavMenu --> Logo2["Logo"]
+    NavMenu --> SheetUI["Sheet"]
+    NavMenu --> Collapsible
+    NavMenu --> BtnUI1["Button"]
+
+    Cart --> CartItem
+    Cart --> EmptyState
+    Cart --> SheetUI2["Sheet"]
+    Cart --> BtnUI2["Button"]
+
+    CartItem --> BtnUI3["Button"]
+
+    RL --> Home["Home Page"]
+    RL --> Products["Products Page"]
+
+    Home --> CatSection["CategorySection"]
+    CatSection --> ProductCard
+
+    Products --> ProductCard2["ProductCard"]
+    Products --> Breadcrumb["CategoryBreadcrumb"]
+    Breadcrumb --> BreadcrumbUI["Breadcrumb (ui)"]
+
+    CO --> OrderSummary
+    CO --> ShippingForm
+    CO --> PaymentForm
+    OrderSummary --> OrderItem
+
+    ShippingForm --> InputUI["Input"]
+    PaymentForm --> InputUI2["Input"]
+
+    ProductCard --> BtnUI4["Button"]
+    Toggle --> BtnUI5["Button"]
+
+    style Root fill:#1a1a2e,color:#fff
+    style RL fill:#2563eb,color:#fff
+    style CO fill:#7c3aed,color:#fff
+    style SU fill:#059669,color:#fff
+    style Home fill:#2563eb,color:#fff
+    style Products fill:#2563eb,color:#fff
+```
+
+Every parent-child rendering relationship in the app. App Root is the outermost shell (QueryClientProvider, theme init, Toaster). Root Layout wraps browsing routes with the shared Header. Checkout and Success render directly from the Root Outlet without shared chrome.
 
 ## Core
 
-Foundation modules that wire together the application shell, routing, API access, types, utilities, and styles.
+```mermaid
+flowchart LR
+    Root["App Root"] -->|provides| QC["QueryClientProvider"]
+    Root -->|reads| TS["Theme Store"]
+    Root -->|renders| Toaster
+    Routes["app/routes.ts"] -->|declares| RT["Route Tree"]
+    API["API Client (ky)"] -->|prefixUrl| DJ["dummyjson.com"]
+    Types["app/types.ts"] -->|exports| T1["Category"]
+    Types -->|exports| T2["Product"]
+    Types -->|exports| T3["CartItem"]
+    Utils["app/utils.ts"] -->|exports| CN["cn()"]
+    Utils -->|exports| FST["fromSlugToTitle()"]
+```
 
-| Component | File | Description |
+| Component | File | Key Exports |
 |---|---|---|
-| App (Root Module) | `app/root.tsx` | Root component. Creates QueryClient, wraps Outlet in QueryClientProvider. Applies persisted theme class on mount. Exports `Layout`, `App`, and `ErrorBoundary`. |
-| Route Config | `app/routes.ts` | Declarative route tree. Root layout at `/` wraps home and products. Checkout and success are standalone routes. |
-| API Client | `app/api.ts` | ky HTTP client with `prefixUrl` set to `https://dummyjson.com`. |
-| Type Definitions | `app/types.ts` | Shared domain types: `Category`, `Product`, `CartItem`. |
-| Utility Functions | `app/utils.ts` | `cn()` for Tailwind class merging (clsx + tailwind-merge), `fromSlugToTitle()` for URL slug conversion. |
-| Global Styles | `app/app.css` | TailwindCSS v4 entry point. Custom dark variant, slide-down/slide-up animations, oklch color tokens for light/dark themes. |
+| App (Root Module) | `app/root.tsx` | `Layout`, `App`, `ErrorBoundary` |
+| Route Config | `app/routes.ts` | `default (RouteConfig[])` |
+| API Client | `app/api.ts` | `api` |
+| Type Definitions | `app/types.ts` | `Category`, `Product`, `CartItem` |
+| Utility Functions | `app/utils.ts` | `cn`, `fromSlugToTitle` |
+| Global Styles | `app/app.css` | TailwindCSS v4 entry point |
 
 ## Stores (Zustand)
 
-Client-side state managed by Zustand with localStorage persistence.
+```mermaid
+flowchart LR
+    CS["Cart Store"] -->|persist| LS1["localStorage\ncart-storage"]
+    CS -->|actions| A1["addItem\nremoveItem\nincrementItem\ndecrementItem\nclear"]
+    CS -->|state| S1["items[]\ntotal\nsuccessfulOrder"]
 
-| Store | File | Exports | Description |
-|---|---|---|---|
-| Cart Store | `app/hooks/cart-store.tsx` | `useCartStore` | Cart items, computed total, successfulOrder flag. Actions: `addItem`, `removeItem`, `incrementItem`, `decrementItem`, `clear`. Persisted to `cart-storage` key. |
-| Theme Store | `app/hooks/theme-store.tsx` | `useThemeStore` | Theme as `"dark" \| "light" \| "system"`. `setTheme` mutates `document.documentElement.classList` directly. Persisted to `theme-storage` key. |
+    TS["Theme Store"] -->|persist| LS2["localStorage\ntheme-storage"]
+    TS -->|action| A2["setTheme"]
+    TS -->|mutates| DOM["document.documentElement\nclassList"]
+    TS -->|state| S2["theme:\ndark | light | system"]
+```
+
+Cart Store manages items, computed total, and the `successfulOrder` flag (redirect guard for the success page). Theme Store persists theme preference and directly mutates the DOM classList for instant CSS variable switching.
+
+| Store | File | Exports |
+|---|---|---|
+| Cart Store | `app/hooks/cart-store.tsx` | `useCartStore` |
+| Theme Store | `app/hooks/theme-store.tsx` | `useThemeStore` |
 
 ## Queries (TanStack Query)
 
-Server-state management via TanStack Query. Each query exports both `queryOptions` (for SSR prefetch) and a React hook.
+```mermaid
+flowchart TD
+    CQ["Categories Query\n['categories']"] -->|GET /products/categories| API["ky API Client"]
+    CSQ["Category Sections\n['category-sections']"] -->|GET /products/category/:slug| API
+    CSQ -->|depends on| CQ
+    PQ["Products Query\n['products', category]"] -->|"GET /products{/category/:slug}"| API
+    API -->|prefixUrl| DJ["DummyJSON API"]
 
-| Query | File | Key | Description |
+    RL["Root Layout loader"] -.->|prefetch| CQ
+    HL["Home loader"] -.->|prefetch| CSQ
+    PL["Products loader"] -.->|prefetch| PQ
+
+    NM["NavMenu"] -->|useCategoriesQuery| CQ
+    HP["Home Page"] -->|useInfiniteQuery| CSQ
+    PP["Products Page"] -->|useInfiniteQuery| PQ
+```
+
+Each query exports a `queryOptions` object (for SSR prefetch in loaders, dashed lines) and a React hook (for client-side consumption, solid lines). Category Sections depends on Categories for pagination bounds.
+
+| Query | File | Key | Pagination |
 |---|---|---|---|
-| Categories | `app/hooks/categories-query.tsx` | `["categories"]` | Fetches `GET /products/categories`. Returns `Category[]`. Used in root-layout SSR prefetch and nav-menu. |
-| Category Sections | `app/routes/home/hooks/category-sections-infinte-query.tsx` | `["category-sections"]` | Infinite query. Pages through categories in batches of 4, fetching 4 products each. Includes 800ms delay for loading UX. Depends on categories query. |
-| Products | `app/routes/products/hooks/products-infinite-query.tsx` | `["products", category]` | Infinite query. Fetches `GET /products` or `/products/category/:slug` with `limit=8` and cursor pagination via `skip`. |
+| Categories | `app/hooks/categories-query.tsx` | `["categories"]` | None |
+| Category Sections | `app/routes/home/hooks/category-sections-infinte-query.tsx` | `["category-sections"]` | Infinite (batches of 4 categories) |
+| Products | `app/routes/products/hooks/products-infinite-query.tsx` | `["products", category]` | Infinite (8 per page, skip-based) |
+
+## Root Layout
+
+```mermaid
+flowchart LR
+    RL["Root Layout"] --> Header
+    Header --> NM["NavMenu\n(left Sheet)"]
+    Header --> Logo["Logo\n(center)"]
+    Header --> Cart["Cart Sheet\n(right Sheet)"]
+    Header --> TT["ThemeToggle"]
+
+    NM -->|useCategoriesQuery| CQ["Categories\nQuery"]
+    Cart --> CI["CartItem"]
+    Cart --> ES["EmptyState"]
+    Cart -->|reads| CS["Cart Store"]
+```
+
+Root Layout renders the sticky Header, which composes four children: NavMenu (left Sheet drawer, categories from query), Logo (centered), Cart Sheet (right Sheet, reads from Cart Store), and ThemeToggle.
+
+| Component | File | Exports |
+|---|---|---|
+| Root Layout | `app/routes/root-layout/index.tsx` | `loader`, `RootLayout` |
+| Header | `app/routes/root-layout/components/header.tsx` | `default` |
+| Logo | `app/routes/root-layout/components/logo.tsx` | `Logo` |
+| NavMenu | `app/routes/root-layout/components/nav-menu.tsx` | `NavMenu` |
+| Cart Sheet | `app/routes/root-layout/components/cart/index.tsx` | `Cart` |
+| CartItem | `app/routes/root-layout/components/cart/cart-item.tsx` | `CartItem` |
+| Cart EmptyState | `app/routes/root-layout/components/cart/empty-state.tsx` | `EmptyState` |
+
+## Route Components
+
+```mermaid
+flowchart TD
+    subgraph HomeRoute["Home (/)"]
+        H["Home Page"] --> CS["CategorySection"]
+        CS --> PC1["ProductCard"]
+    end
+
+    subgraph ProductsRoute["Products (/products/:category?)"]
+        P["Products Page"] --> PC2["ProductCard"]
+        P --> CB["CategoryBreadcrumb"]
+    end
+
+    subgraph CheckoutRoute["Checkout (/checkout)"]
+        C["Checkout Page"] --> OS["OrderSummary"]
+        C --> SF["ShippingForm"]
+        C --> PF["PaymentForm"]
+        OS --> OI["OrderItem"]
+    end
+
+    subgraph SuccessRoute["Success (/success)"]
+        S["Success Page\n(confetti + confirmation)"]
+    end
+
+    C -->|"clientAction"| S
+    C -.->|"cart empty"| P
+    S -.->|"no flag"| P
+```
+
+**Home** renders CategorySection rows via infinite scroll (intersection observer). Each section is a horizontal scrollable row of ProductCards with a "See More" link.
+
+**Products** renders a responsive ProductCard grid with "Load more" button. CategoryBreadcrumb appears when a category filter is active.
+
+**Checkout** has two-column layout: OrderSummary (OrderItems with subtotal, VAT 20%, total) and ShippingForm + PaymentForm. Client-side loader guards empty cart.
+
+**Success** fires js-confetti on mount, shows order number and "Continue Shopping" link. Client-side loader guards against direct access.
 
 ## Shared Components
 
-Reusable components used across multiple routes.
-
-| Component | File | Exports | Description |
-|---|---|---|---|
-| ProductCard | `app/components/product-card.tsx` | `ProductCard`, `ProductCardSkeleton` | Product display card with image, title, price, "Add to cart" button. Fires `onAddToCart` callback and shows sonner toast. `data-testid="product-card"`. |
-| ThemeToggle | `app/components/theme-toggle.tsx` | `ThemeToggle` | Dark/light toggle button with Sun/Moon icons and CSS transitions. Binary toggle (dark to light). |
+| Component | File | Exports |
+|---|---|---|
+| ProductCard | `app/components/product-card.tsx` | `ProductCard`, `ProductCardSkeleton` |
+| ThemeToggle | `app/components/theme-toggle.tsx` | `ThemeToggle` |
 
 ## UI Primitives (shadcn/ui)
 
-Low-level UI components from shadcn/ui built on Radix UI primitives. Used as building blocks by route and shared components.
-
-| Primitive | File | Key Exports | Description |
-|---|---|---|---|
-| Breadcrumb | `app/components/ui/breadcrumb.tsx` | `Breadcrumb`, `BreadcrumbList`, `BreadcrumbItem`, `BreadcrumbLink`, `BreadcrumbPage` | Accessible breadcrumb navigation with Radix Slot for composition. |
-| Button | `app/components/ui/button.tsx` | `Button`, `buttonVariants` | 6 variants (default, destructive, outline, secondary, ghost, link), 4 sizes. CVA styling, Radix Slot for `asChild`. |
-| Collapsible | `app/components/ui/collapsible.tsx` | `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` | Animated expand/collapse using Radix Collapsible with CSS slide animations. |
-| Input | `app/components/ui/input.tsx` | `Input` | Styled text input with focus ring, validation states, dark mode support. |
-| NavigationMenu | `app/components/ui/navigation-menu.tsx` | `NavigationMenu`, `NavigationMenuList`, `NavigationMenuTrigger`, `NavigationMenuLink` | Full Radix NavigationMenu with viewport and indicator sub-components. |
-| Sheet | `app/components/ui/sheet.tsx` | `Sheet`, `SheetTrigger`, `SheetContent`, `SheetHeader`, `SheetTitle` | Slide-over panel (4 sides) built on Radix Dialog. Overlay, portal, header/footer. |
-| Toaster | `app/components/ui/sonner.tsx` | `Toaster` | Sonner toast notifications themed via theme store and CSS variables. |
-
-## Route: Root Layout
-
-Layout route at `/` providing the shared header, navigation, and cart drawer for home and products pages.
-
-| Component | File | Description |
+| Primitive | File | Key Exports |
 |---|---|---|
-| Root Layout | `app/routes/root-layout/index.tsx` | Server-side loader prefetches categories query and dehydrates for SSR. Renders Header + Outlet in HydrationBoundary. |
-| Header | `app/routes/root-layout/components/header.tsx` | Sticky top header with backdrop blur. NavMenu (left), Logo (center), Cart + ThemeToggle (right). |
-| Logo | `app/routes/root-layout/components/logo.tsx` | "ShopHub" brand logo linking to home. |
-| NavMenu | `app/routes/root-layout/components/nav-menu.tsx` | Sheet drawer navigation. Lists "All Products" and categories from query. First 10 shown, rest in Collapsible. Auto-closes on navigation. |
-| Cart Sheet | `app/routes/root-layout/components/cart/index.tsx` | Right-side Sheet with cart items, quantity controls, total, "Checkout" link. `data-testid="cart-button"`. |
-| CartItem | `app/routes/root-layout/components/cart/cart-item.tsx` | Single cart line item with image, title, price, quantity controls, remove button. |
-| Cart EmptyState | `app/routes/root-layout/components/cart/empty-state.tsx` | Empty cart placeholder with icon and instructional text. |
+| Breadcrumb | `app/components/ui/breadcrumb.tsx` | `Breadcrumb`, `BreadcrumbList`, `BreadcrumbItem`, `BreadcrumbLink` |
+| Button | `app/components/ui/button.tsx` | `Button`, `buttonVariants` |
+| Collapsible | `app/components/ui/collapsible.tsx` | `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` |
+| Input | `app/components/ui/input.tsx` | `Input` |
+| NavigationMenu | `app/components/ui/navigation-menu.tsx` | `NavigationMenu`, `NavigationMenuList`, `NavigationMenuTrigger` |
+| Sheet | `app/components/ui/sheet.tsx` | `Sheet`, `SheetTrigger`, `SheetContent`, `SheetHeader` |
+| Toaster | `app/components/ui/sonner.tsx` | `Toaster` |
 
-## Route: Home
-
-Index route at `/` with infinite-scroll category sections.
-
-| Component | File | Description |
-|---|---|---|
-| Home Page | `app/routes/home/index.tsx` | SSR loader prefetches first page of category sections. Infinite scroll via `react-intersection-observer`. |
-| CategorySection | `app/routes/home/components/CategorySection.tsx` | Horizontal scrollable row of ProductCards for one category. Includes "See More" link to category page. |
-
-## Route: Products
-
-Products listing at `/products/:category?` with load-more pagination.
-
-| Component | File | Description |
-|---|---|---|
-| Products Page | `app/routes/products/index.tsx` | SSR loader prefetches first page. Responsive grid of ProductCards with "Load more" button. Dynamic meta title from category slug. |
-| CategoryBreadcrumb | `app/routes/products/components/category-breadcrumb.tsx` | Breadcrumb showing "Featured Categories > {category}" with link back to home. |
-
-## Route: Checkout
-
-Checkout page at `/checkout` with order summary and forms. Standalone (no shared header).
-
-| Component | File | Description |
-|---|---|---|
-| Checkout Page | `app/routes/checkout/index.tsx` | Client-side loader redirects to `/products` if cart empty. `clientAction` simulates order (1s delay), clears cart, redirects to `/success`. Two-column layout. |
-| OrderSummary | `app/routes/checkout/components/order-summary.tsx` | Lists OrderItems with subtotal, VAT (20%), and total. |
-| OrderItem | `app/routes/checkout/components/order-item.tsx` | Read-only cart item display: image, title, quantity, line total. |
-| ShippingForm | `app/routes/checkout/components/shipping-form.tsx` | Name, email, address, city, postal code fields. |
-| PaymentForm | `app/routes/checkout/components/payment-form.tsx` | Card number, expiry date, CVV fields. |
-
-## Route: Success
-
-Order confirmation at `/success`. Standalone (no shared header).
-
-| Component | File | Description |
-|---|---|---|
-| Success Page | `app/routes/success.tsx` | Client-side loader redirects to `/products` unless `successfulOrder` flag set. Fires confetti animation. Shows order number and "Continue Shopping" link. |
+All primitives are built on Radix UI and use `cn()` from utils for Tailwind class merging.
 
 ## Tests
 
-| Test | File | Description |
+```mermaid
+flowchart LR
+    TP["Products E2E\n3 tests"] -->|tests| Products["Products Page"]
+    TP -->|tests| Cart["Cart Sheet"]
+    TP -->|tests| NavMenu
+
+    TC["Checkout E2E\n1 test"] -->|starts| Products
+    TC -->|opens| Cart
+    TC -->|fills| Checkout["Checkout Page"]
+    TC -->|verifies| Success["Success Page"]
+```
+
+| Test Suite | File | Coverage |
 |---|---|---|
-| Products E2E | `e2e/products.spec.ts` | 3 tests: product display by category, add to cart flow, category navigation via nav menu. |
-| Checkout E2E | `e2e/checkout.spec.ts` | 1 test: full checkout flow from add-to-cart through form submission to success page. |
+| Products E2E | `e2e/products.spec.ts` | Product display, add-to-cart, category navigation |
+| Checkout E2E | `e2e/checkout.spec.ts` | Full checkout flow from cart to success page |

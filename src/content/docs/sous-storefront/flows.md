@@ -2,16 +2,9 @@
 title: Data Flows
 ---
 
-Documentation of the key data flows through the application. Each flow traces data from origin to destination, covering both server and client execution contexts.
+[Open interactive architecture viewer](/sous-storefront/architecture/)
 
-## SSR Prefetch and Hydration
-
-Server-side loaders in `root-layout`, `home`, and `products` routes prefetch data before rendering. The dehydrated query cache is serialized into the HTML response, then rehydrated on the client so TanStack Query hooks read from a warm cache without refetching.
-
-**Routes that prefetch:**
-- **Root Layout** -- prefetches categories query
-- **Home** -- prefetches categories + first page of category sections (4 categories x 4 products)
-- **Products** -- prefetches first page of products infinite query
+## SSR Prefetch & Hydration
 
 ```mermaid
 sequenceDiagram
@@ -34,11 +27,17 @@ sequenceDiagram
     Browser->>Browser: useQuery reads from warm cache
 ```
 
+Route loaders in `root-layout`, `home`, and `products` create a QueryClient, prefetch queries against the DummyJSON API, then dehydrate the cache into the HTML response. On the client, `HydrationBoundary` rehydrates the TanStack Query cache so hooks read from warm data without refetching.
+
+**Routes that prefetch:**
+
+| Route | Prefetches | Query Key |
+|---|---|---|
+| Root Layout | Categories | `["categories"]` |
+| Home | Categories + first 4 category sections | `["categories"]`, `["category-sections"]` |
+| Products | First page of products | `["products", category]` |
+
 ## Client-Side Data Fetching
-
-After hydration, TanStack Query hooks manage ongoing data fetching. Infinite queries support pagination -- the home page uses intersection observer for auto-loading, while the products page uses a manual "Load more" button.
-
-All queries flow through the shared `api` client (ky instance with `prefixUrl: https://dummyjson.com`).
 
 ```mermaid
 flowchart LR
@@ -52,7 +51,7 @@ flowchart LR
     API -->|prefixUrl| DummyJSON["DummyJSON API"]
 ```
 
-**Query keys and caching:**
+After hydration, TanStack Query hooks manage ongoing data fetching through the shared `api` client (ky with `prefixUrl: https://dummyjson.com`). Infinite queries support pagination -- home uses intersection observer for auto-loading, products uses a manual "Load more" button.
 
 | Query | Key | Pagination | Trigger |
 |---|---|---|---|
@@ -60,9 +59,7 @@ flowchart LR
 | Category Sections | `["category-sections"]` | Infinite (batch of 4 categories) | Intersection observer |
 | Products | `["products", category]` | Infinite (8 per page, skip-based) | "Load more" button |
 
-## Cart Flow
-
-The cart lifecycle spans four routes and uses a Zustand store persisted to localStorage as the single source of truth.
+## Cart Lifecycle
 
 ```mermaid
 sequenceDiagram
@@ -107,19 +104,34 @@ sequenceDiagram
     Success->>User: Confetti + order confirmation
 ```
 
-**Cart store actions:**
+The cart spans four routes with a Zustand store (persisted to localStorage) as single source of truth. ProductCard fires `addItem`, the Cart Sheet provides quantity controls, Checkout clears the cart on submission, and Success verifies the `successfulOrder` flag before showing confirmation.
 
-| Action | Behavior |
-|---|---|
-| `addItem(product)` | Upsert: increment quantity if exists, otherwise add with quantity 1 |
-| `removeItem(id)` | Remove item from cart |
-| `incrementItem(id)` | Increase quantity by 1 |
-| `decrementItem(id)` | Decrease quantity by 1, remove if reaches 0 |
-| `clear()` | Empty the cart, reset total |
+```mermaid
+flowchart LR
+    subgraph Actions
+        A1["addItem\n(upsert)"]
+        A2["removeItem"]
+        A3["incrementItem"]
+        A4["decrementItem"]
+        A5["clear"]
+    end
+
+    subgraph State
+        S1["items: CartItem[]"]
+        S2["total: number"]
+        S3["successfulOrder: boolean"]
+    end
+
+    A1 --> S1
+    A2 --> S1
+    A3 --> S1
+    A4 --> S1
+    A5 --> S1
+    A5 --> S3
+    S1 -->|"reduce"| S2
+```
 
 ## Theme Toggle
-
-Theme state is persisted in localStorage and applied via CSS class on `document.documentElement`. The toggle is a binary switch between dark and light modes.
 
 ```mermaid
 sequenceDiagram
@@ -135,35 +147,31 @@ sequenceDiagram
     Store->>DOM: Apply dark class (useEffect in root)
 
     User->>Toggle: Click toggle
-    Toggle->>Store: setTheme(dark ↔ light)
+    Toggle->>Store: setTheme(dark <-> light)
     Store->>DOM: Add/remove "dark" class
     Store->>LS: Persist new theme
     Sonner->>Store: Read theme for toast styling
 ```
 
-**Theme values:**
+Theme state persisted in localStorage via Zustand. On mount, the root component reads the theme imperatively and applies the `dark` class. The toggle switches between dark and light. `setTheme` directly mutates `documentElement.classList` for instant CSS variable switching. The Sonner Toaster reads the theme store for toast styling.
 
 | Value | Effect |
 |---|---|
-| `"dark"` | `dark` class on `<html>`, dark oklch color tokens active |
-| `"light"` | No `dark` class, light oklch color tokens active |
+| `"dark"` | `dark` class on `<html>`, dark oklch tokens active |
+| `"light"` | No `dark` class, light oklch tokens active |
 | `"system"` | Follows `prefers-color-scheme` media query |
 
-## Navigation
-
-React Router v7 manages all route transitions. The root layout wraps browsing routes (home, products) with a shared header, nav menu, and cart. Checkout and success are standalone routes without the shared chrome.
-
-Client-side loaders on checkout and success act as redirect guards based on cart state.
+## Route Navigation
 
 ```mermaid
 flowchart TD
     Root["App Root"]
-    Root -->|Outlet| RL["Root Layout<br/>(header, nav, cart)"]
+    Root -->|Outlet| RL["Root Layout\n(header, nav, cart)"]
     Root -->|Outlet| CO["Checkout Page"]
     Root -->|Outlet| SU["Success Page"]
 
-    RL -->|index| Home["Home Page<br/>(/)"]
-    RL -->|child| Products["Products Page<br/>(/products/:category?)"]
+    RL -->|index| Home["Home Page\n(/)"]
+    RL -->|child| Products["Products Page\n(/products/:category?)"]
 
     CO -->|"clientAction: order placed"| SU
     CO -->|"clientLoader: cart empty"| Products
@@ -178,7 +186,7 @@ flowchart TD
     style SU fill:#059669,color:#fff
 ```
 
-**Route guards:**
+React Router v7 manages all transitions. Root Layout wraps `/` and `/products` with shared chrome. Checkout and Success are standalone. Client-side loaders act as redirect guards:
 
 | Route | Guard | Condition | Redirect |
 |---|---|---|---|

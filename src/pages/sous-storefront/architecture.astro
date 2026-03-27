@@ -1,0 +1,9 @@
+---
+import ArchitectureViewer from '../../components/ArchitectureViewer.astro';
+import data from '../../content/docs/sous-storefront/architecture.json';
+---
+<ArchitectureViewer
+  title="sous-storefront"
+  subtitle={`${data.nodes.length} nodes · ${data.edges.length} edges`}
+  data={data}
+/>
