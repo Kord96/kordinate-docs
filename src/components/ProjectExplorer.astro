@@ -2578,14 +2578,20 @@ const { title, subtitle, data, repoUrl } = Astro.props;
     left: 0;
     right: 0;
     z-index: 1015;
-    max-height: 40vh;
+    height: 35vh;
     background: rgba(16, 16, 32, 0.95);
     backdrop-filter: blur(20px);
     border-top: 1px solid rgba(123,104,238,0.2);
     transform: translateY(100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
     box-shadow: 0 -8px 40px rgba(0,0,0,0.4);
+  }
+
+  .bp-content {
+    flex: 1;
+    overflow-y: auto;
   }
 
   #bottom-panel.open {
@@ -2635,13 +2641,13 @@ const { title, subtitle, data, repoUrl } = Astro.props;
 
   #bottom-panel-close:hover { color: #fff; }
 
-  .bp-content {
+  .bp-content:not(.active) {
     display: none;
-    padding: 16px 24px;
   }
 
   .bp-content.active {
     display: block;
+    padding: 16px 24px;
   }
 
   /* Legacy context-panel references */
