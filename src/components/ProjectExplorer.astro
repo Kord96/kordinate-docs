@@ -106,8 +106,25 @@ const { title, subtitle, data, repoUrl } = Astro.props;
       <button class="btn" id="btn-fit">Fit View</button>
       <button class="btn" id="btn-reset">Reset</button>
     </div>
-    <div class="controls-section">
-      <div class="controls-label">Legend</div>
+  </div>
+
+  <div id="flow-legend">
+    <h3>Flows</h3>
+    <div id="flow-filters"></div>
+  </div>
+
+  <div id="info-badge"><span id="node-counter">Showing <strong>3</strong> of <strong>35</strong> nodes</span></div>
+  <button id="help-toggle" title="Help">?</button>
+  <div id="help-panel" class="help-hidden">
+    <div class="help-section">
+      <div class="help-label">Interactions</div>
+      <div class="help-tip">
+        Click to expand &middot; Right-click to collapse<br>
+        Scroll to zoom &middot; Drag to pan
+      </div>
+    </div>
+    <div class="help-section">
+      <div class="help-label">Node Types</div>
       <div class="legend-compact">
         <span class="lc-item"><svg width="10" height="10"><rect width="10" height="8" y="1" rx="2" fill="none" stroke="rgba(255,255,255,0.3)" stroke-dasharray="2 1"/></svg> Group</span>
         <span class="lc-item"><svg width="10" height="10"><rect width="10" height="8" y="1" rx="2" fill="#4a90d9"/></svg> Component</span>
@@ -118,13 +135,6 @@ const { title, subtitle, data, repoUrl } = Astro.props;
       </div>
     </div>
   </div>
-
-  <div id="flow-legend">
-    <h3>Flows</h3>
-    <div id="flow-filters"></div>
-  </div>
-
-  <div id="info-badge"><span id="node-counter">Showing <strong>3</strong> of <strong>35</strong> nodes</span> &middot; Scroll to zoom &middot; Drag to pan &middot; Click to expand &middot; Right-click to collapse</div>
 </div>
 
 <!-- ===== TAB 2: FLOWS ===== -->
@@ -742,18 +752,32 @@ const { title, subtitle, data, repoUrl } = Astro.props;
   }
 
   // ==========================================================================
-  // CONTROLS PANEL TOGGLE
+  // PANEL TOGGLES (gear + help)
   // ==========================================================================
   (function() {
-    var toggle = document.getElementById('controls-toggle');
-    var panel = document.getElementById('controls-panel');
-    toggle.addEventListener('click', function(e) {
+    var ctrlToggle = document.getElementById('controls-toggle');
+    var ctrlPanel = document.getElementById('controls-panel');
+    var helpToggle = document.getElementById('help-toggle');
+    var helpPanel = document.getElementById('help-panel');
+
+    ctrlToggle.addEventListener('click', function(e) {
       e.stopPropagation();
-      panel.classList.toggle('controls-hidden');
+      ctrlPanel.classList.toggle('controls-hidden');
+      helpPanel.classList.add('help-hidden');
     });
+
+    helpToggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      helpPanel.classList.toggle('help-hidden');
+      ctrlPanel.classList.add('controls-hidden');
+    });
+
     document.addEventListener('click', function(e) {
-      if (!panel.contains(e.target) && e.target !== toggle) {
-        panel.classList.add('controls-hidden');
+      if (!ctrlPanel.contains(e.target) && e.target !== ctrlToggle) {
+        ctrlPanel.classList.add('controls-hidden');
+      }
+      if (!helpPanel.contains(e.target) && e.target !== helpToggle) {
+        helpPanel.classList.add('help-hidden');
       }
     });
   })();
@@ -2014,8 +2038,8 @@ const { title, subtitle, data, repoUrl } = Astro.props;
     top: 92px;
     right: 24px;
     z-index: 1009;
-    width: 36px;
-    height: 36px;
+    width: 42px;
+    height: 42px;
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 8px;
     background: rgba(26,26,46,0.9);
@@ -2529,11 +2553,87 @@ const { title, subtitle, data, repoUrl } = Astro.props;
 
   #info-badge {
     position: fixed;
-    top: 120px;
+    top: 92px;
     left: 24px;
     z-index: 1006;
-    font-size: 11px;
+    font-size: 12px;
+    color: #666;
+  }
+
+  #info-badge strong {
+    color: #b8a9ff;
+    font-weight: 600;
+  }
+
+  #help-toggle {
+    position: fixed;
+    top: 92px;
+    right: 72px;
+    z-index: 1009;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    background: rgba(26,26,46,0.9);
+    color: #aaa;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    font-family: 'Inter', sans-serif;
+  }
+
+  #help-toggle:hover {
+    background: rgba(123,104,238,0.15);
+    border-color: rgba(123,104,238,0.4);
+    color: #b8a9ff;
+  }
+
+  #help-panel {
+    position: fixed;
+    top: 92px;
+    right: 72px;
+    z-index: 1008;
+    background: rgba(26,26,46,0.95);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 14px;
+    backdrop-filter: blur(12px);
+    min-width: 200px;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  #help-panel.help-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
+  }
+
+  .help-section {
+    margin-bottom: 12px;
+  }
+
+  .help-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .help-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     color: #555;
+    margin-bottom: 6px;
+  }
+
+  .help-tip {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.6;
   }
 
   /* ========= FLOWS TAB ========= */
