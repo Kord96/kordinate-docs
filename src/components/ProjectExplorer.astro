@@ -957,7 +957,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
       { selector: 'node.dimmed', style: { 'opacity': 0.2 } },
       { selector: 'edge.dimmed', style: { 'opacity': 0.08 } },
       { selector: 'node.flow-halo', style: { 'overlay-color': '#7b68ee', 'overlay-opacity': 0.25, 'overlay-padding': 12, 'border-color': '#7b68ee', 'border-width': 3 } },
-      { selector: 'edge[?bidirectional]', style: { 'source-arrow-shape': 'triangle', 'source-arrow-color': 'data(color)', 'curve-style': 'straight' } },
+      { selector: 'edge[?hideLabel]', style: { 'label': '', 'text-opacity': 0 } },
       { selector: 'node[?collapsed][?hasChildren]', style: { 'border-width': 2 } }
     ]
   });

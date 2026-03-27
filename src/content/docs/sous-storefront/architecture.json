@@ -314,8 +314,14 @@
       "source": "root-layout",
       "target": "api-client",
       "label": "SSR Category Prefetch",
+      "flowId": "ssr-prefetch"
+    },
+    {
+      "source": "api-client",
+      "target": "root-layout",
+      "label": "",
       "flowId": "ssr-prefetch",
-      "bidirectional": true
+      "hideLabel": true
     },
     {
       "source": "root-layout",
