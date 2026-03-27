@@ -437,12 +437,6 @@
       "flowId": "dependency"
     },
     {
-      "source": "success-page",
-      "target": "cart-store",
-      "label": "uses",
-      "flowId": "dependency"
-    },
-    {
       "source": "cart-drawer",
       "target": "cart-store",
       "label": "uses",
