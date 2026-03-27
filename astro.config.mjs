@@ -3,7 +3,8 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-	server: { port: 4321, host: '0.0.0.0' },
+	server: { port: 4321, host: '0.0.0.0', allowedHosts: 'all' },
+	vite: { server: { allowedHosts: true } },
 	integrations: [
 		starlight({
 			title: 'Docs',
