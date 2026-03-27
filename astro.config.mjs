@@ -1,7 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-
 export default defineConfig({
 	image: { service: { entrypoint: 'astro/assets/services/noop' } },
 	server: { port: 4321, host: '0.0.0.0', allowedHosts: 'all' },
@@ -16,6 +15,31 @@ export default defineConfig({
 				dark: './src/assets/logo_dark.webp',
 			},
 			customCss: ['./src/styles/custom.css'],
+			head: [
+				{
+					tag: 'script',
+					attrs: { type: 'module' },
+					content: `
+						import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+						mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+						function renderMermaid() {
+							document.querySelectorAll('[data-language="mermaid"]').forEach((block, i) => {
+								const code = block.querySelector('code') || block;
+								if (block.dataset.rendered) return;
+								block.dataset.rendered = 'true';
+								const pre = block.closest('.expressive-code') || block;
+								const div = document.createElement('div');
+								div.className = 'mermaid';
+								div.textContent = code.textContent;
+								pre.replaceWith(div);
+							});
+							mermaid.run();
+						}
+						renderMermaid();
+						document.addEventListener('astro:page-load', renderMermaid);
+					`,
+				},
+			],
 			sidebar: [
 				{
 					label: 'Kordinate',
