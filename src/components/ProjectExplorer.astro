@@ -957,6 +957,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
       { selector: 'node.dimmed', style: { 'opacity': 0.2 } },
       { selector: 'edge.dimmed', style: { 'opacity': 0.08 } },
       { selector: 'node.flow-halo', style: { 'overlay-color': '#7b68ee', 'overlay-opacity': 0.25, 'overlay-padding': 12, 'border-color': '#7b68ee', 'border-width': 3 } },
+      { selector: 'edge[?bidirectional]', style: { 'source-arrow-shape': 'triangle', 'source-arrow-color': 'data(color)', 'curve-style': 'straight' } },
       { selector: 'node[?collapsed][?hasChildren]', style: { 'border-width': 2 } }
     ]
   });
@@ -1176,14 +1177,20 @@ const { title, subtitle, data, repoUrl } = Astro.props;
       'Showing <strong>' + visible + '</strong> of <strong>' + totalNodes + '</strong> nodes';
   }
 
-  // Flow filters
-  var flows = [
-    { id: 'ssr-prefetch-flow', name: 'SSR Prefetch', color: '#4a90d9' },
-    { id: 'infinite-scroll-flow', name: 'Infinite Scroll', color: '#1abc9c' },
-    { id: 'load-more-flow', name: 'Load More', color: '#e67e22' },
-    { id: 'cart-flow', name: 'Cart Flow', color: '#9b59b6' },
-    { id: 'theme-flow', name: 'Theme Toggle', color: '#e74c3c' }
-  ];
+  // Flow filters — built dynamically from the architecture data
+  var flowColors = ['#4a90d9', '#1abc9c', '#e67e22', '#9b59b6', '#e74c3c', '#f39c12', '#2ecc71', '#e91e63'];
+  var flowIds = [];
+  RAW.edges.forEach(function(e) {
+    if (e.flowId && e.flowId !== 'dependency' && e.flowId !== 'rendering' && flowIds.indexOf(e.flowId) === -1) {
+      flowIds.push(e.flowId);
+    }
+  });
+  var flows = flowIds.map(function(fid, i) {
+    // Try to get a nice name from data_flows, otherwise humanize the ID
+    var df = (RAW.data_flows || []).find(function(f) { return f.id === fid; });
+    var name = df ? df.name : fid.replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+    return { id: fid, name: name, color: flowColors[i % flowColors.length] };
+  });
 
   function buildFlowFilters() {
     var container = document.getElementById('flow-filters');
@@ -1196,7 +1203,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
         if (structureState.activeFlow === flow.id) {
           structureState.activeFlow = null;
           pill.classList.remove('active');
-          cyStructure.elements().removeClass('dimmed flow-highlight highlighted');
+          cyStructure.elements().removeClass('dimmed flow-highlight flow-halo highlighted');
         } else {
           structureState.activeFlow = flow.id;
           document.querySelectorAll('.flow-pill').forEach(function(p) { p.classList.remove('active'); });
