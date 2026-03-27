@@ -1,339 +1,430 @@
 {
   "nodes": [
     {
-      "id": "server-group",
-      "name": "Server",
-      "type": "group",
-      "hasChildren": true,
-      "description": "Node.js SSR server, build toolchain, and config"
-    },
-    {
-      "id": "browser-group",
-      "name": "Browser",
-      "type": "group",
-      "hasChildren": true,
-      "description": "Client-side application: views, state, data fetching, UI components"
-    },
-    {
-      "id": "external-group",
-      "name": "External",
-      "type": "group",
-      "hasChildren": true,
-      "description": "External APIs and test infrastructure"
-    },
-    {
       "id": "server",
       "name": "Server",
-      "description": "SSR entry point and build pipeline \u2014 serves pre-rendered HTML and hydrates on client",
+      "description": "SSR and build infrastructure that pre-renders pages and serves the application",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "ssr-runtime",
+      "name": "SSR Runtime",
+      "description": "React Router server-side rendering with loader-based data prefetching and TanStack Query dehydration",
       "type": "group",
       "hasChildren": true,
-      "file": "vite.config.ts",
-      "parent": "server-group"
+      "parent": "server"
+    },
+    {
+      "id": "root-layout-loader",
+      "name": "Root Layout Loader",
+      "description": "Server-side loader that prefetches categories and dehydrates the query cache for client hydration",
+      "type": "service",
+      "hasChildren": false,
+      "parent": "ssr-runtime",
+      "file": "app/routes/root-layout/index.tsx"
+    },
+    {
+      "id": "home-loader",
+      "name": "Home Page Loader",
+      "description": "Server-side loader that prefetches category sections with products for SSR",
+      "type": "service",
+      "hasChildren": false,
+      "parent": "ssr-runtime",
+      "file": "app/routes/home/index.tsx"
+    },
+    {
+      "id": "products-loader",
+      "name": "Products Page Loader",
+      "description": "Server-side loader that prefetches paginated product data for a given category",
+      "type": "service",
+      "hasChildren": false,
+      "parent": "ssr-runtime",
+      "file": "app/routes/products/index.tsx"
+    },
+    {
+      "id": "build-system",
+      "name": "Build System",
+      "description": "Vite build pipeline with Tailwind CSS, React Router dev plugin, and tsconfig path aliases",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "server"
     },
     {
       "id": "vite-config",
       "name": "Vite Config",
-      "description": "Build toolchain \u2014 TailwindCSS plugin, React Router plugin, path aliases",
-      "type": "config",
+      "description": "Configures Vite with Tailwind CSS, React Router plugin, and tsconfig paths",
+      "type": "library",
       "hasChildren": false,
-      "parent": "server",
+      "parent": "build-system",
       "file": "vite.config.ts"
     },
     {
-      "id": "rr-config",
-      "name": "React Router Config",
-      "description": "Enables SSR and pre-renders / and /products at build time",
-      "type": "config",
+      "id": "router-config",
+      "name": "Router Config",
+      "description": "Enables SSR and configures prerendering for / and /products",
+      "type": "library",
       "hasChildren": false,
-      "parent": "server",
+      "parent": "build-system",
       "file": "react-router.config.ts"
     },
     {
-      "id": "docker-build",
-      "name": "Docker Build",
-      "description": "Multi-stage Alpine build \u2014 dev deps, prod deps, build, serve",
-      "type": "config",
+      "id": "dockerfile",
+      "name": "Docker Image",
+      "description": "Multi-stage Docker build separating dev deps, prod deps, build, and runtime",
+      "type": "service",
       "hasChildren": false,
-      "parent": "server",
+      "parent": "build-system",
       "file": "Dockerfile"
     },
     {
-      "id": "shell",
-      "name": "Application Shell",
-      "description": "Root layout, providers, theme initialization, error boundary, and shared navigation",
+      "id": "browser",
+      "name": "Browser",
+      "description": "Client-side React application with routing, state management, and UI components",
       "type": "group",
-      "hasChildren": true,
-      "file": "app/root.tsx",
-      "parent": "browser-group"
+      "hasChildren": true
     },
     {
-      "id": "root-app",
-      "name": "Root App",
-      "description": "Creates QueryClient, initializes theme, wraps app in QueryClientProvider",
+      "id": "app-shell",
+      "name": "App Shell",
+      "description": "Root application layout providing QueryClientProvider, theme initialization, error boundary, and toast notifications",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "browser"
+    },
+    {
+      "id": "app-root",
+      "name": "App Root",
+      "description": "Creates QueryClient, initializes theme from persisted state, renders Outlet and Toaster",
       "type": "component",
       "hasChildren": false,
-      "parent": "shell",
+      "parent": "app-shell",
       "file": "app/root.tsx"
     },
     {
-      "id": "route-tree",
-      "name": "Route Tree",
-      "description": "Declares nested route structure: root-layout wrapping home and products, plus checkout and success",
-      "type": "config",
+      "id": "route-definitions",
+      "name": "Route Definitions",
+      "description": "Declares the route tree: root-layout wrapping home and products, plus checkout and success",
+      "type": "component",
       "hasChildren": false,
-      "parent": "shell",
+      "parent": "app-shell",
       "file": "app/routes.ts"
+    },
+    {
+      "id": "ui-shell",
+      "name": "UI Shell",
+      "description": "Persistent header with navigation, logo, cart drawer, and theme toggle",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "browser"
     },
     {
       "id": "root-layout",
       "name": "Root Layout",
-      "description": "SSR loader prefetches categories, wraps child routes in HydrationBoundary with sticky header",
-      "type": "group",
-      "hasChildren": true,
-      "parent": "shell",
+      "description": "Layout route that renders Header and Outlet within a HydrationBoundary",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "ui-shell",
       "file": "app/routes/root-layout/index.tsx"
     },
     {
       "id": "header",
       "name": "Header",
-      "description": "Sticky header with navigation menu, logo, cart drawer, and theme toggle",
+      "description": "Sticky header bar composing NavMenu, Logo, Cart drawer, and ThemeToggle",
       "type": "component",
       "hasChildren": false,
-      "parent": "root-layout",
+      "parent": "ui-shell",
       "file": "app/routes/root-layout/components/header.tsx"
     },
     {
       "id": "nav-menu",
       "name": "Navigation Menu",
-      "description": "Slide-out sheet listing all product categories with collapsible overflow",
+      "description": "Slide-out sheet listing category links with collapsible overflow, auto-closes on navigation",
       "type": "component",
       "hasChildren": false,
-      "parent": "root-layout",
+      "parent": "ui-shell",
       "file": "app/routes/root-layout/components/nav-menu.tsx"
-    },
-    {
-      "id": "logo",
-      "name": "Logo",
-      "description": "ShopHub brand mark and link to home",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "root-layout",
-      "file": "app/routes/root-layout/components/logo.tsx"
-    },
-    {
-      "id": "home-page",
-      "name": "Home Page",
-      "description": "Featured categories with infinite scroll \u2014 each section shows 4 products from a category",
-      "type": "group",
-      "hasChildren": true,
-      "file": "app/routes/home/index.tsx",
-      "parent": "browser-group"
-    },
-    {
-      "id": "category-section",
-      "name": "Category Section",
-      "description": "Horizontal scrolling product row for a single category with 'See More' link",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "home-page",
-      "file": "app/routes/home/components/CategorySection.tsx"
-    },
-    {
-      "id": "category-sections-query",
-      "name": "Category Sections Query",
-      "description": "Infinite query that pages through categories in groups of 4, fetching products for each",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "home-page",
-      "file": "app/routes/home/hooks/category-sections-infinte-query.tsx"
-    },
-    {
-      "id": "products-page",
-      "name": "Products Page",
-      "description": "Category or all-products grid with infinite pagination and SSR prefetch",
-      "type": "group",
-      "hasChildren": true,
-      "file": "app/routes/products/index.tsx",
-      "parent": "browser-group"
-    },
-    {
-      "id": "products-query",
-      "name": "Products Infinite Query",
-      "description": "Cursor-based infinite query fetching products in pages of 8",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "products-page",
-      "file": "app/routes/products/hooks/products-infinite-query.tsx"
-    },
-    {
-      "id": "category-breadcrumb",
-      "name": "Category Breadcrumb",
-      "description": "Breadcrumb navigation showing Featured Categories > Current Category",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "products-page",
-      "file": "app/routes/products/components/category-breadcrumb.tsx"
-    },
-    {
-      "id": "checkout-page",
-      "name": "Checkout Page",
-      "description": "Order summary with shipping and payment forms \u2014 client-side action clears cart and redirects to success",
-      "type": "group",
-      "hasChildren": true,
-      "file": "app/routes/checkout/index.tsx",
-      "parent": "browser-group"
-    },
-    {
-      "id": "order-summary",
-      "name": "Order Summary",
-      "description": "Displays cart items with subtotal, VAT, and total",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "checkout-page",
-      "file": "app/routes/checkout/components/order-summary.tsx"
-    },
-    {
-      "id": "shipping-form",
-      "name": "Shipping Form",
-      "description": "Collects name, email, address, city, postal code",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "checkout-page",
-      "file": "app/routes/checkout/components/shipping-form.tsx"
-    },
-    {
-      "id": "payment-form",
-      "name": "Payment Form",
-      "description": "Collects card number, expiry, CVV",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "checkout-page",
-      "file": "app/routes/checkout/components/payment-form.tsx"
-    },
-    {
-      "id": "success-page",
-      "name": "Success Page",
-      "description": "Confetti animation and order confirmation \u2014 guards against direct access via cart state",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "checkout-page",
-      "file": "app/routes/success.tsx"
     },
     {
       "id": "cart-drawer",
       "name": "Cart Drawer",
-      "description": "Slide-out sheet showing cart contents with quantity controls and checkout link",
+      "description": "Sheet-based cart sidebar showing items with quantity controls, total, and checkout link",
       "type": "component",
       "hasChildren": false,
-      "file": "app/routes/root-layout/components/cart/index.tsx",
-      "parent": "browser-group"
+      "parent": "ui-shell",
+      "file": "app/routes/root-layout/components/cart/index.tsx"
+    },
+    {
+      "id": "theme-toggle",
+      "name": "Theme Toggle",
+      "description": "Button that cycles between light and dark themes with animated sun/moon icons",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "ui-shell",
+      "file": "app/components/theme-toggle.tsx"
+    },
+    {
+      "id": "pages",
+      "name": "Pages",
+      "description": "Route-level page components for each screen in the application",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "browser"
+    },
+    {
+      "id": "home-page",
+      "name": "Home Page",
+      "description": "Displays featured category sections with infinite scroll loading via intersection observer",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "pages",
+      "file": "app/routes/home/index.tsx"
+    },
+    {
+      "id": "products-page",
+      "name": "Products Page",
+      "description": "Grid of products for a category with infinite pagination and breadcrumb navigation",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "pages",
+      "file": "app/routes/products/index.tsx"
+    },
+    {
+      "id": "checkout-page",
+      "name": "Checkout Page",
+      "description": "Order summary with shipping and payment forms; clientAction clears cart and redirects to success",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "pages",
+      "file": "app/routes/checkout/index.tsx"
+    },
+    {
+      "id": "success-page",
+      "name": "Success Page",
+      "description": "Order confirmation with confetti animation; guards against direct access without a completed order",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "pages",
+      "file": "app/routes/success.tsx"
     },
     {
       "id": "shared-components",
       "name": "Shared Components",
-      "description": "Reusable UI primitives and domain components used across routes",
+      "description": "Reusable UI primitives and domain components used across pages",
       "type": "group",
       "hasChildren": true,
-      "file": "app/components/product-card.tsx",
-      "parent": "browser-group"
+      "parent": "browser"
     },
     {
       "id": "product-card",
       "name": "Product Card",
-      "description": "Product image, title, price, and add-to-cart button with toast notification",
+      "description": "Card displaying product image, title, price with an Add to Cart button and toast notification",
       "type": "component",
       "hasChildren": false,
       "parent": "shared-components",
       "file": "app/components/product-card.tsx"
     },
     {
-      "id": "theme-toggle",
-      "name": "Theme Toggle",
-      "description": "Sun/moon icon button that cycles between light and dark themes",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "shared-components",
-      "file": "app/components/theme-toggle.tsx"
-    },
-    {
       "id": "ui-primitives",
       "name": "UI Primitives",
-      "description": "Radix-based components \u2014 Button, Input, Sheet, Breadcrumb, Collapsible, NavigationMenu, Sonner",
+      "description": "Radix-based accessible primitives: Button, Input, Sheet, Breadcrumb, Collapsible, NavigationMenu, Sonner toasts",
       "type": "library",
       "hasChildren": false,
       "parent": "shared-components",
       "file": "app/components/ui/button.tsx"
     },
     {
-      "id": "api-client",
-      "name": "API Client",
-      "description": "ky HTTP client configured with DummyJSON base URL",
+      "id": "client-state",
+      "name": "Client State",
+      "description": "Client-side data management layer: server cache queries and persistent local stores",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "query-layer",
+      "name": "Query Layer",
+      "description": "TanStack Query hooks for fetching and caching remote data with SSR dehydration",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "client-state"
+    },
+    {
+      "id": "categories-query",
+      "name": "Categories Query",
+      "description": "Fetches all product categories from the API; used by loaders and nav menu",
       "type": "library",
       "hasChildren": false,
-      "file": "app/api.ts",
-      "parent": "browser-group"
+      "parent": "query-layer",
+      "file": "app/hooks/categories-query.tsx"
+    },
+    {
+      "id": "category-sections-query",
+      "name": "Category Sections Query",
+      "description": "Infinite query fetching batches of 4 categories with their products for the home page",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "query-layer",
+      "file": "app/routes/home/hooks/category-sections-infinte-query.tsx"
+    },
+    {
+      "id": "products-query",
+      "name": "Products Query",
+      "description": "Infinite query fetching paginated products, optionally filtered by category slug",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "query-layer",
+      "file": "app/routes/products/hooks/products-infinite-query.tsx"
+    },
+    {
+      "id": "local-stores",
+      "name": "Local Stores",
+      "description": "Zustand stores persisted to localStorage for client-side state that survives page reloads",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "client-state"
     },
     {
       "id": "cart-store",
       "name": "Cart Store",
-      "description": "Zustand store with localStorage persistence \u2014 manages items, quantities, totals, and order state",
+      "description": "Zustand store managing cart items, total, and successfulOrder flag; persisted to localStorage",
       "type": "library",
       "hasChildren": false,
-      "file": "app/hooks/cart-store.tsx",
-      "parent": "browser-group"
+      "parent": "local-stores",
+      "file": "app/hooks/cart-store.tsx"
     },
     {
       "id": "theme-store",
       "name": "Theme Store",
-      "description": "Zustand store with localStorage persistence \u2014 manages dark/light/system theme preference",
+      "description": "Zustand store tracking dark/light/system theme preference; persisted to localStorage and applied to document root",
       "type": "library",
       "hasChildren": false,
-      "file": "app/hooks/theme-store.tsx",
-      "parent": "browser-group"
+      "parent": "local-stores",
+      "file": "app/hooks/theme-store.tsx"
     },
     {
-      "id": "domain-types",
-      "name": "Domain Types",
-      "description": "TypeScript type definitions for Category, Product, and CartItem",
+      "id": "external",
+      "name": "External",
+      "description": "External services and integrations consumed by the application",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "api-client",
+      "name": "API Client",
+      "description": "ky HTTP client instance configured with dummyjson.com base URL",
       "type": "library",
       "hasChildren": false,
-      "file": "app/types.ts",
-      "parent": "browser-group"
+      "parent": "external",
+      "file": "app/api.ts"
+    },
+    {
+      "id": "testing",
+      "name": "Testing",
+      "description": "End-to-end test suite validating critical user journeys",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "e2e-suite",
+      "name": "E2E Test Suite",
+      "description": "Playwright tests covering product browsing, cart management, and full checkout flow across Chromium, Firefox, and WebKit",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "testing"
+    },
+    {
+      "id": "checkout-tests",
+      "name": "Checkout Tests",
+      "description": "E2E test verifying the complete add-to-cart through order-placement flow",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "e2e-suite",
+      "file": "e2e/checkout.spec.ts"
+    },
+    {
+      "id": "products-tests",
+      "name": "Products Tests",
+      "description": "E2E tests for category browsing, product display, cart addition, and navigation between categories",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "e2e-suite",
+      "file": "e2e/products.spec.ts"
+    },
+    {
+      "id": "playwright-config",
+      "name": "Playwright Config",
+      "description": "Configures test directory, browser projects, dev server, and CI retries",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "e2e-suite",
+      "file": "playwright.config.ts"
     },
     {
       "id": "dummyjson",
       "name": "DummyJSON API",
-      "description": "Product catalog and category data \u2014 the only data source for the entire storefront",
+      "description": "Source of all product catalog and category data",
       "type": "external-service",
       "hasChildren": false,
-      "parent": "external-group"
+      "parent": "external"
+    },
+    {
+      "id": "browser-local-storage",
+      "name": "Browser localStorage",
+      "description": "Persists cart contents and theme preference across sessions",
+      "type": "external-service",
+      "hasChildren": false,
+      "parent": "external"
     }
   ],
   "edges": [
     {
-      "source": "root-layout",
+      "source": "root-layout-loader",
       "target": "api-client",
-      "label": "SSR Category Prefetch",
+      "label": "SSR Data Prefetch",
       "flowId": "ssr-prefetch"
     },
     {
       "source": "api-client",
-      "target": "root-layout",
+      "target": "root-layout-loader",
       "label": "",
       "flowId": "ssr-prefetch",
       "hideLabel": true
     },
     {
-      "source": "root-layout",
-      "target": "root-app",
-      "label": "SSR Category Prefetch",
+      "source": "root-layout-loader",
+      "target": "app-root",
+      "label": "SSR Data Prefetch",
       "flowId": "ssr-prefetch"
+    },
+    {
+      "source": "products-page",
+      "target": "products-query",
+      "label": "Product Browsing with Infinite Scroll",
+      "flowId": "product-browsing"
+    },
+    {
+      "source": "products-query",
+      "target": "api-client",
+      "label": "Product Browsing with Infinite Scroll",
+      "flowId": "product-browsing"
+    },
+    {
+      "source": "api-client",
+      "target": "products-page",
+      "label": "Product Browsing with Infinite Scroll",
+      "flowId": "product-browsing"
     },
     {
       "source": "product-card",
       "target": "cart-store",
       "label": "Add to Cart",
-      "flowId": "cart-flow"
+      "flowId": "add-to-cart"
+    },
+    {
+      "source": "cart-drawer",
+      "target": "checkout-page",
+      "label": "Checkout and Order Placement",
+      "flowId": "checkout-flow"
     },
     {
       "source": "checkout-page",
@@ -342,22 +433,10 @@
       "flowId": "checkout-flow"
     },
     {
-      "source": "cart-store",
+      "source": "checkout-page",
       "target": "success-page",
       "label": "Checkout and Order Placement",
       "flowId": "checkout-flow"
-    },
-    {
-      "source": "category-sections-query",
-      "target": "api-client",
-      "label": "Infinite Product Browsing",
-      "flowId": "infinite-browse"
-    },
-    {
-      "source": "api-client",
-      "target": "category-section",
-      "label": "Infinite Product Browsing",
-      "flowId": "infinite-browse"
     },
     {
       "source": "theme-toggle",
@@ -366,14 +445,50 @@
       "flowId": "theme-toggle-flow"
     },
     {
-      "source": "shell",
+      "source": "root-layout-loader",
+      "target": "categories-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "home-loader",
+      "target": "api-client",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "home-loader",
+      "target": "categories-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "home-loader",
+      "target": "category-sections-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "products-loader",
+      "target": "api-client",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "products-loader",
+      "target": "products-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "app-root",
       "target": "theme-store",
       "label": "uses",
       "flowId": "dependency"
     },
     {
-      "source": "root-app",
-      "target": "theme-store",
+      "source": "root-layout",
+      "target": "categories-query",
       "label": "uses",
       "flowId": "dependency"
     },
@@ -397,43 +512,7 @@
     },
     {
       "source": "nav-menu",
-      "target": "api-client",
-      "label": "uses",
-      "flowId": "dependency"
-    },
-    {
-      "source": "home-page",
-      "target": "api-client",
-      "label": "uses",
-      "flowId": "dependency"
-    },
-    {
-      "source": "home-page",
-      "target": "cart-store",
-      "label": "uses",
-      "flowId": "dependency"
-    },
-    {
-      "source": "category-section",
-      "target": "cart-store",
-      "label": "uses",
-      "flowId": "dependency"
-    },
-    {
-      "source": "products-page",
-      "target": "api-client",
-      "label": "uses",
-      "flowId": "dependency"
-    },
-    {
-      "source": "products-page",
-      "target": "cart-store",
-      "label": "uses",
-      "flowId": "dependency"
-    },
-    {
-      "source": "products-query",
-      "target": "api-client",
+      "target": "categories-query",
       "label": "uses",
       "flowId": "dependency"
     },
@@ -444,246 +523,321 @@
       "flowId": "dependency"
     },
     {
-      "source": "shared-components",
+      "source": "home-page",
+      "target": "category-sections-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "home-page",
       "target": "cart-store",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "home-page",
+      "target": "product-card",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "products-page",
+      "target": "cart-store",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "products-page",
+      "target": "product-card",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "success-page",
+      "target": "cart-store",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "categories-query",
+      "target": "api-client",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "category-sections-query",
+      "target": "api-client",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "category-sections-query",
+      "target": "categories-query",
       "label": "uses",
       "flowId": "dependency"
     }
   ],
   "state": [
     {
-      "id": "cart-localstorage",
-      "name": "Zustand + localStorage (persist middleware)",
-      "description": "Cart items (product + quantity), total, successfulOrder flag",
+      "id": "cart-local-storage",
+      "name": "localStorage (Zustand persist middleware)",
+      "description": "Shopping cart items (product references and quantities), order total, successfulOrder flag",
       "purpose": "source-of-truth",
-      "technology": "Zustand + localStorage (persist middleware)",
+      "technology": "localStorage (Zustand persist middleware)",
       "component": "cart-store",
       "persistence": "persistent"
     },
     {
-      "id": "theme-localstorage",
-      "name": "Zustand + localStorage (persist middleware)",
-      "description": "Theme preference (dark | light | system)",
+      "id": "theme-local-storage",
+      "name": "localStorage (Zustand persist middleware)",
+      "description": "User theme preference (dark, light, or system)",
       "purpose": "source-of-truth",
-      "technology": "Zustand + localStorage (persist middleware)",
+      "technology": "localStorage (Zustand persist middleware)",
       "component": "theme-store",
       "persistence": "persistent"
     },
     {
-      "id": "query-cache",
-      "name": "TanStack Query cache",
-      "description": "Fetched categories and product pages \u2014 dehydrated from server, rehydrated on client",
+      "id": "tanstack-query-cache",
+      "name": "TanStack Query in-memory cache",
+      "description": "Cached API responses for categories, category sections, and products with automatic stale/refetch lifecycle",
       "purpose": "cache",
-      "technology": "TanStack Query cache",
-      "component": "root-app",
+      "technology": "TanStack Query in-memory cache",
+      "component": "query-layer",
       "persistence": "ephemeral"
     }
   ],
   "failure_modes": [
     {
-      "id": "dummyjson-down",
+      "id": "dummyjson-unreachable",
       "trigger": "DummyJSON API becomes unreachable or returns errors",
       "severity": "critical",
-      "impact": "Storefront is completely non-functional \u2014 no products or categories are displayed. Cart continues to work from localStorage.",
+      "impact": "Shopper sees error boundary or empty product listings. No product data available. Cart and checkout still function for previously-added items.",
       "cascade": [
         {
           "component": "api-client",
-          "effect": "All ky requests fail"
+          "effect": "All ky HTTP requests fail"
         },
         {
-          "component": "root-layout",
-          "effect": "SSR loader fails \u2014 server returns error page"
+          "component": "categories-query",
+          "effect": "Category list query enters error state"
         },
         {
-          "component": "home-page",
-          "effect": "No category sections rendered"
+          "component": "products-query",
+          "effect": "Product list queries enter error state"
         },
         {
-          "component": "products-page",
-          "effect": "No products rendered, infinite query stuck"
+          "component": "category-sections-query",
+          "effect": "Home page category sections fail to load"
+        },
+        {
+          "component": "root-layout-loader",
+          "effect": "SSR loader throws, page renders error boundary"
         }
       ],
       "detection": [
-        "React Router error boundary renders 'Oops!' page",
-        "TanStack Query error state in components"
+        "TanStack Query error state surfaces in UI",
+        "SSR loader exception triggers React Router ErrorBoundary"
       ],
       "recovery": [
-        "Manual \u2014 wait for DummyJSON to recover",
-        "TanStack Query will retry on window refocus (default behavior)"
+        "TanStack Query automatic retry (3 attempts by default)",
+        "Shopper can refresh page to retry"
+      ]
+    },
+    {
+      "id": "dummyjson-slow",
+      "trigger": "DummyJSON API responds slowly (>5 seconds)",
+      "severity": "high",
+      "impact": "Shopper sees loading skeletons for extended duration. Infinite scroll pagination appears broken.",
+      "cascade": [
+        {
+          "component": "root-layout-loader",
+          "effect": "SSR response delayed, TTFB increases"
+        },
+        {
+          "component": "categories-query",
+          "effect": "Client-side queries show loading state indefinitely"
+        }
+      ],
+      "detection": [
+        "Prolonged skeleton/loading UI visible to user"
+      ],
+      "recovery": [
+        "No timeout configured -- request hangs until network timeout",
+        "Shopper can navigate away and retry"
       ]
     },
     {
       "id": "localstorage-unavailable",
-      "trigger": "localStorage is blocked (private browsing in some browsers) or full",
-      "severity": "low",
-      "impact": "Cart and theme preferences do not persist across page refreshes. Functional but degraded.",
+      "trigger": "Browser localStorage is full, disabled, or in private browsing mode",
+      "severity": "medium",
+      "impact": "Shopper loses cart contents and theme preference on page refresh. Core browsing still works.",
       "cascade": [
         {
           "component": "cart-store",
-          "effect": "Zustand persist middleware fails silently \u2014 cart state lives only in memory"
+          "effect": "Zustand persist middleware fails silently, cart state is ephemeral"
         },
         {
           "component": "theme-store",
-          "effect": "Theme preference resets on every page load"
+          "effect": "Theme preference resets to system default on each page load"
         }
       ],
       "detection": [
-        "none \u2014 Zustand persist fails silently"
+        "none -- Zustand persist fails silently"
       ],
       "recovery": [
-        "Automatic \u2014 stores work in-memory without persistence"
+        "Stores continue operating in-memory without persistence",
+        "Cart and theme work within a single session"
       ]
     },
     {
       "id": "ssr-hydration-mismatch",
-      "trigger": "Server-rendered HTML diverges from client hydration (e.g., theme class applied before hydration)",
+      "trigger": "Server-rendered HTML diverges from client hydration (e.g., theme class applied server-side without matching client state)",
       "severity": "low",
-      "impact": "Brief visual flash or layout shift on initial load. Functional but visually jarring.",
+      "impact": "Shopper sees a brief flash of wrong theme on page load. No data loss.",
       "cascade": [
         {
-          "component": "root-app",
-          "effect": "React hydration warning in console"
+          "component": "app-root",
+          "effect": "React hydration warning in console, potential UI flash"
+        },
+        {
+          "component": "theme-toggle",
+          "effect": "Theme may flash between states on initial load"
         }
       ],
       "detection": [
         "React hydration mismatch warning in browser console"
       ],
       "recovery": [
-        "Client reconciliation corrects the DOM automatically"
+        "Client-side useEffect corrects theme class after hydration"
       ]
     }
   ],
   "data_flows": [
     {
       "id": "ssr-prefetch",
-      "name": "SSR Category Prefetch",
-      "description": "Server pre-fetches category and product data during SSR, dehydrates it, and the client hydrates without a second request",
+      "name": "SSR Data Prefetch",
+      "description": "Server-side loaders prefetch category and product data, dehydrate into HTML for instant client hydration",
       "trigger": "Shopper navigates to a page (/, /products, /products/:category)",
       "steps": [
         {
-          "component": "root-layout",
-          "action": "Loader calls prefetchQuery for categories",
+          "component": "root-layout-loader",
+          "action": "Executes server loader, prefetches categories via TanStack Query",
           "data": "Category list",
           "to": "api-client",
           "technology": "HTTP/JSON"
         },
         {
           "component": "api-client",
-          "action": "Fetches from DummyJSON /products/categories",
-          "data": "Category[]",
-          "to": "root-layout",
+          "action": "Fetches categories from dummyjson.com",
+          "data": "GET /products/categories",
+          "to": "root-layout-loader",
           "technology": "HTTP/JSON"
         },
         {
-          "component": "root-layout",
-          "action": "Dehydrates QueryClient into HTML",
-          "data": "Serialized query cache",
-          "to": "root-app",
-          "technology": "in-memory"
-        },
-        {
-          "component": "root-app",
-          "action": "HydrationBoundary rehydrates QueryClient on client",
-          "data": "Hydrated query cache"
+          "component": "root-layout-loader",
+          "action": "Dehydrates query cache into HTML response",
+          "data": "Serialized query state",
+          "to": "app-root",
+          "technology": "SSR hydration"
         }
       ]
     },
     {
-      "id": "cart-flow",
+      "id": "product-browsing",
+      "name": "Product Browsing with Infinite Scroll",
+      "description": "Client fetches paginated products and loads more as the user scrolls or clicks Load More",
+      "trigger": "Shopper scrolls to bottom of product list or clicks Load More",
+      "steps": [
+        {
+          "component": "products-page",
+          "action": "Triggers fetchNextPage on intersection observer or button click",
+          "data": "Page cursor (skip offset)",
+          "to": "products-query"
+        },
+        {
+          "component": "products-query",
+          "action": "Executes infinite query with skip parameter",
+          "data": "GET /products?skip=N&limit=8",
+          "to": "api-client",
+          "technology": "HTTP/JSON"
+        },
+        {
+          "component": "api-client",
+          "action": "Fetches next page of products from dummyjson.com",
+          "data": "Product[] with pagination metadata",
+          "to": "products-page",
+          "technology": "HTTP/JSON"
+        }
+      ]
+    },
+    {
+      "id": "add-to-cart",
       "name": "Add to Cart",
-      "description": "Shopper adds a product to the cart, which persists to localStorage and updates the cart badge",
-      "trigger": "Shopper clicks 'Add to cart' on a product card",
+      "description": "Shopper adds a product to the cart, which persists to localStorage and shows a toast confirmation",
+      "trigger": "Shopper clicks Add to Cart on a product card",
       "steps": [
         {
           "component": "product-card",
-          "action": "Calls addItem on cart store",
-          "data": "Product object",
-          "to": "cart-store",
-          "technology": "in-memory"
+          "action": "Calls onAddToCart callback with product data",
+          "data": "Product {id, title, price, images}",
+          "to": "cart-store"
         },
         {
           "component": "cart-store",
-          "action": "Adds or increments item, recalculates total, persists to localStorage",
+          "action": "Adds or increments item in Zustand store, recalculates total, persists to localStorage",
           "data": "Updated CartItem[] and total",
           "technology": "localStorage"
-        },
-        {
-          "component": "cart-drawer",
-          "action": "Re-renders with new cart state via Zustand subscription",
-          "data": "Cart items and total"
         }
       ]
     },
     {
       "id": "checkout-flow",
       "name": "Checkout and Order Placement",
-      "description": "Shopper fills forms and submits; client action clears cart and redirects to success page",
-      "trigger": "Shopper clicks 'Place Order' on checkout page",
+      "description": "Shopper reviews cart, fills shipping/payment forms, submits order, cart clears, redirected to success",
+      "trigger": "Shopper clicks Checkout in cart drawer",
       "steps": [
         {
-          "component": "checkout-page",
-          "action": "clientAction simulates order processing (1s delay)",
-          "data": "Form data (shipping + payment)",
-          "to": "cart-store",
-          "technology": "in-memory"
+          "component": "cart-drawer",
+          "action": "Navigates to /checkout",
+          "data": "Link click",
+          "to": "checkout-page",
+          "technology": "client-side navigation"
         },
         {
-          "component": "cart-store",
-          "action": "Clears all items, sets successfulOrder flag",
-          "data": "Empty cart + success flag",
+          "component": "checkout-page",
+          "action": "Reads cart items and renders order summary, shipping form, and payment form",
+          "data": "CartItem[], subtotal, VAT, total",
+          "to": "cart-store"
+        },
+        {
+          "component": "checkout-page",
+          "action": "clientAction simulates order placement (1s delay), clears cart, sets successfulOrder flag",
+          "data": "Form submission",
           "to": "success-page",
-          "technology": "in-memory"
+          "technology": "client-side navigation"
         },
         {
           "component": "success-page",
-          "action": "Renders confirmation with confetti, resets successfulOrder flag",
+          "action": "Displays confirmation with confetti animation, resets successfulOrder flag",
           "data": "Order confirmation UI"
-        }
-      ]
-    },
-    {
-      "id": "infinite-browse",
-      "name": "Infinite Product Browsing",
-      "description": "Home and products pages fetch additional content as the user scrolls or clicks Load More",
-      "trigger": "Intersection observer fires (home) or shopper clicks Load More (products)",
-      "steps": [
-        {
-          "component": "category-sections-query",
-          "action": "Requests next page of categories with their products",
-          "data": "Page cursor",
-          "to": "api-client",
-          "technology": "HTTP/JSON"
-        },
-        {
-          "component": "api-client",
-          "action": "Fetches products/category/:slug for each category in the page",
-          "data": "Product[] per category",
-          "to": "category-section",
-          "technology": "HTTP/JSON"
-        },
-        {
-          "component": "category-section",
-          "action": "Renders horizontal product row with add-to-cart buttons",
-          "data": "Product cards"
         }
       ]
     },
     {
       "id": "theme-toggle-flow",
       "name": "Theme Toggle",
-      "description": "Shopper toggles theme; store persists to localStorage and applies CSS class to document root",
-      "trigger": "Shopper clicks the theme toggle button",
+      "description": "Shopper toggles dark/light mode, preference persists to localStorage and applies to document root",
+      "trigger": "Shopper clicks theme toggle button",
       "steps": [
         {
           "component": "theme-toggle",
-          "action": "Calls setTheme on theme store",
-          "data": "Theme value (dark | light)",
-          "to": "theme-store",
-          "technology": "in-memory"
+          "action": "Calls setTheme on Zustand store",
+          "data": "New theme value (dark | light)",
+          "to": "theme-store"
         },
         {
           "component": "theme-store",
-          "action": "Updates documentElement classList, persists to localStorage",
+          "action": "Updates document.documentElement classList, persists to localStorage",
           "data": "Theme preference",
           "technology": "localStorage"
         }
