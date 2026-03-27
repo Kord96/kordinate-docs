@@ -1,4 +1,22 @@
-/* Mermaid diagram sizing */
+/* ── Hero image — make it larger ── */
+[data-has-hero] .hero > img,
+[data-has-hero] .hero picture img,
+.hero img {
+  max-width: 28rem !important;
+  width: 28rem !important;
+  height: auto !important;
+}
+
+/* ── Card grid — even sizing, no stagger offset ── */
+.card-grid {
+  gap: 1.5rem;
+}
+
+.card-grid > .card {
+  margin-top: 0 !important;
+}
+
+/* ── Mermaid diagram sizing ── */
 .mermaid svg {
   min-height: 300px;
   max-width: none;
@@ -6,13 +24,11 @@
   height: auto;
 }
 
-/* Mermaid node text */
 .mermaid .nodeLabel {
   font-size: 0.9rem;
   font-weight: 500;
 }
 
-/* Subgraph labels */
 .mermaid .cluster-label .nodeLabel {
   font-size: 0.95rem;
   font-weight: 600;
@@ -20,14 +36,12 @@
   letter-spacing: 0.03em;
 }
 
-/* Subgraph borders */
 .mermaid .cluster rect {
   rx: 6px;
   ry: 6px;
   stroke-width: 1.5px;
 }
 
-/* Edge labels */
 .mermaid .edgeLabel {
   font-size: 0.8rem;
 }
