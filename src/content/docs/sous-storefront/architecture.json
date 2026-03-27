@@ -1,0 +1,916 @@
+{
+  "nodes": [
+    {
+      "id": "server",
+      "name": "Server",
+      "description": "SSR runtime and build-time prerendering layer",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "ssr-server",
+      "name": "SSR Server",
+      "description": "React Router server that runs loaders and renders HTML",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "server",
+      "file": "react-router.config.ts"
+    },
+    {
+      "id": "root-layout-loader",
+      "name": "Root Layout Loader",
+      "description": "Prefetches categories query via QueryClient.prefetchQuery(categoriesQueryOptions) and dehydrates the cache into SSR HTML for client hydration",
+      "type": "service",
+      "hasChildren": false,
+      "parent": "ssr-server",
+      "file": "app/routes/root-layout/index.tsx",
+      "exports": ["loader", "RootLayout"]
+    },
+    {
+      "id": "home-loader",
+      "name": "Home Loader",
+      "description": "Fetches full category list via fetchQuery, then prefetches first page of category sections via prefetchInfiniteQuery (4 categories per page, 4 products each)",
+      "type": "service",
+      "hasChildren": false,
+      "parent": "ssr-server",
+      "file": "app/routes/home/index.tsx",
+      "exports": ["loader", "meta", "HomeRoute"]
+    },
+    {
+      "id": "products-loader",
+      "name": "Products Loader",
+      "description": "Prefetches first page of products (limit 8, skip 0) for the selected category via prefetchInfiniteQuery; dehydrates cache for hydration",
+      "type": "service",
+      "hasChildren": false,
+      "parent": "ssr-server",
+      "file": "app/routes/products/index.tsx",
+      "exports": ["loader", "meta", "CategoriesRoute"]
+    },
+    {
+      "id": "browser",
+      "name": "Browser",
+      "description": "Client-side application shell, pages, and interactive components",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "app-shell",
+      "name": "App Shell",
+      "description": "Root component that creates a singleton QueryClient via useState, initializes dark theme class on mount via useThemeStore.getState(), wraps children in QueryClientProvider, and renders the Toaster (sonner) for toast notifications",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "browser",
+      "file": "app/root.tsx",
+      "exports": ["Layout", "App", "ErrorBoundary"]
+    },
+    {
+      "id": "root-layout",
+      "name": "Root Layout",
+      "description": "Receives dehydratedState from loader, wraps children in HydrationBoundary for TanStack Query cache rehydration, renders Header and Outlet",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "app-shell",
+      "file": "app/routes/root-layout/index.tsx",
+      "exports": ["loader", "RootLayout"]
+    },
+    {
+      "id": "header",
+      "name": "Header",
+      "description": "Sticky header (top-0 z-10) with backdrop-blur, renders NavMenu (left), Logo (center), Cart drawer and ThemeToggle (right)",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "root-layout",
+      "file": "app/routes/root-layout/components/header.tsx"
+    },
+    {
+      "id": "nav-menu",
+      "name": "Nav Menu",
+      "description": "Radix Sheet (side=left) listing first 10 categories as links, with a Collapsible overflow for remaining categories. Auto-closes on navigation via useNavigation().state === 'loading'",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "root-layout",
+      "file": "app/routes/root-layout/components/nav-menu.tsx"
+    },
+    {
+      "id": "cart-drawer",
+      "name": "Cart Drawer",
+      "description": "Radix Sheet overlay showing cart items with +/- quantity controls (CartItem sub-component), item count badge, running total, and checkout link. Renders EmptyState when cart is empty",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "root-layout",
+      "file": "app/routes/root-layout/components/cart/index.tsx"
+    },
+    {
+      "id": "theme-toggle",
+      "name": "Theme Toggle",
+      "description": "Button that toggles between dark and light themes. Uses Sun/Moon lucide icons with CSS rotate/scale transitions for the icon swap animation",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "root-layout",
+      "file": "app/components/theme-toggle.tsx"
+    },
+    {
+      "id": "pages",
+      "name": "Pages",
+      "description": "Route-level page components",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "app-shell"
+    },
+    {
+      "id": "home-page",
+      "name": "Home Page",
+      "description": "Renders 'Featured Categories' heading and infinite-scroll grid of CategorySection components. Uses react-intersection-observer (useInView) to detect sentinel visibility and trigger fetchNextPage. Each CategorySection shows 4 product cards in a horizontal scroll with a 'See More' link",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "pages",
+      "file": "app/routes/home/index.tsx"
+    },
+    {
+      "id": "products-page",
+      "name": "Products Page",
+      "description": "Paginated product grid (2/3/4 columns responsive) with category breadcrumb, page title from URL slug. Uses 'Load more' button (not infinite scroll) to fetch next 8 products. Shows end-of-list message when no more pages",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "pages",
+      "file": "app/routes/products/index.tsx"
+    },
+    {
+      "id": "checkout-page",
+      "name": "Checkout Page",
+      "description": "Order summary (items, subtotal, 20% VAT, total) with ShippingForm (name, email, address, city, postal) and PaymentForm (card number, expiry MM/YY, CVV). clientLoader guards empty cart with redirect to /products. clientAction simulates 1s delay, calls cart.clear(), sets successfulOrder flag, toasts success, redirects to /success. Submit button shows spinner via navigation.state === 'submitting'",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "pages",
+      "file": "app/routes/checkout/index.tsx"
+    },
+    {
+      "id": "success-page",
+      "name": "Success Page",
+      "description": "Order confirmation page with CheckCircle icon, hardcoded order number #134145, and 'Continue Shopping' link. clientLoader guards against direct access by checking successfulOrder flag (redirects to /products if false), then resets the flag. Fires js-confetti on mount with cleanup on unmount",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "pages",
+      "file": "app/routes/success.tsx"
+    },
+    {
+      "id": "shared-components",
+      "name": "Shared Components",
+      "description": "Reusable presentational components used across pages",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "browser"
+    },
+    {
+      "id": "product-card",
+      "name": "Product Card",
+      "description": "Card with aspect-square product image (hover scale-110 transition), title (truncated), price, and full-width 'Add to cart' button. Calls onAddToCart prop and fires toast.success('Product added to cart') on click. Also exports ProductCardSkeleton for loading states",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "shared-components",
+      "file": "app/components/product-card.tsx",
+      "exports": ["ProductCard", "ProductCardSkeleton"]
+    },
+    {
+      "id": "data-layer",
+      "name": "Data Layer",
+      "description": "State management, data fetching, and external API integration",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "client-state",
+      "name": "Client State",
+      "description": "Zustand stores persisted to localStorage",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "data-layer"
+    },
+    {
+      "id": "cart-store",
+      "name": "Cart Store",
+      "description": "Zustand store with persist middleware (key: 'cart-storage'). State: items (CartItem[]), total (number), successfulOrder (boolean). Actions: addItem (upserts by product.id, increments count if exists), removeItem, incrementItem, decrementItem (auto-removes at 0), clear. All mutations recalculate total via reduce",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "client-state",
+      "file": "app/hooks/cart-store.tsx",
+      "exports": ["useCartStore"]
+    },
+    {
+      "id": "theme-store",
+      "name": "Theme Store",
+      "description": "Zustand store with persist middleware (key: 'theme-storage'). State: theme ('dark' | 'light' | 'system'). setTheme removes existing light/dark class from documentElement, resolves 'system' via matchMedia('prefers-color-scheme: dark'), adds resolved class",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "client-state",
+      "file": "app/hooks/theme-store.tsx",
+      "exports": ["useThemeStore"]
+    },
+    {
+      "id": "server-state",
+      "name": "Server State",
+      "description": "TanStack Query hooks for API data with SSR prefetch and hydration",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "data-layer"
+    },
+    {
+      "id": "categories-query",
+      "name": "Categories Query",
+      "description": "queryOptions with key ['categories'], fetches GET /products/categories returning Category[]. Used by root layout loader (prefetch), nav-menu (category links), and category-sections-query (page slicing). Shared across SSR and client",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "server-state",
+      "file": "app/hooks/categories-query.tsx",
+      "exports": ["categoriesQueryOptions", "useCategoriesQuery"]
+    },
+    {
+      "id": "category-sections-query",
+      "name": "Category Sections Query",
+      "description": "infiniteQueryOptions with key ['category-sections']. Each page slices 4 categories from the full list (pageParam * 4), fetches products for each via parallel Promise.all with an 800ms artificial delay. Returns { categoryProducts, nextCursor }. Enabled only when categories data is available",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "server-state",
+      "file": "app/routes/home/hooks/category-sections-infinte-query.tsx",
+      "exports": ["categorySectionsInfiniteQueryOptions", "useCategorySectionsInfiniteQuery"]
+    },
+    {
+      "id": "products-query",
+      "name": "Products Query",
+      "description": "infiniteQueryOptions with key ['products', category]. Fetches GET /products (or /products/category/:slug) with select=title,images,price,id, limit=8, skip=pageParam. getNextPageParam returns null when skip + products.length >= total",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "server-state",
+      "file": "app/routes/products/hooks/products-infinite-query.tsx",
+      "exports": ["productsInfiniteQueryOptions", "useProductsInfiniteQuery"]
+    },
+    {
+      "id": "api-client",
+      "name": "API Client",
+      "description": "Ky HTTP client instance with prefixUrl 'https://dummyjson.com'. No timeout, retry, or error interceptors configured. Used by all server-state query hooks",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "data-layer",
+      "file": "app/api.ts",
+      "exports": ["api"]
+    },
+    {
+      "id": "external-group",
+      "name": "External",
+      "description": "External APIs and services",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "dummyjson-api",
+      "name": "DummyJSON API",
+      "description": "REST API at dummyjson.com providing product catalog and category data. Endpoints: GET /products/categories, GET /products/category/:slug, GET /products. No authentication required. No SLA or rate limiting documented",
+      "type": "external-service",
+      "hasChildren": false,
+      "parent": "external-group"
+    }
+  ],
+  "edges": [
+    {
+      "source": "root-layout-loader",
+      "target": "categories-query",
+      "label": "SSR Home Page Prefetch",
+      "flowId": "ssr-home-prefetch"
+    },
+    {
+      "source": "home-loader",
+      "target": "api-client",
+      "label": "SSR Home Page Prefetch",
+      "flowId": "ssr-home-prefetch"
+    },
+    {
+      "source": "api-client",
+      "target": "dummyjson-api",
+      "label": "SSR Home Page Prefetch",
+      "flowId": "ssr-home-prefetch"
+    },
+    {
+      "source": "home-loader",
+      "target": "app-shell",
+      "label": "SSR Home Page Prefetch",
+      "flowId": "ssr-home-prefetch"
+    },
+    {
+      "source": "app-shell",
+      "target": "home-page",
+      "label": "SSR Home Page Prefetch",
+      "flowId": "ssr-home-prefetch"
+    },
+    {
+      "source": "home-page",
+      "target": "category-sections-query",
+      "label": "Infinite Scroll Category Sections",
+      "flowId": "infinite-scroll-categories"
+    },
+    {
+      "source": "category-sections-query",
+      "target": "api-client",
+      "label": "Infinite Scroll Category Sections",
+      "flowId": "infinite-scroll-categories"
+    },
+    {
+      "source": "api-client",
+      "target": "dummyjson-api",
+      "label": "",
+      "flowId": "infinite-scroll-categories",
+      "hideLabel": true
+    },
+    {
+      "source": "category-sections-query",
+      "target": "home-page",
+      "label": "",
+      "flowId": "infinite-scroll-categories",
+      "hideLabel": true
+    },
+    {
+      "source": "product-card",
+      "target": "cart-store",
+      "label": "Add Product to Cart",
+      "flowId": "add-to-cart"
+    },
+    {
+      "source": "cart-store",
+      "target": "cart-drawer",
+      "label": "Add Product to Cart",
+      "flowId": "add-to-cart"
+    },
+    {
+      "source": "checkout-page",
+      "target": "cart-store",
+      "label": "Checkout and Order Placement",
+      "flowId": "checkout-flow"
+    },
+    {
+      "source": "cart-store",
+      "target": "checkout-page",
+      "label": "",
+      "flowId": "checkout-flow",
+      "hideLabel": true
+    },
+    {
+      "source": "checkout-page",
+      "target": "success-page",
+      "label": "Checkout and Order Placement",
+      "flowId": "checkout-flow"
+    },
+    {
+      "source": "theme-toggle",
+      "target": "theme-store",
+      "label": "Theme Toggle",
+      "flowId": "theme-toggle-flow"
+    },
+    {
+      "source": "theme-store",
+      "target": "theme-toggle",
+      "label": "",
+      "flowId": "theme-toggle-flow",
+      "hideLabel": true
+    },
+    {
+      "source": "app-shell",
+      "target": "theme-store",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "root-layout",
+      "target": "header",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "header",
+      "target": "nav-menu",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "header",
+      "target": "cart-drawer",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "header",
+      "target": "theme-toggle",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "nav-menu",
+      "target": "categories-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "cart-drawer",
+      "target": "cart-store",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "home-page",
+      "target": "product-card",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "home-page",
+      "target": "cart-store",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "products-page",
+      "target": "products-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "products-page",
+      "target": "product-card",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "products-page",
+      "target": "cart-store",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "success-page",
+      "target": "cart-store",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "home-loader",
+      "target": "categories-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "home-loader",
+      "target": "category-sections-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "products-loader",
+      "target": "products-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "categories-query",
+      "target": "api-client",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "category-sections-query",
+      "target": "api-client",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "category-sections-query",
+      "target": "categories-query",
+      "label": "uses",
+      "flowId": "dependency"
+    },
+    {
+      "source": "products-query",
+      "target": "api-client",
+      "label": "uses",
+      "flowId": "dependency"
+    }
+  ],
+  "state": [
+    {
+      "id": "cart-local-storage",
+      "name": "localStorage (Zustand persist)",
+      "description": "Cart items array with product data (id, title, price, images) and quantities, total price, successfulOrder flag",
+      "purpose": "source-of-truth",
+      "technology": "localStorage (Zustand persist)",
+      "component": "cart-store",
+      "persistence": "persistent",
+      "key": "cart-storage",
+      "readers": ["cart-drawer", "checkout-page", "success-page", "home-page", "products-page"],
+      "writers": ["product-card", "cart-drawer", "checkout-page"]
+    },
+    {
+      "id": "theme-local-storage",
+      "name": "localStorage (Zustand persist)",
+      "description": "Theme preference ('dark' | 'light' | 'system')",
+      "purpose": "source-of-truth",
+      "technology": "localStorage (Zustand persist)",
+      "component": "theme-store",
+      "persistence": "persistent",
+      "key": "theme-storage",
+      "readers": ["theme-toggle", "app-shell"],
+      "writers": ["theme-toggle"]
+    },
+    {
+      "id": "query-cache",
+      "name": "TanStack Query in-memory cache",
+      "description": "Categories list (key: ['categories']), category section products (key: ['category-sections']), product listings keyed by category (key: ['products', category])",
+      "purpose": "cache",
+      "technology": "TanStack Query in-memory cache",
+      "component": "app-shell",
+      "persistence": "ephemeral",
+      "readers": ["nav-menu", "home-page", "products-page", "category-sections-query"],
+      "writers": ["root-layout-loader", "home-loader", "products-loader", "categories-query", "category-sections-query", "products-query"]
+    },
+    {
+      "id": "dehydrated-state",
+      "name": "TanStack Query dehydrate/hydrate",
+      "description": "Serialized query cache embedded in SSR HTML for client hydration via HydrationBoundary",
+      "purpose": "staging",
+      "technology": "TanStack Query dehydrate/hydrate",
+      "component": "ssr-server",
+      "persistence": "ephemeral",
+      "readers": ["app-shell", "root-layout"],
+      "writers": ["root-layout-loader", "home-loader", "products-loader"]
+    }
+  ],
+  "failure_modes": [
+    {
+      "id": "dummyjson-unreachable",
+      "trigger": "DummyJSON API becomes unreachable or returns 5xx",
+      "severity": "critical",
+      "impact": "Storefront shows empty pages. Cart and checkout still work for previously added items since cart state is in localStorage, not API-dependent.",
+      "cascade": [
+        {
+          "component": "api-client",
+          "effect": "Ky HTTP requests fail with network or server error. No retry or timeout configured -- ky defaults apply (no retry for GET in this config, no explicit timeout)"
+        },
+        {
+          "component": "categories-query",
+          "effect": "Query enters error state, no category data available. TanStack Query will retry 3 times by default with exponential backoff"
+        },
+        {
+          "component": "category-sections-query",
+          "effect": "Cannot load category products. Additionally, depends on categories-query data (enabled: !!categories), so stays disabled if categories fail"
+        },
+        {
+          "component": "products-query",
+          "effect": "Cannot load product listings for any category"
+        },
+        {
+          "component": "nav-menu",
+          "effect": "Category navigation shows no category links (categoriesQuery.data is undefined)"
+        },
+        {
+          "component": "home-page",
+          "effect": "No category sections rendered, only skeleton loading state"
+        },
+        {
+          "component": "products-page",
+          "effect": "No products rendered, skeleton cards shown indefinitely"
+        }
+      ],
+      "detection": [
+        "TanStack Query error state surfaces in UI (though no explicit error UI is rendered -- components just show empty/skeleton)",
+        "SSR loader throws, triggering the root ErrorBoundary which shows 'Oops! An unexpected error occurred'"
+      ],
+      "recovery": [
+        "TanStack Query automatic retry (3 attempts with exponential backoff by default)",
+        "TanStack Query refetch on window focus (default behavior)",
+        "User can manually refresh the page to re-trigger SSR loaders"
+      ]
+    },
+    {
+      "id": "localstorage-unavailable",
+      "trigger": "Browser localStorage unavailable (private browsing in some browsers, quota exceeded, storage disabled by user)",
+      "severity": "low",
+      "impact": "Cart and theme reset on page refresh. Shopping session is ephemeral but fully functional within a single page session.",
+      "cascade": [
+        {
+          "component": "cart-store",
+          "effect": "Zustand persist middleware fails silently (persist middleware catches storage errors internally); cart works in-memory only for the session"
+        },
+        {
+          "component": "theme-store",
+          "effect": "Theme preference not persisted across sessions; reverts to 'system' (the default initial value) on each page load"
+        }
+      ],
+      "detection": [
+        "No detection implemented -- Zustand persist middleware swallows storage errors silently"
+      ],
+      "recovery": [
+        "Zustand stores fall back to in-memory state automatically",
+        "Cart data exists for the duration of the browser tab",
+        "Theme defaults to 'system' which respects OS preference via matchMedia"
+      ]
+    },
+    {
+      "id": "ssr-hydration-mismatch",
+      "trigger": "Server-rendered HTML diverges from client hydration due to stale prefetched data or timing differences between server and client renders",
+      "severity": "low",
+      "impact": "Momentary flicker of stale content before fresh data loads. No data loss or functional impact.",
+      "cascade": [
+        {
+          "component": "ssr-server",
+          "effect": "Dehydrated query cache in HTML payload contains data from server fetch time"
+        },
+        {
+          "component": "app-shell",
+          "effect": "React 19 hydration mismatch warning in browser console"
+        },
+        {
+          "component": "home-page",
+          "effect": "Brief content flash as TanStack Query re-fetches and replaces stale cache entries on mount"
+        }
+      ],
+      "detection": [
+        "React hydration mismatch console warning in browser DevTools"
+      ],
+      "recovery": [
+        "TanStack Query re-fetches on mount by default, replacing stale entries transparently"
+      ]
+    },
+    {
+      "id": "dummyjson-slow-response",
+      "trigger": "DummyJSON API responds slowly (>3s) during SSR loader execution",
+      "severity": "medium",
+      "impact": "Shopper sees blank page or browser loading indicator for extended period. No timeout or fallback configured in the ky client or in the loaders. The 800ms artificial delay in category-sections-query compounds with slow API responses.",
+      "cascade": [
+        {
+          "component": "ssr-server",
+          "effect": "Loader awaits all prefetch promises without timeout. Home loader fetches categories then N category product pages sequentially in Promise.all"
+        },
+        {
+          "component": "app-shell",
+          "effect": "Time to First Byte increases proportionally to API latency. No streaming SSR configured -- entire HTML waits for all loaders"
+        }
+      ],
+      "detection": [
+        "Increased TTFB observable in browser network panel or server-side performance monitoring"
+      ],
+      "recovery": [
+        "Request eventually completes or browser's own connection timeout fires",
+        "No automatic retry or timeout configured in ky client instance",
+        "No loader timeout configured in React Router"
+      ]
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "ssr-home-prefetch",
+      "name": "SSR Home Page Prefetch",
+      "description": "Server prefetches categories and first batch of category products, dehydrates into HTML for instant client load",
+      "trigger": "Shopper navigates to /",
+      "steps": [
+        {
+          "component": "root-layout-loader",
+          "action": "Creates new QueryClient, calls prefetchQuery(categoriesQueryOptions) which GETs /products/categories",
+          "data": "QueryClient with cached Category[] (id, slug, name, image)",
+          "to": "home-loader",
+          "technology": "in-memory"
+        },
+        {
+          "component": "home-loader",
+          "action": "Creates its own QueryClient, calls fetchQuery(categoriesQueryOptions) to get category list, then prefetchInfiniteQuery for first page (categories 0-3, 4 products each via parallel Promise.all + 800ms delay)",
+          "data": "Category list + first 4 category product arrays",
+          "to": "api-client",
+          "technology": "in-memory"
+        },
+        {
+          "component": "api-client",
+          "action": "Ky GETs /products/categories and /products/category/:slug?select=title,images,price,id&limit=4 for each of the first 4 categories",
+          "data": "HTTP GET requests (5 total: 1 categories + 4 category products)",
+          "to": "dummyjson-api",
+          "technology": "HTTP/JSON"
+        },
+        {
+          "component": "dummyjson-api",
+          "action": "Returns JSON responses with category list and product arrays",
+          "data": "Category[] and { products: Product[] } responses",
+          "to": "home-loader",
+          "technology": "HTTP/JSON"
+        },
+        {
+          "component": "home-loader",
+          "action": "Calls dehydrate(queryClient) to serialize the prefetched query cache into a transferable state object",
+          "data": "Dehydrated query cache (serialized categories + category-sections queries)",
+          "to": "app-shell",
+          "technology": "SSR HTML payload (embedded in route loader data)"
+        },
+        {
+          "component": "app-shell",
+          "action": "QueryClientProvider creates client-side QueryClient. Root layout's HydrationBoundary rehydrates dehydrated state into the client cache",
+          "data": "Rehydrated TanStack Query cache with categories and first page of sections",
+          "to": "home-page",
+          "technology": "in-memory (React context)"
+        },
+        {
+          "component": "home-page",
+          "action": "useCategorySectionsInfiniteQuery returns cached data immediately (no loading state). Renders CategorySection for each of the 4 categories with their product cards. IntersectionObserver sentinel placed after last section for scroll pagination",
+          "data": "React DOM: 4 CategorySection components, each with 4 ProductCards + 'See More' link",
+          "technology": "DOM render"
+        }
+      ],
+      "mermaid": "sequenceDiagram\n    participant Shopper\n    participant RRServer as React Router Server\n    participant RootLoader as Root Layout Loader\n    participant HomeLoader as Home Loader\n    participant ApiClient as Ky API Client\n    participant DummyJSON as DummyJSON API\n    participant Browser as Browser (App Shell)\n    participant HomePage as Home Page\n\n    Shopper->>RRServer: GET /\n    RRServer->>RootLoader: Execute loader\n    RootLoader->>ApiClient: prefetchQuery(['categories'])\n    ApiClient->>DummyJSON: GET /products/categories\n    DummyJSON-->>ApiClient: Category[]\n    RRServer->>HomeLoader: Execute loader\n    HomeLoader->>ApiClient: fetchQuery(['categories'])\n    ApiClient->>DummyJSON: GET /products/categories\n    DummyJSON-->>ApiClient: Category[]\n    Note over HomeLoader: Slice categories[0..3]\n    HomeLoader->>ApiClient: Promise.all + 800ms delay\n    ApiClient->>DummyJSON: GET /products/category/:slug x4\n    DummyJSON-->>ApiClient: { products: Product[] } x4\n    Note over HomeLoader: dehydrate(queryClient)\n    HomeLoader-->>RRServer: { dehydratedState }\n    RRServer-->>Browser: SSR HTML with dehydrated cache\n    Browser->>HomePage: HydrationBoundary rehydrates cache\n    Note over HomePage: Renders 4 CategorySections from cache\n    HomePage-->>Shopper: Fully rendered home page"
+    },
+    {
+      "id": "infinite-scroll-categories",
+      "name": "Infinite Scroll Category Sections",
+      "description": "As the shopper scrolls down the home page, next batch of category sections loads",
+      "trigger": "Sentinel div enters viewport (IntersectionObserver via useInView)",
+      "steps": [
+        {
+          "component": "home-page",
+          "action": "useInView ref detects sentinel in viewport (inView becomes true). Guard: only fires if !categorySections.isFetchingNextPage. Calls categorySections.fetchNextPage()",
+          "data": "Next page cursor (pageParam incremented by 1)",
+          "to": "category-sections-query",
+          "technology": "in-memory (TanStack Query)"
+        },
+        {
+          "component": "category-sections-query",
+          "action": "queryFn executes: slices next 4 categories from full list (categories[pageParam*4..(pageParam+1)*4]), fires Promise.all with 800ms artificial delay + parallel GET for each category's products (limit=4, select=title,images,price,id)",
+          "data": "4 category slugs as URL params + pagination params",
+          "to": "api-client",
+          "technology": "in-memory"
+        },
+        {
+          "component": "api-client",
+          "action": "Ky GETs /products/category/:slug?select=title,images,price,id&limit=4 for each of the 4 categories in parallel",
+          "data": "4 parallel HTTP GET requests",
+          "to": "dummyjson-api",
+          "technology": "HTTP/JSON"
+        },
+        {
+          "component": "dummyjson-api",
+          "action": "Returns product arrays for each requested category",
+          "data": "{ products: Product[] } x4",
+          "to": "category-sections-query",
+          "technology": "HTTP/JSON"
+        },
+        {
+          "component": "category-sections-query",
+          "action": "Maps responses to { id, slug, title, products } objects. Computes nextCursor: (pageParam+1)*4 < categories.length ? pageParam+1 : null. TanStack Query appends new page to infinite query cache",
+          "data": "{ categoryProducts: [...], nextCursor: number|null }",
+          "to": "home-page",
+          "technology": "in-memory (cache update triggers re-render)"
+        },
+        {
+          "component": "home-page",
+          "action": "Re-renders with new CategorySection components appended. data.pages.flatMap renders all accumulated sections. If hasNextPage is true and not fetching, sentinel div is rendered for next trigger. CategorySectionSkeleton shown during fetch",
+          "data": "React DOM update: additional CategorySection components with ProductCards",
+          "technology": "DOM render"
+        }
+      ],
+      "mermaid": "sequenceDiagram\n    participant Shopper\n    participant HomePage as Home Page\n    participant InView as IntersectionObserver\n    participant CatQuery as Category Sections Query\n    participant ApiClient as Ky API Client\n    participant DummyJSON as DummyJSON API\n\n    Shopper->>HomePage: Scrolls down\n    InView->>HomePage: inView = true (sentinel visible)\n    Note over HomePage: Guard: !isFetchingNextPage\n    HomePage->>CatQuery: fetchNextPage()\n    Note over HomePage: Shows CategorySectionSkeleton\n    Note over CatQuery: Slice categories[n*4..(n+1)*4]\n    CatQuery->>ApiClient: Promise.all(800ms delay + 4 fetches)\n    ApiClient->>DummyJSON: GET /products/category/:slug x4\n    DummyJSON-->>ApiClient: { products } x4\n    ApiClient-->>CatQuery: Product[][] (4 arrays)\n    Note over CatQuery: nextCursor = (n+1)*4 < total ? n+1 : null\n    CatQuery-->>HomePage: Cache updated, re-render\n    Note over HomePage: Append 4 new CategorySections\n    HomePage-->>Shopper: New sections visible"
+    },
+    {
+      "id": "add-to-cart",
+      "name": "Add Product to Cart",
+      "description": "Shopper clicks add-to-cart on a product card; cart store updates, localStorage persists, drawer badge updates, toast confirms",
+      "trigger": "Click 'Add to cart' button on ProductCard",
+      "steps": [
+        {
+          "component": "product-card",
+          "action": "handleAddToCart calls onAddToCart({ id, images, title, price }) prop and fires toast.success('Product added to cart')",
+          "data": "Product { id: number, title: string, price: number, images: string[] }",
+          "to": "cart-store",
+          "technology": "in-memory (callback prop from parent page)"
+        },
+        {
+          "component": "cart-store",
+          "action": "addItem: checks if product.id exists in items[]. If exists: increments count. If new: appends { product, count: 1 }. Recalculates total via reduce(sum + item.product.price * item.count)",
+          "data": "Updated items[] array and recalculated total number",
+          "to": "cart-store",
+          "technology": "in-memory (Zustand set)"
+        },
+        {
+          "component": "cart-store",
+          "action": "Zustand persist middleware serializes { items, total, successfulOrder } to localStorage under key 'cart-storage'",
+          "data": "JSON string of cart state",
+          "technology": "localStorage.setItem('cart-storage', ...)"
+        },
+        {
+          "component": "cart-drawer",
+          "action": "Zustand subscription triggers re-render. Badge updates: cartItems.length shown in -top-1 -right-1 rounded-full span. If drawer is open, CartItem list updates with new/updated item",
+          "data": "cart.items and cart.total from useCartStore()",
+          "technology": "DOM render (React subscription)"
+        },
+        {
+          "component": "app-shell",
+          "action": "Sonner Toaster renders 'Product added to cart' success toast notification (auto-dismisses)",
+          "data": "Toast notification (success variant)",
+          "technology": "DOM render"
+        }
+      ],
+      "mermaid": "sequenceDiagram\n    participant Shopper\n    participant ProductCard as Product Card\n    participant CartStore as Cart Store (Zustand)\n    participant LocalStorage as localStorage\n    participant CartDrawer as Cart Drawer\n    participant Toaster as Sonner Toaster\n\n    Shopper->>ProductCard: Click 'Add to cart'\n    ProductCard->>CartStore: addItem({ id, title, price, images })\n    Note over CartStore: Check if product exists in items[]\n    alt Product exists\n        Note over CartStore: Increment count\n    else New product\n        Note over CartStore: Append { product, count: 1 }\n    end\n    Note over CartStore: Recalculate total via reduce\n    CartStore->>LocalStorage: persist('cart-storage', serializedState)\n    CartStore-->>CartDrawer: Zustand subscription fires\n    Note over CartDrawer: Badge count updates\n    ProductCard->>Toaster: toast.success('Product added to cart')\n    Toaster-->>Shopper: Success toast appears"
+    },
+    {
+      "id": "checkout-flow",
+      "name": "Checkout and Order Placement",
+      "description": "Shopper fills shipping and payment forms, submits order, cart clears, redirects to success page with confetti",
+      "trigger": "Shopper clicks 'Place Order' on checkout page",
+      "steps": [
+        {
+          "component": "checkout-page",
+          "action": "clientLoader guard: reads useCartStore.getState().items.length. If 0, redirects to /products. Otherwise returns null to allow render",
+          "data": "Cart item count (number)",
+          "to": "cart-store",
+          "technology": "in-memory (direct store access, not hook)"
+        },
+        {
+          "component": "checkout-page",
+          "action": "Renders OrderSummary (items, subtotal, 20% VAT, total), ShippingForm (name, email, address, city, postal code), PaymentForm (card, expiry, CVV). Submit button shows total in label",
+          "data": "Cart items and computed prices from useCartStore() hook",
+          "technology": "DOM render"
+        },
+        {
+          "component": "checkout-page",
+          "action": "Form submits via React Router clientAction. navigation.state changes to 'submitting', button shows Loader spinner and 'Placing order...' text",
+          "data": "FormData (shipping + payment fields)",
+          "to": "checkout-page",
+          "technology": "React Router client-action"
+        },
+        {
+          "component": "checkout-page",
+          "action": "clientAction: awaits 1000ms setTimeout (simulated processing), then calls useCartStore.getState().clear() to empty cart, sets successfulOrder=true via setState, fires toast.success('Order placed successfully')",
+          "data": "Empty cart + successfulOrder: true",
+          "to": "cart-store",
+          "technology": "in-memory (direct store mutation)"
+        },
+        {
+          "component": "cart-store",
+          "action": "clear() sets items=[], total=0. Persist middleware writes to localStorage. successfulOrder flag persisted as true",
+          "data": "Cleared cart state serialized to localStorage",
+          "technology": "localStorage"
+        },
+        {
+          "component": "checkout-page",
+          "action": "clientAction returns redirect('/success') via React Router",
+          "data": "Navigation redirect to /success",
+          "to": "success-page",
+          "technology": "React Router client-side navigation"
+        },
+        {
+          "component": "success-page",
+          "action": "clientLoader: reads useCartStore.getState().successfulOrder. If false, redirects to /products. If true, calls setState({ successfulOrder: false }) to reset flag (prevents revisiting). Returns null to allow render",
+          "data": "successfulOrder boolean (consumed and reset)",
+          "to": "cart-store",
+          "technology": "in-memory"
+        },
+        {
+          "component": "success-page",
+          "action": "Renders CheckCircle icon, 'Order Successful!' heading, hardcoded order #134145, 'Continue Shopping' link. useEffect creates JSConfetti instance and calls addConfetti(). Cleanup calls clearCanvas() on unmount",
+          "data": "Confetti canvas animation + confirmation UI",
+          "technology": "DOM render + Canvas API (js-confetti)"
+        }
+      ],
+      "mermaid": "sequenceDiagram\n    participant Shopper\n    participant CheckoutPage as Checkout Page\n    participant CartStore as Cart Store (Zustand)\n    participant LocalStorage as localStorage\n    participant Router as React Router\n    participant SuccessPage as Success Page\n    participant Confetti as JSConfetti\n\n    Note over CheckoutPage: clientLoader guard\n    CheckoutPage->>CartStore: getState().items.length\n    alt Cart empty\n        CheckoutPage->>Router: redirect('/products')\n    end\n    Shopper->>CheckoutPage: Fills shipping + payment forms\n    Shopper->>CheckoutPage: Click 'Place Order'\n    Note over CheckoutPage: navigation.state = 'submitting'\n    Note over CheckoutPage: Button shows spinner + 'Placing order...'\n    CheckoutPage->>CheckoutPage: clientAction executes\n    Note over CheckoutPage: await setTimeout(1000ms)\n    CheckoutPage->>CartStore: getState().clear()\n    CartStore->>LocalStorage: persist empty cart\n    CheckoutPage->>CartStore: setState({ successfulOrder: true })\n    CartStore->>LocalStorage: persist flag\n    Note over CheckoutPage: toast.success('Order placed successfully')\n    CheckoutPage->>Router: redirect('/success')\n    Router->>SuccessPage: Navigate\n    Note over SuccessPage: clientLoader guard\n    SuccessPage->>CartStore: getState().successfulOrder\n    SuccessPage->>CartStore: setState({ successfulOrder: false })\n    SuccessPage->>Confetti: new JSConfetti().addConfetti()\n    SuccessPage-->>Shopper: Order confirmation + confetti"
+    },
+    {
+      "id": "theme-toggle-flow",
+      "name": "Theme Toggle",
+      "description": "Shopper clicks theme button; store updates, DOM class toggles, preference persists, Tailwind dark: variants activate",
+      "trigger": "Click theme toggle button in header",
+      "steps": [
+        {
+          "component": "theme-toggle",
+          "action": "toggleTheme: reads current theme from useThemeStore(). If 'dark', calls setTheme('light'). Otherwise calls setTheme('dark'). Note: 'system' theme toggles to 'dark', not back to system",
+          "data": "Theme value: 'dark' | 'light'",
+          "to": "theme-store",
+          "technology": "in-memory (Zustand action)"
+        },
+        {
+          "component": "theme-store",
+          "action": "setTheme: removes 'light' and 'dark' classes from document.documentElement. If theme is 'system', resolves via matchMedia('prefers-color-scheme: dark'). Adds resolved class to root element. Calls set({ theme })",
+          "data": "Theme preference string + DOM classList mutation",
+          "technology": "DOM API (classList.remove/add)"
+        },
+        {
+          "component": "theme-store",
+          "action": "Zustand persist middleware serializes { theme } to localStorage under key 'theme-storage'",
+          "data": "JSON string with theme value",
+          "technology": "localStorage.setItem('theme-storage', ...)"
+        },
+        {
+          "component": "theme-toggle",
+          "action": "Zustand subscription triggers re-render. Sun icon (rotate-0 scale-100 / dark:-rotate-90 dark:scale-0) and Moon icon (rotate-90 scale-0 / dark:rotate-0 dark:scale-100) swap via CSS transitions",
+          "data": "Updated theme value from store",
+          "technology": "DOM render (CSS transition animation)"
+        },
+        {
+          "component": "app-shell",
+          "action": "Tailwind dark: variant classes activate/deactivate across entire component tree based on 'dark' class on <html> element. All bg-background, text-foreground, bg-card etc. tokens respond to theme change",
+          "data": "CSS custom properties toggle (dark mode design tokens)",
+          "technology": "CSS (Tailwind dark mode via class strategy)"
+        }
+      ],
+      "mermaid": "sequenceDiagram\n    participant Shopper\n    participant ThemeToggle as Theme Toggle\n    participant ThemeStore as Theme Store (Zustand)\n    participant DOM as document.documentElement\n    participant LocalStorage as localStorage\n    participant TailwindCSS as Tailwind CSS\n\n    Shopper->>ThemeToggle: Click toggle button\n    Note over ThemeToggle: Read current theme\n    alt theme === 'dark'\n        ThemeToggle->>ThemeStore: setTheme('light')\n    else theme === 'light' or 'system'\n        ThemeToggle->>ThemeStore: setTheme('dark')\n    end\n    ThemeStore->>DOM: classList.remove('light', 'dark')\n    ThemeStore->>DOM: classList.add(resolvedTheme)\n    ThemeStore->>LocalStorage: persist('theme-storage', { theme })\n    ThemeStore-->>ThemeToggle: Subscription re-render\n    Note over ThemeToggle: Sun/Moon icon swap animation\n    DOM-->>TailwindCSS: dark: variants activate/deactivate\n    TailwindCSS-->>Shopper: All colors update across app"
+    }
+  ]
+}
