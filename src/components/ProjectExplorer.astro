@@ -98,14 +98,20 @@ const { title, subtitle, data, repoUrl } = Astro.props;
     <div id="node-counter">Showing <strong>3</strong> of <strong>62</strong> nodes</div>
   </div>
 
-  <div id="structure-controls">
-    <button class="btn" id="btn-expand-all">Expand All</button>
-    <button class="btn" id="btn-collapse-all">Collapse All</button>
-    <button class="btn" id="btn-fit">Fit View</button>
-    <button class="btn" id="btn-reset">Reset</button>
+  <button id="controls-toggle" title="Controls">&#9881;</button>
+  <div id="controls-panel" class="controls-hidden">
+    <div class="controls-section">
+      <div class="controls-label">View</div>
+      <button class="btn" id="btn-expand-all">Expand All</button>
+      <button class="btn" id="btn-collapse-all">Collapse All</button>
+      <button class="btn" id="btn-fit">Fit View</button>
+      <button class="btn" id="btn-reset">Reset</button>
+    </div>
+    <div class="controls-section" id="flow-filters-section">
+      <div class="controls-label">Flows</div>
+      <div id="flow-filters"></div>
+    </div>
   </div>
-
-  <div id="flow-filters"></div>
 
   <div class="graph-legend" id="structure-legend">
     <h3>Node Types</h3>
@@ -736,7 +742,8 @@ const { title, subtitle, data, repoUrl } = Astro.props;
   function hideTabSpecificElements(tab) {
     if (tab === 'structure') {
       document.getElementById('breadcrumb-bar').style.display = 'none';
-      document.getElementById('structure-controls').style.display = 'none';
+      document.getElementById('controls-toggle').style.display = 'none';
+      document.getElementById('controls-panel').style.display = 'none';
       document.getElementById('flow-filters').style.display = 'none';
       document.getElementById('structure-legend').style.display = 'none';
       document.getElementById('info-badge').style.display = 'none';
@@ -749,7 +756,8 @@ const { title, subtitle, data, repoUrl } = Astro.props;
   function showTabSpecificElements(tab) {
     if (tab === 'structure') {
       document.getElementById('breadcrumb-bar').style.display = '';
-      document.getElementById('structure-controls').style.display = '';
+      document.getElementById('controls-toggle').style.display = '';
+      document.getElementById('controls-panel').style.display = '';
       document.getElementById('flow-filters').style.display = '';
       document.getElementById('structure-legend').style.display = '';
       document.getElementById('info-badge').style.display = '';
@@ -758,6 +766,23 @@ const { title, subtitle, data, repoUrl } = Astro.props;
       document.getElementById('data-legend').style.display = '';
     }
   }
+
+  // ==========================================================================
+  // CONTROLS PANEL TOGGLE
+  // ==========================================================================
+  (function() {
+    var toggle = document.getElementById('controls-toggle');
+    var panel = document.getElementById('controls-panel');
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      panel.classList.toggle('controls-hidden');
+    });
+    document.addEventListener('click', function(e) {
+      if (!panel.contains(e.target) && e.target !== toggle) {
+        panel.classList.add('controls-hidden');
+      }
+    });
+  })();
 
   // ==========================================================================
   // TAB 1: STRUCTURE (the original cytoscape expand/collapse viewer)
@@ -2010,14 +2035,68 @@ const { title, subtitle, data, repoUrl } = Astro.props;
     padding-top: 88px;
   }
 
-  #structure-controls {
+  #controls-toggle {
+    position: fixed;
+    top: 92px;
+    right: 24px;
+    z-index: 1009;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    background: rgba(26,26,46,0.9);
+    color: #aaa;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+  }
+
+  #controls-toggle:hover {
+    background: rgba(123,104,238,0.15);
+    border-color: rgba(123,104,238,0.4);
+    color: #b8a9ff;
+  }
+
+  #controls-panel {
     position: fixed;
     top: 92px;
     right: 24px;
     z-index: 1008;
+    background: rgba(26,26,46,0.95);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 12px;
+    backdrop-filter: blur(12px);
     display: flex;
-    gap: 8px;
-    align-items: center;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 160px;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  #controls-panel.controls-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
+  }
+
+  .controls-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .controls-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #555;
+    margin-bottom: 2px;
   }
 
   .btn {
@@ -2049,7 +2128,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
     position: fixed;
     top: 88px;
     left: 0;
-    right: 230px;
+    right: 0;
     z-index: 1007;
     display: flex;
     align-items: center;
@@ -2397,10 +2476,6 @@ const { title, subtitle, data, repoUrl } = Astro.props;
 
   /* ========= FLOW FILTER PILLS ========= */
   #flow-filters {
-    position: fixed;
-    top: 126px;
-    right: 24px;
-    z-index: 1008;
     display: flex;
     flex-direction: column;
     gap: 4px;
