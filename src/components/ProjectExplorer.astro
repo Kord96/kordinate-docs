@@ -89,6 +89,23 @@ const { title, subtitle, data, repoUrl } = Astro.props;
   </div>
 </div>
 
+<div id="terminal-panel">
+  <button id="terminal-close" aria-label="Close terminal">&times;</button>
+  <div id="terminal-inner">
+    <div class="terminal-header">
+      <span class="terminal-prompt">$</span>
+      <span class="terminal-title">claude</span>
+    </div>
+    <div class="terminal-body">
+      <p class="terminal-welcome">Talk to this project's architecture. Ask questions, request changes, explore flows — Claude works in the background while you see the results live on the graph.</p>
+      <div class="terminal-input-area">
+        <span class="terminal-prompt">$</span>
+        <input type="text" id="terminal-input" placeholder="Coming soon — ask anything about this architecture..." disabled />
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== TAB 1: STRUCTURE ===== -->
 <div class="tab-panel active" id="structure-panel">
   <div id="cy-structure"></div>
@@ -114,6 +131,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
   </div>
 
   <div id="info-badge"><span id="node-counter">Showing <strong>3</strong> of <strong>35</strong> nodes</span></div>
+  <button id="terminal-toggle" title="Terminal">&gt;_</button>
   <button id="help-toggle" title="Help">?</button>
   <div id="help-panel" class="help-hidden">
     <div class="help-section">
@@ -759,6 +777,9 @@ const { title, subtitle, data, repoUrl } = Astro.props;
     var ctrlPanel = document.getElementById('controls-panel');
     var helpToggle = document.getElementById('help-toggle');
     var helpPanel = document.getElementById('help-panel');
+    var termToggle = document.getElementById('terminal-toggle');
+    var termPanel = document.getElementById('terminal-panel');
+    var termClose = document.getElementById('terminal-close');
 
     ctrlToggle.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -770,6 +791,17 @@ const { title, subtitle, data, repoUrl } = Astro.props;
       e.stopPropagation();
       helpPanel.classList.toggle('help-hidden');
       ctrlPanel.classList.add('controls-hidden');
+    });
+
+    termToggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      termPanel.classList.toggle('open');
+      ctrlPanel.classList.add('controls-hidden');
+      helpPanel.classList.add('help-hidden');
+    });
+
+    termClose.addEventListener('click', function() {
+      termPanel.classList.remove('open');
     });
 
     document.addEventListener('click', function(e) {
@@ -2629,6 +2661,120 @@ const { title, subtitle, data, repoUrl } = Astro.props;
   #info-badge strong {
     color: #b8a9ff;
     font-weight: 600;
+  }
+
+  #terminal-toggle {
+    position: fixed;
+    top: 92px;
+    right: 120px;
+    z-index: 1009;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    background: rgba(26,26,46,0.9);
+    color: #aaa;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    font-family: monospace;
+  }
+
+  #terminal-toggle:hover {
+    background: rgba(30,200,100,0.15);
+    border-color: rgba(30,200,100,0.4);
+    color: #4ade80;
+  }
+
+  #terminal-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1020;
+    background: #0d1117;
+    border-top: 1px solid rgba(30,200,100,0.2);
+    max-height: 40vh;
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+
+  #terminal-panel.open {
+    transform: translateY(0);
+  }
+
+  #terminal-close {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 1;
+  }
+
+  #terminal-close:hover { color: #fff; }
+
+  .terminal-header {
+    padding: 12px 16px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 13px;
+  }
+
+  .terminal-prompt {
+    color: #4ade80;
+    margin-right: 8px;
+    font-weight: 600;
+  }
+
+  .terminal-title {
+    color: #e0e0e0;
+    font-weight: 500;
+  }
+
+  .terminal-body {
+    padding: 16px;
+  }
+
+  .terminal-welcome {
+    color: #666;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0 0 16px 0;
+  }
+
+  .terminal-input-area {
+    display: flex;
+    align-items: center;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  #terminal-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #e0e0e0;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+
+  #terminal-input::placeholder {
+    color: #444;
+  }
+
+  #terminal-input:disabled {
+    cursor: not-allowed;
   }
 
   #help-toggle {
