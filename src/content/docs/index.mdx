@@ -1,0 +1,39 @@
+---
+title: Kordinate
+description: Coordinate specialized AI agents into a team — with kords, guards, and a recall system.
+template: splash
+hero:
+  tagline: Coordinate specialized AI agents into a team — with kords, guards, and a recall system.
+  image:
+    dark: ../../assets/logo_dark.png
+    light: ../../assets/logo_light.png
+  actions:
+    - text: Get Started
+      link: /framework/overview/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/Kord96/kordinate
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Guards" icon="shield">
+    Hook-based enforcement that only the right agent performs protected operations.
+    [Learn more](/framework/guards/)
+  </Card>
+  <Card title="Kords" icon="puzzle">
+    Defined protocols between agents for sharing expertise.
+    [Learn more](/framework/kords/)
+  </Card>
+  <Card title="Subagent P2P" icon="rocket">
+    Subagents can invoke other subagents at any depth.
+    [Learn more](/agents/beorn/)
+  </Card>
+  <Card title="Recall System" icon="open-book">
+    Knowledge properties and registry on top of the runtime's native memory.
+    [Learn more](/framework/memory/)
+  </Card>
+</CardGrid>

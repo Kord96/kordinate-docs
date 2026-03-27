@@ -1,0 +1,5 @@
+---
+import ArchitectureViewer from '../../components/ArchitectureViewer.astro';
+import data from '../../content/docs/kordinate/architecture.json';
+---
+<ArchitectureViewer title="sous-storefront" subtitle={`${data.nodes.length} nodes`} data={data} />

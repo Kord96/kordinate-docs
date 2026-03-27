@@ -1,0 +1,33 @@
+/* Mermaid diagram sizing */
+.mermaid svg {
+  min-height: 300px;
+  max-width: none;
+  width: 100%;
+  height: auto;
+}
+
+/* Mermaid node text */
+.mermaid .nodeLabel {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Subgraph labels */
+.mermaid .cluster-label .nodeLabel {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Subgraph borders */
+.mermaid .cluster rect {
+  rx: 6px;
+  ry: 6px;
+  stroke-width: 1.5px;
+}
+
+/* Edge labels */
+.mermaid .edgeLabel {
+  font-size: 0.8rem;
+}
