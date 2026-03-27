@@ -112,6 +112,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
 
   <div id="breadcrumb-bar">
     <div id="breadcrumb"></div>
+    <div id="flow-dots"></div>
   </div>
 
   <button id="controls-toggle" title="Controls">&#9881;</button>
@@ -136,7 +137,6 @@ const { title, subtitle, data, repoUrl } = Astro.props;
       </svg>
     </button>
   </div>
-  <div id="flow-dots"></div>
   <div id="flow-filters" style="display:none"></div>
 
   <button id="help-toggle" title="Help">?</button>
@@ -2165,7 +2165,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
 
   #controls-toggle {
     position: fixed;
-    top: 92px;
+    bottom: 24px;
     right: 24px;
     z-index: 1009;
     width: 42px;
@@ -2191,7 +2191,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
 
   #controls-panel {
     position: fixed;
-    top: 92px;
+    bottom: 72px;
     right: 24px;
     z-index: 1008;
     background: rgba(26,26,46,0.95);
@@ -2337,13 +2337,10 @@ const { title, subtitle, data, repoUrl } = Astro.props;
   }
 
   #flow-dots {
-    position: fixed;
-    top: 93px;
-    right: 130px;
-    z-index: 1007;
     display: flex;
     gap: 10px;
     align-items: center;
+    margin-left: auto;
   }
 
   .flow-dot {
@@ -2842,7 +2839,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
 
   #help-toggle {
     position: fixed;
-    top: 92px;
+    bottom: 24px;
     right: 72px;
     font-family: 'Inter', sans-serif;
     z-index: 1009;
@@ -2871,7 +2868,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
 
   #help-panel {
     position: fixed;
-    top: 92px;
+    bottom: 72px;
     right: 72px;
     z-index: 1008;
     background: rgba(26,26,46,0.95);
