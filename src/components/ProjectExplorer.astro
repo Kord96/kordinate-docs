@@ -956,6 +956,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
       { selector: 'edge.flow-highlight', style: { 'line-color': 'rgba(123,104,238,0.7)', 'target-arrow-color': 'rgba(123,104,238,0.7)', 'color': 'rgba(255,255,255,0.8)', 'width': 3, 'z-index': 1000 } },
       { selector: 'node.dimmed', style: { 'opacity': 0.2 } },
       { selector: 'edge.dimmed', style: { 'opacity': 0.08 } },
+      { selector: 'node.flow-halo', style: { 'overlay-color': '#7b68ee', 'overlay-opacity': 0.25, 'overlay-padding': 12, 'border-color': '#7b68ee', 'border-width': 3 } },
       { selector: 'node[?collapsed][?hasChildren]', style: { 'border-width': 2 } }
     ]
   });
@@ -1077,11 +1078,18 @@ const { title, subtitle, data, repoUrl } = Astro.props;
     cyStructure.nodes('[?collapsed]').ungrabify();
   }
 
+  function reapplyFlowHighlight() {
+    if (structureState.activeFlow) {
+      setTimeout(function() { highlightFlow(structureState.activeFlow); }, 300);
+    }
+  }
+
   function expandNode(id) {
     if (!childrenOf[id] || childrenOf[id].length === 0) return;
     structureState.expandedNodes[id] = true;
     rebuildStructureGraph(true);
     updateBreadcrumb(id);
+    reapplyFlowHighlight();
   }
 
   function collapseNode(id) {
@@ -1095,6 +1103,7 @@ const { title, subtitle, data, repoUrl } = Astro.props;
     collapseDescendants(id);
     rebuildStructureGraph(true);
     updateBreadcrumb(nodeMap[id] ? nodeMap[id].parent : null);
+    reapplyFlowHighlight();
   }
 
   function expandAll() {
@@ -1200,14 +1209,64 @@ const { title, subtitle, data, repoUrl } = Astro.props;
   }
 
   function highlightFlow(flowId) {
-    cyStructure.elements().removeClass('dimmed flow-highlight highlighted');
-    var flowEdges = cyStructure.edges().filter(function(e) { return e.data('flowId') === flowId; });
-    if (flowEdges.length === 0) return;
-    var connectedNodes = flowEdges.connectedNodes();
-    var allRelevant = connectedNodes.union(flowEdges);
-    connectedNodes.forEach(function(n) { allRelevant = allRelevant.union(n.ancestors()); });
+    cyStructure.elements().removeClass('dimmed flow-highlight flow-halo');
+
+    // Find all node IDs involved in this flow from the RAW data
+    var flowNodeIds = new Set();
+    RAW.edges.forEach(function(e) {
+      if (e.flowId === flowId) {
+        flowNodeIds.add(e.source);
+        flowNodeIds.add(e.target);
+      }
+    });
+
+    if (flowNodeIds.size === 0) return;
+
+    // For each flow node, find the nearest VISIBLE element in the graph
+    // (could be the node itself if expanded, or its collapsed ancestor group)
+    var visibleTargets = cyStructure.collection();
+
+    flowNodeIds.forEach(function(nodeId) {
+      var cyNode = cyStructure.getElementById(nodeId);
+      if (cyNode.length > 0 && cyNode.visible()) {
+        // Node is visible — highlight it directly
+        visibleTargets = visibleTargets.union(cyNode);
+      } else {
+        // Node is hidden inside a collapsed group — find the visible ancestor
+        // Walk up the parent chain in RAW data to find a visible group
+        var current = nodeId;
+        while (current) {
+          var rawNode = RAW.nodes.find(function(n) { return n.id === current; });
+          if (!rawNode || !rawNode.parent) break;
+          current = rawNode.parent;
+          var cyParent = cyStructure.getElementById(current);
+          if (cyParent.length > 0 && cyParent.visible()) {
+            visibleTargets = visibleTargets.union(cyParent);
+            break;
+          }
+        }
+      }
+    });
+
+    // Also include visible flow edges
+    var visibleFlowEdges = cyStructure.edges().filter(function(e) {
+      return e.data('flowId') === flowId && e.visible();
+    });
+
+    // Build the full relevant set (targets + their ancestors + visible edges)
+    var allRelevant = visibleTargets.union(visibleFlowEdges);
+    visibleTargets.forEach(function(n) {
+      allRelevant = allRelevant.union(n.ancestors());
+    });
+
+    // Dim everything else
     cyStructure.elements().not(allRelevant).addClass('dimmed');
-    flowEdges.addClass('flow-highlight');
+
+    // Add halo to the visible targets (groups glow to indicate they contain flow nodes)
+    visibleTargets.addClass('flow-halo');
+
+    // Highlight visible edges
+    visibleFlowEdges.addClass('flow-highlight');
   }
 
   // Structure event handlers
