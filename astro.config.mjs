@@ -80,11 +80,8 @@ export default defineConfig({
 				},
 				{
 					label: 'Sous Storefront',
-					collapsed: true,
 					items: [
-						{ label: 'Overview', slug: 'sous-storefront/overview' },
-						{ label: 'Components', slug: 'sous-storefront/components' },
-						{ label: 'Data Flows', slug: 'sous-storefront/flows' },
+						{ label: 'Project Explorer', link: '/sous-storefront/' },
 					],
 				},
 			],

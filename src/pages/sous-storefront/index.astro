@@ -1,0 +1,10 @@
+---
+import ProjectExplorer from '../../components/ProjectExplorer.astro';
+import data from '../../content/docs/sous-storefront/architecture.json';
+---
+<ProjectExplorer
+  title="sous-storefront"
+  subtitle={`${data.nodes.length} nodes · ${data.edges.length} edges`}
+  data={data}
+  repoUrl="https://github.com/ziyadkhalil/sous-storefront"
+/>
