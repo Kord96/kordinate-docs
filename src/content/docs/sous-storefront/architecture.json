@@ -1,1175 +1,368 @@
 {
   "nodes": [
     {
-      "id": "server",
+      "id": "server-group",
       "name": "Server",
-      "description": "Node.js SSR server, build toolchain, and config",
       "type": "group",
-      "hasChildren": true
+      "hasChildren": true,
+      "description": "Node.js SSR server, build toolchain, and config"
     },
     {
-      "id": "ssr-server",
-      "name": "SSR Server",
-      "description": "React Router serve entry point with Vite bundling",
-      "type": "service",
+      "id": "browser-group",
+      "name": "Browser",
+      "type": "group",
       "hasChildren": true,
-      "parent": "server"
+      "description": "Client-side application: views, state, data fetching, UI components"
+    },
+    {
+      "id": "external-group",
+      "name": "External",
+      "type": "group",
+      "hasChildren": true,
+      "description": "External APIs and test infrastructure"
+    },
+    {
+      "id": "server",
+      "name": "Server",
+      "description": "SSR entry point and build pipeline \u2014 serves pre-rendered HTML and hydrates on client",
+      "type": "group",
+      "hasChildren": true,
+      "file": "vite.config.ts",
+      "parent": "server-group"
     },
     {
       "id": "vite-config",
       "name": "Vite Config",
-      "description": "Vite build configuration with Tailwind, React Router, and tsconfig-paths plugins",
+      "description": "Build toolchain \u2014 TailwindCSS plugin, React Router plugin, path aliases",
       "type": "config",
       "hasChildren": false,
-      "parent": "ssr-server",
-      "file": "vite.config.ts",
-      "exports": [
-        {
-          "name": "default",
-          "kind": "config",
-          "description": "defineConfig with tailwindcss(), reactRouter(), tsconfigPaths() plugins and @ alias"
-        }
-      ]
+      "parent": "server",
+      "file": "vite.config.ts"
     },
     {
-      "id": "react-router-config",
+      "id": "rr-config",
       "name": "React Router Config",
-      "description": "React Router framework config enabling SSR and prerendering",
+      "description": "Enables SSR and pre-renders / and /products at build time",
       "type": "config",
       "hasChildren": false,
-      "parent": "ssr-server",
-      "file": "react-router.config.ts",
-      "exports": [
-        {
-          "name": "default",
-          "kind": "config",
-          "description": "Config with ssr: true and prerender for / and /products"
-        }
-      ]
+      "parent": "server",
+      "file": "react-router.config.ts"
     },
     {
-      "id": "route-definitions",
-      "name": "Route Definitions",
-      "description": "File-based route tree mapping URLs to route modules",
-      "type": "config",
-      "hasChildren": true,
-      "parent": "server"
-    },
-    {
-      "id": "routes-config",
-      "name": "Routes Config",
-      "description": "Declares the URL-to-module mapping for all routes",
+      "id": "docker-build",
+      "name": "Docker Build",
+      "description": "Multi-stage Alpine build \u2014 dev deps, prod deps, build, serve",
       "type": "config",
       "hasChildren": false,
-      "parent": "route-definitions",
-      "file": "app/routes.ts",
-      "exports": [
-        {
-          "name": "default",
-          "kind": "const",
-          "description": "RouteConfig array: / -> root-layout (children: index -> home, products/:category?), /checkout, /success"
-        }
-      ]
+      "parent": "server",
+      "file": "Dockerfile"
     },
     {
-      "id": "app-shell",
-      "name": "App Shell",
-      "description": "Root React component with QueryClientProvider and theme initialisation",
-      "type": "component",
-      "hasChildren": true,
-      "parent": "server"
-    },
-    {
-      "id": "root-module",
-      "name": "Root Module",
-      "description": "HTML document shell, QueryClient setup, error boundary",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "app-shell",
-      "file": "app/root.tsx",
-      "exports": [
-        {
-          "name": "Layout",
-          "kind": "component",
-          "description": "HTML document wrapper with <Meta>, <Links>, <Scripts>, <ScrollRestoration>"
-        },
-        {
-          "name": "App",
-          "kind": "component",
-          "description": "Default export; creates QueryClient, wraps Outlet in QueryClientProvider, renders Toaster"
-        },
-        {
-          "name": "ErrorBoundary",
-          "kind": "component",
-          "description": "Catches route errors; renders 404 or generic error with dev stack trace"
-        }
-      ]
-    },
-    {
-      "id": "global-styles",
-      "name": "Global Styles",
-      "description": "Tailwind base, theme tokens (oklch), custom collapsible animations",
-      "type": "stylesheet",
-      "hasChildren": false,
-      "parent": "app-shell",
-      "file": "app/app.css",
-      "exports": [
-        {
-          "name": ":root",
-          "kind": "css-custom-properties",
-          "description": "Light theme design tokens (background, foreground, primary, etc.)"
-        },
-        {
-          "name": ".dark",
-          "kind": "css-custom-properties",
-          "description": "Dark theme design tokens"
-        },
-        {
-          "name": "slideDown / slideUp",
-          "kind": "keyframes",
-          "description": "Animations for Radix Collapsible open/close"
-        }
-      ]
-    },
-    {
-      "id": "browser",
-      "name": "Browser",
-      "description": "Client-side application: views, state, data fetching, UI components",
+      "id": "shell",
+      "name": "Application Shell",
+      "description": "Root layout, providers, theme initialization, error boundary, and shared navigation",
       "type": "group",
-      "hasChildren": true
-    },
-    {
-      "id": "shared-lib",
-      "name": "Shared Types & Utilities",
-      "description": "Domain types and helper functions used across the app",
-      "type": "library",
       "hasChildren": true,
-      "parent": "browser"
+      "file": "app/root.tsx",
+      "parent": "browser-group"
     },
     {
-      "id": "types",
-      "name": "Domain Types",
-      "description": "Core domain type definitions for products, categories, and cart",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "shared-lib",
-      "file": "app/types.ts",
-      "exports": [
-        {
-          "name": "Category",
-          "kind": "type",
-          "description": "{ id, slug, name, image }"
-        },
-        {
-          "name": "Product",
-          "kind": "type",
-          "description": "{ id, title, price, images }"
-        },
-        {
-          "name": "CartItem",
-          "kind": "type",
-          "description": "{ product: Product, count: number }"
-        }
-      ]
-    },
-    {
-      "id": "utils",
-      "name": "Utility Functions",
-      "description": "Tailwind class merge helper and slug-to-title converter",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "shared-lib",
-      "file": "app/utils.ts",
-      "exports": [
-        {
-          "name": "cn",
-          "kind": "function",
-          "description": "Merges clsx + tailwind-merge for conditional class names"
-        },
-        {
-          "name": "fromSlugToTitle",
-          "kind": "function",
-          "description": "Converts kebab-case slug to Title Case"
-        }
-      ]
-    },
-    {
-      "id": "query-layer",
-      "name": "Data Fetching Layer",
-      "description": "TanStack Query + ky HTTP client for server state",
-      "type": "library",
-      "hasChildren": true,
-      "parent": "browser"
-    },
-    {
-      "id": "api-client",
-      "name": "API Client",
-      "description": "ky instance configured for dummyjson.com",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "query-layer",
-      "file": "app/api.ts",
-      "exports": [
-        {
-          "name": "api",
-          "kind": "const",
-          "description": "ky instance with prefixUrl https://dummyjson.com"
-        }
-      ]
-    },
-    {
-      "id": "categories-query",
-      "name": "Categories Query",
-      "description": "TanStack query options and hook for fetching all product categories",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "query-layer",
-      "file": "app/hooks/categories-query.tsx",
-      "exports": [
-        {
-          "name": "categoriesQueryOptions",
-          "kind": "const",
-          "description": "queryOptions for GET /products/categories returning Category[]"
-        },
-        {
-          "name": "useCategoriesQuery",
-          "kind": "function",
-          "description": "React hook wrapping useQuery(categoriesQueryOptions)"
-        }
-      ]
-    },
-    {
-      "id": "home-infinite-query",
-      "name": "Home Category Sections",
-      "description": "Infinite query for loading products grouped by category on home page",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "query-layer",
-      "file": "app/routes/home/hooks/category-sections-infinte-query.tsx",
-      "exports": [
-        {
-          "name": "categorySectionsInfiniteQueryOptions",
-          "kind": "function",
-          "description": "Returns infiniteQueryOptions; pages of 4 categories with 4 products each, 800ms artificial delay"
-        },
-        {
-          "name": "useCategorySectionsInfiniteQuery",
-          "kind": "function",
-          "description": "React hook combining useCategoriesQuery + useInfiniteQuery"
-        }
-      ]
-    },
-    {
-      "id": "products-infinite-query",
-      "name": "Products Pagination",
-      "description": "Infinite query for paginated product list with offset-based pagination",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "query-layer",
-      "file": "app/routes/products/hooks/products-infinite-query.tsx",
-      "exports": [
-        {
-          "name": "productsInfiniteQueryOptions",
-          "kind": "function",
-          "description": "Returns infiniteQueryOptions for GET /products or /products/category/:slug, limit 8, skip-based pagination"
-        },
-        {
-          "name": "useProductsInfiniteQuery",
-          "kind": "function",
-          "description": "React hook wrapping useInfiniteQuery(productsInfiniteQueryOptions)"
-        }
-      ]
-    },
-    {
-      "id": "client-state",
-      "name": "Client State",
-      "description": "Zustand stores persisted to localStorage",
-      "type": "library",
-      "hasChildren": true,
-      "parent": "browser"
-    },
-    {
-      "id": "cart-store",
-      "name": "Cart Store",
-      "description": "Shopping cart state with add/remove/increment/decrement/clear actions",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "client-state",
-      "file": "app/hooks/cart-store.tsx",
-      "exports": [
-        {
-          "name": "useCartStore",
-          "kind": "function",
-          "description": "Zustand store hook; state: items, total, successfulOrder; actions: addItem, removeItem, incrementItem, decrementItem, clear; persisted as 'cart-storage'"
-        }
-      ]
-    },
-    {
-      "id": "theme-store",
-      "name": "Theme Store",
-      "description": "Theme preference state (dark/light/system) with DOM class toggle",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "client-state",
-      "file": "app/hooks/theme-store.tsx",
-      "exports": [
-        {
-          "name": "useThemeStore",
-          "kind": "function",
-          "description": "Zustand store hook; state: theme; action: setTheme (toggles documentElement classList); persisted as 'theme-storage'"
-        }
-      ]
-    },
-    {
-      "id": "ui-shell",
-      "name": "UI Shell",
-      "description": "Root layout route with Header, nav, and cart drawer",
+      "id": "root-app",
+      "name": "Root App",
+      "description": "Creates QueryClient, initializes theme, wraps app in QueryClientProvider",
       "type": "component",
-      "hasChildren": true,
-      "parent": "browser"
+      "hasChildren": false,
+      "parent": "shell",
+      "file": "app/root.tsx"
+    },
+    {
+      "id": "route-tree",
+      "name": "Route Tree",
+      "description": "Declares nested route structure: root-layout wrapping home and products, plus checkout and success",
+      "type": "config",
+      "hasChildren": false,
+      "parent": "shell",
+      "file": "app/routes.ts"
     },
     {
       "id": "root-layout",
-      "name": "Root Layout Route",
-      "description": "Layout route that prefetches categories and renders Header + Outlet",
-      "type": "route",
-      "hasChildren": false,
-      "parent": "ui-shell",
-      "file": "app/routes/root-layout/index.tsx",
-      "exports": [
-        {
-          "name": "loader",
-          "kind": "function",
-          "description": "SSR loader: prefetches categoriesQueryOptions, returns dehydrated QueryClient"
-        },
-        {
-          "name": "RootLayout",
-          "kind": "component",
-          "description": "Default export; wraps children in HydrationBoundary, renders Header + <main><Outlet/></main>"
-        }
-      ]
+      "name": "Root Layout",
+      "description": "SSR loader prefetches categories, wraps child routes in HydrationBoundary with sticky header",
+      "type": "group",
+      "hasChildren": true,
+      "parent": "shell",
+      "file": "app/routes/root-layout/index.tsx"
     },
     {
       "id": "header",
       "name": "Header",
-      "description": "Sticky top bar with NavMenu, Logo, Cart, and ThemeToggle",
-      "type": "component",
-      "hasChildren": true,
-      "parent": "ui-shell",
-      "file": "app/routes/root-layout/components/header.tsx",
-      "exports": [
-        {
-          "name": "default",
-          "kind": "component",
-          "description": "Header component composing NavMenu, Logo, Cart, ThemeToggle in a sticky bar"
-        }
-      ]
-    },
-    {
-      "id": "logo",
-      "name": "Logo",
-      "description": "ShopHub brand mark linking to home",
+      "description": "Sticky header with navigation menu, logo, cart drawer, and theme toggle",
       "type": "component",
       "hasChildren": false,
-      "parent": "header",
-      "file": "app/routes/root-layout/components/logo.tsx",
-      "exports": [
-        {
-          "name": "Logo",
-          "kind": "component",
-          "description": "Renders 'S' badge + 'ShopHub' text as Link to /"
-        }
-      ]
+      "parent": "root-layout",
+      "file": "app/routes/root-layout/components/header.tsx"
     },
     {
       "id": "nav-menu",
       "name": "Navigation Menu",
-      "description": "Slide-out sheet with category links and collapsible 'See All'",
+      "description": "Slide-out sheet listing all product categories with collapsible overflow",
       "type": "component",
       "hasChildren": false,
-      "parent": "header",
-      "file": "app/routes/root-layout/components/nav-menu.tsx",
-      "exports": [
-        {
-          "name": "NavMenu",
-          "kind": "component",
-          "description": "Sheet-based mobile nav; shows first 10 categories + collapsible rest; auto-closes on navigation"
-        }
-      ]
+      "parent": "root-layout",
+      "file": "app/routes/root-layout/components/nav-menu.tsx"
     },
     {
-      "id": "cart-drawer",
-      "name": "Cart Drawer",
-      "description": "Shopping cart slide-out sheet with item list and checkout link",
-      "type": "component",
-      "hasChildren": true,
-      "parent": "header",
-      "file": "app/routes/root-layout/components/cart/index.tsx",
-      "exports": [
-        {
-          "name": "Cart",
-          "kind": "component",
-          "description": "Sheet with ShoppingCart trigger badge, CartItem list or EmptyState, total, Checkout link"
-        }
-      ]
-    },
-    {
-      "id": "cart-item",
-      "name": "Cart Item",
-      "description": "Single cart line item with quantity controls and remove button",
+      "id": "logo",
+      "name": "Logo",
+      "description": "ShopHub brand mark and link to home",
       "type": "component",
       "hasChildren": false,
-      "parent": "cart-drawer",
-      "file": "app/routes/root-layout/components/cart/cart-item.tsx",
-      "exports": [
-        {
-          "name": "CartItem",
-          "kind": "component",
-          "description": "Renders product thumbnail, title, price, +/- buttons, and remove (X) button"
-        }
-      ]
+      "parent": "root-layout",
+      "file": "app/routes/root-layout/components/logo.tsx"
     },
     {
-      "id": "cart-empty-state",
-      "name": "Cart Empty State",
-      "description": "Empty cart placeholder with icon and message",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "cart-drawer",
-      "file": "app/routes/root-layout/components/cart/empty-state.tsx",
-      "exports": [
-        {
-          "name": "EmptyState",
-          "kind": "component",
-          "description": "Renders ShoppingCart icon + 'Your cart is empty' message"
-        }
-      ]
-    },
-    {
-      "id": "theme-toggle",
-      "name": "Theme Toggle",
-      "description": "Light/dark mode toggle button",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "header",
-      "file": "app/components/theme-toggle.tsx",
-      "exports": [
-        {
-          "name": "ThemeToggle",
-          "kind": "component",
-          "description": "Button toggling useThemeStore between light/dark; shows Sun/Moon icons"
-        }
-      ]
-    },
-    {
-      "id": "catalogue-views",
-      "name": "Catalogue Views",
-      "description": "Home page and products list page with infinite scroll",
+      "id": "home-page",
+      "name": "Home Page",
+      "description": "Featured categories with infinite scroll \u2014 each section shows 4 products from a category",
       "type": "group",
       "hasChildren": true,
-      "parent": "browser"
-    },
-    {
-      "id": "home-route",
-      "name": "Home Page",
-      "description": "Featured categories view with infinite-scroll category sections",
-      "type": "route",
-      "hasChildren": true,
-      "parent": "catalogue-views",
       "file": "app/routes/home/index.tsx",
-      "exports": [
-        {
-          "name": "meta",
-          "kind": "function",
-          "description": "Sets page title 'ShopHub | Home' and description meta"
-        },
-        {
-          "name": "loader",
-          "kind": "function",
-          "description": "SSR loader: fetches categories, prefetches first page of categorySectionsInfiniteQuery, returns dehydrated state"
-        },
-        {
-          "name": "HomeRoute",
-          "kind": "component",
-          "description": "Default export; HydrationBoundary wrapping Home component with infinite scroll via react-intersection-observer"
-        }
-      ]
+      "parent": "browser-group"
     },
     {
       "id": "category-section",
       "name": "Category Section",
-      "description": "Horizontal scrollable row of product cards for a single category",
+      "description": "Horizontal scrolling product row for a single category with 'See More' link",
       "type": "component",
       "hasChildren": false,
-      "parent": "home-route",
-      "file": "app/routes/home/components/CategorySection.tsx",
-      "exports": [
-        {
-          "name": "CategorySection",
-          "kind": "component",
-          "description": "Renders category title link + horizontal ProductCard row + 'See More' link"
-        },
-        {
-          "name": "CategorySectionSkeleton",
-          "kind": "component",
-          "description": "Loading skeleton matching CategorySection layout"
-        }
-      ]
+      "parent": "home-page",
+      "file": "app/routes/home/components/CategorySection.tsx"
     },
     {
-      "id": "products-route",
+      "id": "category-sections-query",
+      "name": "Category Sections Query",
+      "description": "Infinite query that pages through categories in groups of 4, fetching products for each",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "home-page",
+      "file": "app/routes/home/hooks/category-sections-infinte-query.tsx"
+    },
+    {
+      "id": "products-page",
       "name": "Products Page",
-      "description": "Grid view of products with optional category filter and load-more pagination",
-      "type": "route",
+      "description": "Category or all-products grid with infinite pagination and SSR prefetch",
+      "type": "group",
       "hasChildren": true,
-      "parent": "catalogue-views",
       "file": "app/routes/products/index.tsx",
-      "exports": [
-        {
-          "name": "meta",
-          "kind": "function",
-          "description": "Dynamic page title based on category param or 'All Products'"
-        },
-        {
-          "name": "loader",
-          "kind": "function",
-          "description": "SSR loader: prefetches productsInfiniteQuery for the category, returns dehydrated state + title"
-        },
-        {
-          "name": "CategoriesRoute",
-          "kind": "component",
-          "description": "Default export; HydrationBoundary wrapping grid of ProductCards with 'Load more' button"
-        }
-      ]
+      "parent": "browser-group"
+    },
+    {
+      "id": "products-query",
+      "name": "Products Infinite Query",
+      "description": "Cursor-based infinite query fetching products in pages of 8",
+      "type": "library",
+      "hasChildren": false,
+      "parent": "products-page",
+      "file": "app/routes/products/hooks/products-infinite-query.tsx"
     },
     {
       "id": "category-breadcrumb",
       "name": "Category Breadcrumb",
-      "description": "Breadcrumb navigation showing Featured Categories > current category",
+      "description": "Breadcrumb navigation showing Featured Categories > Current Category",
       "type": "component",
       "hasChildren": false,
-      "parent": "products-route",
-      "file": "app/routes/products/components/category-breadcrumb.tsx",
-      "exports": [
-        {
-          "name": "CategoryBreadcrumb",
-          "kind": "component",
-          "description": "Breadcrumb with Link to / (Featured Categories) > current category page"
-        }
-      ]
+      "parent": "products-page",
+      "file": "app/routes/products/components/category-breadcrumb.tsx"
     },
     {
-      "id": "checkout-flow",
-      "name": "Checkout Flow",
-      "description": "Two-page checkout: form submission and order success confirmation",
+      "id": "checkout-page",
+      "name": "Checkout Page",
+      "description": "Order summary with shipping and payment forms \u2014 client-side action clears cart and redirects to success",
       "type": "group",
       "hasChildren": true,
-      "parent": "browser"
-    },
-    {
-      "id": "checkout-route",
-      "name": "Checkout Page",
-      "description": "Order summary + shipping/payment forms with client-side action",
-      "type": "route",
-      "hasChildren": true,
-      "parent": "checkout-flow",
       "file": "app/routes/checkout/index.tsx",
-      "exports": [
-        {
-          "name": "meta",
-          "kind": "function",
-          "description": "Sets page title 'ShopHub | Checkout'"
-        },
-        {
-          "name": "clientAction",
-          "kind": "function",
-          "description": "Simulates 1s order processing, clears cart, sets successfulOrder flag, redirects to /success"
-        },
-        {
-          "name": "clientLoader",
-          "kind": "function",
-          "description": "Guards route: redirects to /products if cart is empty"
-        },
-        {
-          "name": "Checkout",
-          "kind": "component",
-          "description": "Default export; two-column layout with OrderSummary + Form (ShippingForm, PaymentForm, submit button with loading state)"
-        }
-      ]
-    },
-    {
-      "id": "checkout-barrel",
-      "name": "Checkout Components Barrel",
-      "description": "Re-exports OrderSummary, ShippingForm, PaymentForm",
-      "type": "library",
-      "hasChildren": false,
-      "parent": "checkout-route",
-      "file": "app/routes/checkout/components/index.ts",
-      "exports": [
-        {
-          "name": "*",
-          "kind": "re-export",
-          "description": "Barrel re-exporting from order-summary, shipping-form, payment-form"
-        }
-      ]
+      "parent": "browser-group"
     },
     {
       "id": "order-summary",
       "name": "Order Summary",
       "description": "Displays cart items with subtotal, VAT, and total",
       "type": "component",
-      "hasChildren": true,
-      "parent": "checkout-route",
-      "file": "app/routes/checkout/components/order-summary.tsx",
-      "exports": [
-        {
-          "name": "OrderSummary",
-          "kind": "component",
-          "description": "Renders list of OrderItems + subtotal/VAT(20%)/total breakdown"
-        }
-      ]
-    },
-    {
-      "id": "order-item",
-      "name": "Order Item",
-      "description": "Single line item in the order summary",
-      "type": "component",
       "hasChildren": false,
-      "parent": "order-summary",
-      "file": "app/routes/checkout/components/order-item.tsx",
-      "exports": [
-        {
-          "name": "OrderItem",
-          "kind": "component",
-          "description": "Renders product thumbnail, title, quantity, and line total"
-        }
-      ]
+      "parent": "checkout-page",
+      "file": "app/routes/checkout/components/order-summary.tsx"
     },
     {
       "id": "shipping-form",
       "name": "Shipping Form",
-      "description": "Form fields for name, email, address, city, postal code",
+      "description": "Collects name, email, address, city, postal code",
       "type": "component",
       "hasChildren": false,
-      "parent": "checkout-route",
-      "file": "app/routes/checkout/components/shipping-form.tsx",
-      "exports": [
-        {
-          "name": "ShippingForm",
-          "kind": "component",
-          "description": "Renders labeled Input fields: Full Name, Email, Address, City, Postal Code"
-        }
-      ]
+      "parent": "checkout-page",
+      "file": "app/routes/checkout/components/shipping-form.tsx"
     },
     {
       "id": "payment-form",
       "name": "Payment Form",
-      "description": "Form fields for card number, expiry, CVV",
+      "description": "Collects card number, expiry, CVV",
       "type": "component",
       "hasChildren": false,
-      "parent": "checkout-route",
-      "file": "app/routes/checkout/components/payment-form.tsx",
-      "exports": [
-        {
-          "name": "PaymentForm",
-          "kind": "component",
-          "description": "Renders labeled Input fields: Card Number, Expiry Date (MM/YY), CVV"
-        }
-      ]
+      "parent": "checkout-page",
+      "file": "app/routes/checkout/components/payment-form.tsx"
     },
     {
-      "id": "success-route",
+      "id": "success-page",
       "name": "Success Page",
-      "description": "Order confirmation with confetti animation",
-      "type": "route",
+      "description": "Confetti animation and order confirmation \u2014 guards against direct access via cart state",
+      "type": "component",
       "hasChildren": false,
-      "parent": "checkout-flow",
-      "file": "app/routes/success.tsx",
-      "exports": [
-        {
-          "name": "meta",
-          "kind": "function",
-          "description": "Sets page title 'ShopHub | Success'"
-        },
-        {
-          "name": "clientLoader",
-          "kind": "function",
-          "description": "Guards route: redirects to /products unless successfulOrder flag is set; clears flag after read"
-        },
-        {
-          "name": "Success",
-          "kind": "component",
-          "description": "Default export; renders CheckCircle icon, success message, order number #134145, confetti via js-confetti, and 'Continue Shopping' link"
-        }
-      ]
+      "parent": "checkout-page",
+      "file": "app/routes/success.tsx"
     },
     {
-      "id": "shared-ui",
-      "name": "Shared UI Components",
-      "description": "Reusable presentation components used across multiple views",
-      "type": "library",
+      "id": "cart-drawer",
+      "name": "Cart Drawer",
+      "description": "Slide-out sheet showing cart contents with quantity controls and checkout link",
+      "type": "component",
+      "hasChildren": false,
+      "file": "app/routes/root-layout/components/cart/index.tsx",
+      "parent": "browser-group"
+    },
+    {
+      "id": "shared-components",
+      "name": "Shared Components",
+      "description": "Reusable UI primitives and domain components used across routes",
+      "type": "group",
       "hasChildren": true,
-      "parent": "browser"
+      "file": "app/components/product-card.tsx",
+      "parent": "browser-group"
     },
     {
       "id": "product-card",
       "name": "Product Card",
-      "description": "Product display card with image, title, price, and add-to-cart",
+      "description": "Product image, title, price, and add-to-cart button with toast notification",
       "type": "component",
       "hasChildren": false,
-      "parent": "shared-ui",
-      "file": "app/components/product-card.tsx",
-      "exports": [
-        {
-          "name": "ProductCard",
-          "kind": "component",
-          "description": "Card with product image (hover zoom), title, price, and 'Add to cart' button triggering sonner toast"
-        },
-        {
-          "name": "ProductCardSkeleton",
-          "kind": "component",
-          "description": "Pulse-animated loading skeleton matching ProductCard dimensions"
-        }
-      ]
+      "parent": "shared-components",
+      "file": "app/components/product-card.tsx"
+    },
+    {
+      "id": "theme-toggle",
+      "name": "Theme Toggle",
+      "description": "Sun/moon icon button that cycles between light and dark themes",
+      "type": "component",
+      "hasChildren": false,
+      "parent": "shared-components",
+      "file": "app/components/theme-toggle.tsx"
     },
     {
       "id": "ui-primitives",
       "name": "UI Primitives",
-      "description": "Radix-based headless UI components styled with Tailwind",
+      "description": "Radix-based components \u2014 Button, Input, Sheet, Breadcrumb, Collapsible, NavigationMenu, Sonner",
       "type": "library",
-      "hasChildren": true,
-      "parent": "shared-ui"
-    },
-    {
-      "id": "ui-button",
-      "name": "Button",
-      "description": "CVA-styled button with variant and size props",
-      "type": "component",
       "hasChildren": false,
-      "parent": "ui-primitives",
-      "file": "app/components/ui/button.tsx",
-      "exports": [
-        {
-          "name": "Button",
-          "kind": "component",
-          "description": "Polymorphic button (asChild via Radix Slot); variants: default, destructive, outline, secondary, ghost, link; sizes: default, sm, lg, icon"
-        },
-        {
-          "name": "buttonVariants",
-          "kind": "const",
-          "description": "CVA variant definition for reuse outside Button component"
-        }
-      ]
+      "parent": "shared-components",
+      "file": "app/components/ui/button.tsx"
     },
     {
-      "id": "ui-sheet",
-      "name": "Sheet",
-      "description": "Slide-over dialog panel (Radix Dialog-based)",
-      "type": "component",
+      "id": "api-client",
+      "name": "API Client",
+      "description": "ky HTTP client configured with DummyJSON base URL",
+      "type": "library",
       "hasChildren": false,
-      "parent": "ui-primitives",
-      "file": "app/components/ui/sheet.tsx",
-      "exports": [
-        {
-          "name": "Sheet",
-          "kind": "component",
-          "description": "Root wrapper around Radix Dialog"
-        },
-        {
-          "name": "SheetTrigger",
-          "kind": "component",
-          "description": "Trigger element for opening the sheet"
-        },
-        {
-          "name": "SheetClose",
-          "kind": "component",
-          "description": "Close button element"
-        },
-        {
-          "name": "SheetContent",
-          "kind": "component",
-          "description": "Animated panel with side prop (top/right/bottom/left), overlay, and close X"
-        },
-        {
-          "name": "SheetHeader",
-          "kind": "component",
-          "description": "Flex column header area"
-        },
-        {
-          "name": "SheetFooter",
-          "kind": "component",
-          "description": "Auto-margin footer area"
-        },
-        {
-          "name": "SheetTitle",
-          "kind": "component",
-          "description": "Radix Dialog.Title with font styling"
-        },
-        {
-          "name": "SheetDescription",
-          "kind": "component",
-          "description": "Radix Dialog.Description with muted styling"
-        }
-      ]
+      "file": "app/api.ts",
+      "parent": "browser-group"
     },
     {
-      "id": "ui-navigation-menu",
-      "name": "Navigation Menu",
-      "description": "Radix Navigation Menu with viewport and animations",
-      "type": "component",
+      "id": "cart-store",
+      "name": "Cart Store",
+      "description": "Zustand store with localStorage persistence \u2014 manages items, quantities, totals, and order state",
+      "type": "library",
       "hasChildren": false,
-      "parent": "ui-primitives",
-      "file": "app/components/ui/navigation-menu.tsx",
-      "exports": [
-        {
-          "name": "NavigationMenu",
-          "kind": "component",
-          "description": "Root container with optional viewport"
-        },
-        {
-          "name": "NavigationMenuList",
-          "kind": "component",
-          "description": "Horizontal list of menu items"
-        },
-        {
-          "name": "NavigationMenuItem",
-          "kind": "component",
-          "description": "Single menu item wrapper"
-        },
-        {
-          "name": "NavigationMenuContent",
-          "kind": "component",
-          "description": "Dropdown content with slide animations"
-        },
-        {
-          "name": "NavigationMenuTrigger",
-          "kind": "component",
-          "description": "Trigger with chevron rotation animation"
-        },
-        {
-          "name": "NavigationMenuLink",
-          "kind": "component",
-          "description": "Styled anchor link within menu"
-        },
-        {
-          "name": "NavigationMenuIndicator",
-          "kind": "component",
-          "description": "Visual indicator for active menu item"
-        },
-        {
-          "name": "NavigationMenuViewport",
-          "kind": "component",
-          "description": "Viewport container for dropdown content"
-        },
-        {
-          "name": "navigationMenuTriggerStyle",
-          "kind": "const",
-          "description": "CVA class string for trigger styling reuse"
-        }
-      ]
+      "file": "app/hooks/cart-store.tsx",
+      "parent": "browser-group"
     },
     {
-      "id": "ui-breadcrumb",
-      "name": "Breadcrumb",
-      "description": "Composable breadcrumb navigation primitives",
-      "type": "component",
+      "id": "theme-store",
+      "name": "Theme Store",
+      "description": "Zustand store with localStorage persistence \u2014 manages dark/light/system theme preference",
+      "type": "library",
       "hasChildren": false,
-      "parent": "ui-primitives",
-      "file": "app/components/ui/breadcrumb.tsx",
-      "exports": [
-        {
-          "name": "Breadcrumb",
-          "kind": "component",
-          "description": "Nav wrapper with aria-label='breadcrumb'"
-        },
-        {
-          "name": "BreadcrumbList",
-          "kind": "component",
-          "description": "Ordered list of breadcrumb items"
-        },
-        {
-          "name": "BreadcrumbItem",
-          "kind": "component",
-          "description": "Single breadcrumb item li"
-        },
-        {
-          "name": "BreadcrumbLink",
-          "kind": "component",
-          "description": "Anchor or Slot-based breadcrumb link"
-        },
-        {
-          "name": "BreadcrumbPage",
-          "kind": "component",
-          "description": "Current page indicator (aria-current='page')"
-        },
-        {
-          "name": "BreadcrumbSeparator",
-          "kind": "component",
-          "description": "ChevronRight separator between breadcrumb items"
-        },
-        {
-          "name": "BreadcrumbEllipsis",
-          "kind": "component",
-          "description": "MoreHorizontal icon for collapsed breadcrumb overflow"
-        }
-      ]
+      "file": "app/hooks/theme-store.tsx",
+      "parent": "browser-group"
     },
     {
-      "id": "ui-collapsible",
-      "name": "Collapsible",
-      "description": "Radix Collapsible with slide animations",
-      "type": "component",
+      "id": "domain-types",
+      "name": "Domain Types",
+      "description": "TypeScript type definitions for Category, Product, and CartItem",
+      "type": "library",
       "hasChildren": false,
-      "parent": "ui-primitives",
-      "file": "app/components/ui/collapsible.tsx",
-      "exports": [
-        {
-          "name": "Collapsible",
-          "kind": "component",
-          "description": "Root collapsible wrapper"
-        },
-        {
-          "name": "CollapsibleTrigger",
-          "kind": "component",
-          "description": "Toggle trigger for expanding/collapsing"
-        },
-        {
-          "name": "CollapsibleContent",
-          "kind": "component",
-          "description": "Animated content panel with slideDown/slideUp keyframes"
-        }
-      ]
+      "file": "app/types.ts",
+      "parent": "browser-group"
     },
     {
-      "id": "ui-input",
-      "name": "Input",
-      "description": "Styled text input with focus ring and validation states",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "ui-primitives",
-      "file": "app/components/ui/input.tsx",
-      "exports": [
-        {
-          "name": "Input",
-          "kind": "component",
-          "description": "HTML input with Tailwind styling, focus-visible ring, aria-invalid destructive state"
-        }
-      ]
-    },
-    {
-      "id": "ui-sonner",
-      "name": "Toaster",
-      "description": "Theme-aware toast notification container",
-      "type": "component",
-      "hasChildren": false,
-      "parent": "ui-primitives",
-      "file": "app/components/ui/sonner.tsx",
-      "exports": [
-        {
-          "name": "Toaster",
-          "kind": "component",
-          "description": "Sonner Toaster wrapper that reads theme from useThemeStore for light/dark toast styling"
-        }
-      ]
-    },
-    {
-      "id": "external",
-      "name": "External",
-      "description": "External APIs, test infrastructure",
-      "type": "group",
-      "hasChildren": true
-    },
-    {
-      "id": "dummyjson-api",
+      "id": "dummyjson",
       "name": "DummyJSON API",
-      "description": "Third-party REST API at https://dummyjson.com",
+      "description": "Product catalog and category data \u2014 the only data source for the entire storefront",
       "type": "external-service",
-      "hasChildren": true,
-      "parent": "external"
-    },
-    {
-      "id": "dummyjson-categories",
-      "name": "Categories Endpoint",
-      "description": "GET /products/categories - returns all product categories",
-      "type": "endpoint",
       "hasChildren": false,
-      "parent": "dummyjson-api"
-    },
-    {
-      "id": "dummyjson-products",
-      "name": "Products Endpoint",
-      "description": "GET /products - paginated product list with select, limit, skip params",
-      "type": "endpoint",
-      "hasChildren": false,
-      "parent": "dummyjson-api"
-    },
-    {
-      "id": "dummyjson-products-by-category",
-      "name": "Products by Category Endpoint",
-      "description": "GET /products/category/:slug - filtered product list by category slug",
-      "type": "endpoint",
-      "hasChildren": false,
-      "parent": "dummyjson-api"
-    },
-    {
-      "id": "e2e-tests",
-      "name": "E2E Test Suite",
-      "description": "Playwright end-to-end tests against dev server",
-      "type": "test-suite",
-      "hasChildren": true,
-      "parent": "external"
-    },
-    {
-      "id": "e2e-config",
-      "name": "Playwright Config",
-      "description": "Test runner config: fullyParallel, 3 browsers, baseURL localhost:5173",
-      "type": "config",
-      "hasChildren": false,
-      "parent": "e2e-tests",
-      "file": "playwright.config.ts",
-      "exports": [
-        {
-          "name": "default",
-          "kind": "config",
-          "description": "defineConfig with chromium/firefox/webkit projects, webServer command 'yarn dev'"
-        }
-      ]
-    },
-    {
-      "id": "e2e-products",
-      "name": "Products Tests",
-      "description": "Tests for product display, add-to-cart, and category navigation",
-      "type": "test",
-      "hasChildren": false,
-      "parent": "e2e-tests",
-      "file": "e2e/products.spec.ts",
-      "exports": [
-        {
-          "name": "Products page",
-          "kind": "test-suite",
-          "description": "3 tests: display products by category, add product to cart, navigate between categories"
-        }
-      ]
-    },
-    {
-      "id": "e2e-checkout",
-      "name": "Checkout Tests",
-      "description": "Full checkout flow test from product add to success page",
-      "type": "test",
-      "hasChildren": false,
-      "parent": "e2e-tests",
-      "file": "e2e/checkout.spec.ts",
-      "exports": [
-        {
-          "name": "Checkout flow",
-          "kind": "test-suite",
-          "description": "1 test: complete checkout process (add to cart, fill shipping + payment, submit, verify success page)"
-        }
-      ]
+      "parent": "external-group"
     }
   ],
   "edges": [
     {
-      "source": "ssr-server",
-      "target": "dummyjson-api",
-      "label": "SSR Prefetch + Hydration",
-      "flowId": "ssr-prefetch-flow"
+      "source": "root-layout",
+      "target": "api-client",
+      "label": "SSR Category Prefetch",
+      "flowId": "ssr-prefetch"
     },
     {
-      "source": "dummyjson-api",
+      "source": "api-client",
       "target": "root-layout",
-      "label": "SSR Prefetch + Hydration",
-      "flowId": "ssr-prefetch-flow"
+      "label": "SSR Category Prefetch",
+      "flowId": "ssr-prefetch"
     },
     {
       "source": "root-layout",
-      "target": "home-route",
-      "label": "SSR Prefetch + Hydration",
-      "flowId": "ssr-prefetch-flow"
-    },
-    {
-      "source": "home-route",
-      "target": "products-route",
-      "label": "SSR Prefetch + Hydration",
-      "flowId": "ssr-prefetch-flow"
-    },
-    {
-      "source": "home-route",
-      "target": "home-infinite-query",
-      "label": "Infinite Scroll (Home)",
-      "flowId": "infinite-scroll-flow"
-    },
-    {
-      "source": "home-infinite-query",
-      "target": "api-client",
-      "label": "Infinite Scroll (Home)",
-      "flowId": "infinite-scroll-flow"
-    },
-    {
-      "source": "api-client",
-      "target": "dummyjson-products-by-category",
-      "label": "Infinite Scroll (Home)",
-      "flowId": "infinite-scroll-flow"
-    },
-    {
-      "source": "products-route",
-      "target": "products-infinite-query",
-      "label": "Load More (Products)",
-      "flowId": "load-more-flow"
-    },
-    {
-      "source": "products-infinite-query",
-      "target": "api-client",
-      "label": "Load More (Products)",
-      "flowId": "load-more-flow"
-    },
-    {
-      "source": "api-client",
-      "target": "dummyjson-products",
-      "label": "Load More (Products)",
-      "flowId": "load-more-flow"
+      "target": "root-app",
+      "label": "SSR Category Prefetch",
+      "flowId": "ssr-prefetch"
     },
     {
       "source": "product-card",
       "target": "cart-store",
-      "label": "Cart Add-to-Checkout",
+      "label": "Add to Cart",
       "flowId": "cart-flow"
+    },
+    {
+      "source": "checkout-page",
+      "target": "cart-store",
+      "label": "Checkout and Order Placement",
+      "flowId": "checkout-flow"
     },
     {
       "source": "cart-store",
-      "target": "cart-drawer",
-      "label": "Cart Add-to-Checkout",
-      "flowId": "cart-flow"
+      "target": "success-page",
+      "label": "Checkout and Order Placement",
+      "flowId": "checkout-flow"
     },
     {
-      "source": "cart-drawer",
-      "target": "checkout-route",
-      "label": "Cart Add-to-Checkout",
-      "flowId": "cart-flow"
+      "source": "category-sections-query",
+      "target": "api-client",
+      "label": "Infinite Product Browsing",
+      "flowId": "infinite-browse"
     },
     {
-      "source": "checkout-route",
-      "target": "success-route",
-      "label": "Cart Add-to-Checkout",
-      "flowId": "cart-flow"
+      "source": "api-client",
+      "target": "category-section",
+      "label": "Infinite Product Browsing",
+      "flowId": "infinite-browse"
     },
     {
       "source": "theme-toggle",
       "target": "theme-store",
       "label": "Theme Toggle",
-      "flowId": "theme-flow"
-    },
-    {
-      "source": "theme-store",
-      "target": "root-module",
-      "label": "Theme Toggle",
-      "flowId": "theme-flow"
-    },
-    {
-      "source": "root-module",
-      "target": "ui-sonner",
-      "label": "Theme Toggle",
-      "flowId": "theme-flow"
+      "flowId": "theme-toggle-flow"
     }
   ]
 }
