@@ -4,14 +4,20 @@ description: Project documentation by Khaled Kord.
 template: splash
 hero:
   tagline: Project documentation by Khaled Kord.
-  image:
-    dark: ../../assets/logo_dark.png
-    light: ../../assets/logo_light.png
+  actions:
+    - text: Browse Projects
+      link: "#projects"
+      icon: down-caret
+      variant: primary
+    - text: GitHub
+      link: https://github.com/Kord96
+      icon: external
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-<CardGrid>
+<div id="projects">
+<CardGrid stagger>
   <Card title="Kordinate" icon="rocket">
     Coordinate specialized AI agents into a team — with kords, guards, and a recall system.
     [Browse docs](/kordinate/framework/overview/)
@@ -29,3 +35,4 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
     *Coming soon*
   </Card>
 </CardGrid>
+</div>
