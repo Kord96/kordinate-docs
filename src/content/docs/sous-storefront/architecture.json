@@ -364,5 +364,245 @@
       "label": "Theme Toggle",
       "flowId": "theme-toggle-flow"
     }
+  ],
+  "state": [
+    {
+      "id": "cart-localstorage",
+      "name": "Zustand + localStorage (persist middleware)",
+      "description": "Cart items (product + quantity), total, successfulOrder flag",
+      "purpose": "source-of-truth",
+      "technology": "Zustand + localStorage (persist middleware)",
+      "component": "cart-store",
+      "persistence": "persistent"
+    },
+    {
+      "id": "theme-localstorage",
+      "name": "Zustand + localStorage (persist middleware)",
+      "description": "Theme preference (dark | light | system)",
+      "purpose": "source-of-truth",
+      "technology": "Zustand + localStorage (persist middleware)",
+      "component": "theme-store",
+      "persistence": "persistent"
+    },
+    {
+      "id": "query-cache",
+      "name": "TanStack Query cache",
+      "description": "Fetched categories and product pages \u2014 dehydrated from server, rehydrated on client",
+      "purpose": "cache",
+      "technology": "TanStack Query cache",
+      "component": "root-app",
+      "persistence": "ephemeral"
+    }
+  ],
+  "failure_modes": [
+    {
+      "id": "dummyjson-down",
+      "trigger": "DummyJSON API becomes unreachable or returns errors",
+      "severity": "critical",
+      "impact": "Storefront is completely non-functional \u2014 no products or categories are displayed. Cart continues to work from localStorage.",
+      "cascade": [
+        {
+          "component": "api-client",
+          "effect": "All ky requests fail"
+        },
+        {
+          "component": "root-layout",
+          "effect": "SSR loader fails \u2014 server returns error page"
+        },
+        {
+          "component": "home-page",
+          "effect": "No category sections rendered"
+        },
+        {
+          "component": "products-page",
+          "effect": "No products rendered, infinite query stuck"
+        }
+      ],
+      "detection": [
+        "React Router error boundary renders 'Oops!' page",
+        "TanStack Query error state in components"
+      ],
+      "recovery": [
+        "Manual \u2014 wait for DummyJSON to recover",
+        "TanStack Query will retry on window refocus (default behavior)"
+      ]
+    },
+    {
+      "id": "localstorage-unavailable",
+      "trigger": "localStorage is blocked (private browsing in some browsers) or full",
+      "severity": "low",
+      "impact": "Cart and theme preferences do not persist across page refreshes. Functional but degraded.",
+      "cascade": [
+        {
+          "component": "cart-store",
+          "effect": "Zustand persist middleware fails silently \u2014 cart state lives only in memory"
+        },
+        {
+          "component": "theme-store",
+          "effect": "Theme preference resets on every page load"
+        }
+      ],
+      "detection": [
+        "none \u2014 Zustand persist fails silently"
+      ],
+      "recovery": [
+        "Automatic \u2014 stores work in-memory without persistence"
+      ]
+    },
+    {
+      "id": "ssr-hydration-mismatch",
+      "trigger": "Server-rendered HTML diverges from client hydration (e.g., theme class applied before hydration)",
+      "severity": "low",
+      "impact": "Brief visual flash or layout shift on initial load. Functional but visually jarring.",
+      "cascade": [
+        {
+          "component": "root-app",
+          "effect": "React hydration warning in console"
+        }
+      ],
+      "detection": [
+        "React hydration mismatch warning in browser console"
+      ],
+      "recovery": [
+        "Client reconciliation corrects the DOM automatically"
+      ]
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "ssr-prefetch",
+      "name": "SSR Category Prefetch",
+      "description": "Server pre-fetches category and product data during SSR, dehydrates it, and the client hydrates without a second request",
+      "trigger": "Shopper navigates to a page (/, /products, /products/:category)",
+      "steps": [
+        {
+          "component": "root-layout",
+          "action": "Loader calls prefetchQuery for categories",
+          "data": "Category list",
+          "to": "api-client",
+          "technology": "HTTP/JSON"
+        },
+        {
+          "component": "api-client",
+          "action": "Fetches from DummyJSON /products/categories",
+          "data": "Category[]",
+          "to": "root-layout",
+          "technology": "HTTP/JSON"
+        },
+        {
+          "component": "root-layout",
+          "action": "Dehydrates QueryClient into HTML",
+          "data": "Serialized query cache",
+          "to": "root-app",
+          "technology": "in-memory"
+        },
+        {
+          "component": "root-app",
+          "action": "HydrationBoundary rehydrates QueryClient on client",
+          "data": "Hydrated query cache"
+        }
+      ]
+    },
+    {
+      "id": "cart-flow",
+      "name": "Add to Cart",
+      "description": "Shopper adds a product to the cart, which persists to localStorage and updates the cart badge",
+      "trigger": "Shopper clicks 'Add to cart' on a product card",
+      "steps": [
+        {
+          "component": "product-card",
+          "action": "Calls addItem on cart store",
+          "data": "Product object",
+          "to": "cart-store",
+          "technology": "in-memory"
+        },
+        {
+          "component": "cart-store",
+          "action": "Adds or increments item, recalculates total, persists to localStorage",
+          "data": "Updated CartItem[] and total",
+          "technology": "localStorage"
+        },
+        {
+          "component": "cart-drawer",
+          "action": "Re-renders with new cart state via Zustand subscription",
+          "data": "Cart items and total"
+        }
+      ]
+    },
+    {
+      "id": "checkout-flow",
+      "name": "Checkout and Order Placement",
+      "description": "Shopper fills forms and submits; client action clears cart and redirects to success page",
+      "trigger": "Shopper clicks 'Place Order' on checkout page",
+      "steps": [
+        {
+          "component": "checkout-page",
+          "action": "clientAction simulates order processing (1s delay)",
+          "data": "Form data (shipping + payment)",
+          "to": "cart-store",
+          "technology": "in-memory"
+        },
+        {
+          "component": "cart-store",
+          "action": "Clears all items, sets successfulOrder flag",
+          "data": "Empty cart + success flag",
+          "to": "success-page",
+          "technology": "in-memory"
+        },
+        {
+          "component": "success-page",
+          "action": "Renders confirmation with confetti, resets successfulOrder flag",
+          "data": "Order confirmation UI"
+        }
+      ]
+    },
+    {
+      "id": "infinite-browse",
+      "name": "Infinite Product Browsing",
+      "description": "Home and products pages fetch additional content as the user scrolls or clicks Load More",
+      "trigger": "Intersection observer fires (home) or shopper clicks Load More (products)",
+      "steps": [
+        {
+          "component": "category-sections-query",
+          "action": "Requests next page of categories with their products",
+          "data": "Page cursor",
+          "to": "api-client",
+          "technology": "HTTP/JSON"
+        },
+        {
+          "component": "api-client",
+          "action": "Fetches products/category/:slug for each category in the page",
+          "data": "Product[] per category",
+          "to": "category-section",
+          "technology": "HTTP/JSON"
+        },
+        {
+          "component": "category-section",
+          "action": "Renders horizontal product row with add-to-cart buttons",
+          "data": "Product cards"
+        }
+      ]
+    },
+    {
+      "id": "theme-toggle-flow",
+      "name": "Theme Toggle",
+      "description": "Shopper toggles theme; store persists to localStorage and applies CSS class to document root",
+      "trigger": "Shopper clicks the theme toggle button",
+      "steps": [
+        {
+          "component": "theme-toggle",
+          "action": "Calls setTheme on theme store",
+          "data": "Theme value (dark | light)",
+          "to": "theme-store",
+          "technology": "in-memory"
+        },
+        {
+          "component": "theme-store",
+          "action": "Updates documentElement classList, persists to localStorage",
+          "data": "Theme preference",
+          "technology": "localStorage"
+        }
+      ]
+    }
   ]
 }
