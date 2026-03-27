@@ -793,6 +793,19 @@ const { title, subtitle, data, repoUrl } = Astro.props;
   }
 
   // ==========================================================================
+  // ENV TOGGLE
+  // ==========================================================================
+  document.querySelectorAll('.env-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.env-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var env = btn.dataset.env;
+      document.body.dataset.env = env;
+      // Future: reload architecture data from prod/dev JSON
+      console.log('Environment:', env);
+    });
+  });
+
   // PANEL TOGGLES (gear + help)
   // ==========================================================================
   (function() {
