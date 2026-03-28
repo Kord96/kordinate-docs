@@ -768,9 +768,41 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   function openFlowModal(flowId, diagramEl) {
     var svg = diagramEl.querySelector('svg');
     if (!svg) return;
-    document.getElementById('flow-modal-diagram').innerHTML = svg.outerHTML;
+    var df = DATA_FLOWS.find(function(f) { return f.id === flowId; });
+    // Build modal content: diagram + narrative + details
+    var html = '<div id="flow-modal-diagram">' + svg.outerHTML + '</div>';
+    html += '<div id="flow-modal-info">';
+    html += '<div id="flow-modal-narrative">';
+    if (df) {
+      html += '<h2>' + escapeHtml(df.name) + ' <span class="bp-badge pattern">flow</span></h2>';
+      if (df.narrative) html += parseNarrativeToHtml(df.narrative);
+      else if (df.description) html += '<p>' + escapeHtml(df.description) + '</p>';
+    }
+    html += '</div>';
+    html += '<div id="flow-modal-details">';
+    if (df && df.steps && df.steps.length > 0) {
+      html += '<table class="bp-steps-table"><thead><tr><th>#</th><th>Component</th><th>Action</th><th>To</th></tr></thead><tbody>';
+      df.steps.forEach(function(s, i) {
+        html += '<tr><td>' + (i+1) + '</td><td><span class="bp-node-ref" data-node-id="' + escapeHtml(resolveNodeId(s.component) || s.component) + '">' + escapeHtml(s.component) + '</span></td>';
+        html += '<td>' + escapeHtml(s.action || '') + '</td>';
+        html += '<td>' + (s.to ? '<span class="bp-node-ref" data-node-id="' + escapeHtml(resolveNodeId(s.to) || s.to) + '">' + escapeHtml(s.to) + '</span>' : '') + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div></div>';
+    document.getElementById('flow-modal-content').innerHTML = '<button id="flow-modal-close">&times;</button>' + html;
+    document.getElementById('flow-modal-close').addEventListener('click', closeFlowModal);
+    // Make modal SVG large
     var modalSvg = document.querySelector('#flow-modal-diagram svg');
-    if (modalSvg) { modalSvg.style.width = '100%'; modalSvg.style.height = 'auto'; modalSvg.style.maxHeight = '80vh'; }
+    if (modalSvg) { modalSvg.style.width = '100%'; modalSvg.style.height = 'auto'; modalSvg.style.minHeight = '300px'; }
+    // Bind node refs in modal
+    document.querySelectorAll('#flow-modal-content .bp-node-ref').forEach(function(ref) {
+      ref.style.cursor = 'pointer';
+      ref.addEventListener('click', function() {
+        closeFlowModal();
+        setSelection('node', ref.dataset.nodeId);
+      });
+    });
     flowModal.classList.add('open');
   }
 
@@ -1124,9 +1156,15 @@ body.sidebar-collapsed #info-badge { left: 24px; }
 #flow-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
 #flow-modal.open { display: flex; align-items: center; justify-content: center; }
 #flow-modal-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); }
-#flow-modal-content { position: relative; z-index: 1; width: 90vw; max-height: 85vh; background: rgba(20,20,38,0.98); border: 1px solid rgba(123,104,238,0.2); border-radius: 12px; padding: 32px; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-#flow-modal-content svg { width: 100%; height: auto; }
-#flow-modal-close { position: absolute; top: 12px; right: 16px; background: none; border: none; color: #666; font-size: 24px; cursor: pointer; z-index: 2; }
+#flow-modal-content { position: relative; z-index: 1; width: 92vw; max-height: 90vh; background: rgba(20,20,38,0.98); border: 1px solid rgba(123,104,238,0.2); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+#flow-modal-diagram { padding: 24px 32px; overflow: auto; flex-shrink: 0; max-height: 55vh; border-bottom: 1px solid rgba(255,255,255,0.06); }
+#flow-modal-diagram svg { width: 100%; height: auto; min-height: 250px; }
+#flow-modal-info { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+#flow-modal-narrative { flex: 3; padding: 20px 28px; overflow-y: auto; font-size: 14px; line-height: 1.8; color: #c8c8d0; }
+#flow-modal-narrative h2 { font-size: 16px; font-weight: 600; color: #e0e0e0; margin: 0 0 12px 0; display: flex; align-items: center; gap: 8px; }
+#flow-modal-narrative p { margin: 0 0 14px 0; }
+#flow-modal-details { flex: 2; padding: 20px; overflow-y: auto; border-left: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: #999; }
+#flow-modal-close { position: absolute; top: 10px; right: 16px; background: none; border: none; color: #555; font-size: 24px; cursor: pointer; z-index: 2; }
 #flow-modal-close:hover { color: #fff; }
 #sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
 #sidebar-title { font-size: 13px; font-weight: 600; color: #b8a9ff; text-transform: uppercase; letter-spacing: 0.08em; }
