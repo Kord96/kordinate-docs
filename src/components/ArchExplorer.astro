@@ -355,11 +355,18 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 
   function parseNarrativeToHtml(text) {
     if (!text) return '';
-    return text.replace(/\*\*([^*]+)\*\*/g, function(m, name) {
-      var nid = resolveNodeId(name);
-      if (nid) return '<span class="bp-node-ref" data-node-id="' + escapeHtml(nid) + '">' + escapeHtml(name) + '</span>';
-      return '<strong>' + escapeHtml(name) + '</strong>';
-    });
+    // Split into paragraphs on double newlines
+    var paragraphs = text.split(/\n\n+/);
+    return paragraphs.map(function(para) {
+      var html = para.trim().replace(/\*\*([^*]+)\*\*/g, function(m, name) {
+        var nid = resolveNodeId(name);
+        if (nid) return '<span class="bp-node-ref" data-node-id="' + escapeHtml(nid) + '">' + escapeHtml(name) + '</span>';
+        return '<strong>' + escapeHtml(name) + '</strong>';
+      });
+      // Fix double hyphens to em dash
+      html = html.replace(/ -- /g, ' — ');
+      return '<p>' + html + '</p>';
+    }).join('');
   }
 
   function updateDrawer() {
