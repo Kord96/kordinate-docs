@@ -542,13 +542,13 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       }
     }
 
-    // === FLOWS TAB: expand the selected flow's diagram ===
+    // === FLOWS TAB: highlight the selected flow section ===
     document.querySelectorAll('.flow-section.active-flow').forEach(function(el) { el.classList.remove('active-flow'); });
     if (selectionState.type === 'flow') {
       var flowSection = document.querySelector('.flow-section[data-flow-id="' + selectionState.id + '"]');
       if (flowSection) {
         flowSection.classList.add('active-flow');
-        if (currentTab === 'flows' && flowsExpanded !== selectionState.id) expandFlowDiagram(selectionState.id);
+        if (currentTab === 'flows') flowSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
 
@@ -713,8 +713,7 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   buildHighlightBar(); rebuildStructureGraph(false); updateBreadcrumb(null); tabInitialized.structure = true;
   cyStructure.ready(function() { setTimeout(function() { cyStructure.fit(undefined, 100); cyStructure.panBy({ x: 0, y: 50 }); }, 300); });
 
-  // FLOWS TAB — list view by default, expand diagram on click
-  var flowsExpanded = null; // currently expanded flow id
+  // FLOWS TAB — all diagrams inline, click to open in fullscreen modal
   function initFlows() {
     mermaid.initialize({ startOnLoad: false, theme: 'dark', themeVariables: { primaryColor: '#2a2a5e', primaryBorderColor: '#7b68ee', primaryTextColor: '#ddd', lineColor: '#7b68ee', secondaryColor: 'rgba(123,104,238,0.08)', tertiaryColor: 'rgba(123,104,238,0.05)', noteBkgColor: 'rgba(123,104,238,0.12)', noteBorderColor: 'rgba(123,104,238,0.3)', noteTextColor: '#bbb', actorBkg: '#2a2a5e', actorBorder: '#7b68ee', actorTextColor: '#ddd', actorLineColor: 'rgba(123,104,238,0.3)', signalColor: '#ccc', signalTextColor: '#ccc', sequenceNumberColor: '#1a1a2e', fontFamily: 'Inter, sans-serif' }, sequence: { actorMargin: 60, width: 180, height: 50, boxMargin: 10, boxTextMargin: 5, noteMargin: 10, messageMargin: 40, mirrorActors: false, useMaxWidth: true, showSequenceNumbers: true } });
     var container = document.getElementById('flows-container');
@@ -723,7 +722,6 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       var section = document.createElement('div');
       section.className = 'flow-section';
       section.dataset.flowId = flow.id;
-      section.dataset.flowIdx = idx;
       var mermaidSrc = flow.mermaid || '';
       if (!mermaidSrc && flow.steps && flow.steps.length > 0) {
         var lines = ['sequenceDiagram', '  autonumber'];
@@ -734,64 +732,50 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
         });
         mermaidSrc = lines.join('\n');
       }
-      section.innerHTML = '<div class="flow-header" data-flow-id="' + flow.id + '"><h3><span class="flow-number">' + flow.number + '</span>' + escapeHtml(flow.name) + '</h3><span class="flow-desc-brief">' + escapeHtml((flow.description || '').substring(0, 80)) + '</span></div><div class="flow-diagram-container" style="display:none"><div class="flow-diagram-back">&larr; All flows</div><div class="mermaid" id="mermaid-' + idx + '">' + escapeHtml(mermaidSrc) + '</div></div>';
+      section.innerHTML = '<div class="flow-header" data-flow-id="' + flow.id + '"><h3><span class="flow-number">' + flow.number + '</span>' + escapeHtml(flow.name) + '</h3></div><div class="flow-diagram" data-flow-id="' + flow.id + '"><div class="mermaid" id="mermaid-' + idx + '">' + escapeHtml(mermaidSrc) + '</div><div class="flow-expand-hint">Click to expand</div></div>';
       container.appendChild(section);
     });
-    // Click flow header → expand diagram to fill space
+    // Render mermaid diagrams
+    DATA_FLOWS.forEach(function(flow, idx) {
+      var el = document.getElementById('mermaid-' + idx);
+      if (!el || !el.textContent.trim()) return;
+      var src = el.textContent.trim();
+      mermaid.render('mermaid-svg-' + idx, src).then(function(result) { el.innerHTML = result.svg; }).catch(function(err) { el.innerHTML = '<pre style="color:#e74c3c;font-size:12px;">Diagram error: ' + escapeHtml(err.message || String(err)) + '</pre>'; });
+    });
+    // Click diagram → open in modal
     container.addEventListener('click', function(e) {
-      var back = e.target.closest('.flow-diagram-back');
-      if (back) { collapseFlowDiagram(); return; }
-      var header = e.target.closest('.flow-header');
-      if (header) {
-        var fid = header.dataset.flowId;
-        expandFlowDiagram(fid);
+      var diagram = e.target.closest('.flow-diagram');
+      if (diagram) {
+        var fid = diagram.dataset.flowId;
+        openFlowModal(fid, diagram);
         setSelection('flow', fid);
+        return;
       }
+      var header = e.target.closest('.flow-header');
+      if (header) setSelection('flow', header.dataset.flowId);
     });
   }
 
-  function expandFlowDiagram(flowId) {
-    flowsExpanded = flowId;
-    var container = document.getElementById('flows-container');
-    // Hide all sections, show only the selected one expanded
-    container.querySelectorAll('.flow-section').forEach(function(s) {
-      if (s.dataset.flowId === flowId) {
-        s.classList.add('expanded');
-        s.querySelector('.flow-header').style.display = 'none';
-        var diagramContainer = s.querySelector('.flow-diagram-container');
-        diagramContainer.style.display = 'block';
-        // Render mermaid if not already rendered
-        var mermaidEl = s.querySelector('.mermaid');
-        if (mermaidEl && !mermaidEl.querySelector('svg')) {
-          var src = mermaidEl.textContent.trim();
-          if (src) {
-            var idx = s.dataset.flowIdx;
-            mermaid.render('mermaid-svg-' + idx, src).then(function(result) {
-              mermaidEl.innerHTML = result.svg;
-              // Scale SVG to fill container
-              var svg = mermaidEl.querySelector('svg');
-              if (svg) { svg.style.width = '100%'; svg.style.height = 'auto'; svg.style.maxHeight = '100%'; }
-            }).catch(function(err) {
-              mermaidEl.innerHTML = '<pre style="color:#e74c3c;font-size:12px;">Diagram error: ' + escapeHtml(err.message || String(err)) + '</pre>';
-            });
-          }
-        }
-      } else {
-        s.style.display = 'none';
-      }
-    });
+  // Flow modal overlay
+  var flowModal = document.createElement('div');
+  flowModal.id = 'flow-modal';
+  flowModal.innerHTML = '<div id="flow-modal-backdrop"></div><div id="flow-modal-content"><button id="flow-modal-close">&times;</button><div id="flow-modal-diagram"></div></div>';
+  document.body.appendChild(flowModal);
+  document.getElementById('flow-modal-backdrop').addEventListener('click', closeFlowModal);
+  document.getElementById('flow-modal-close').addEventListener('click', closeFlowModal);
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && flowModal.classList.contains('open')) closeFlowModal(); });
+
+  function openFlowModal(flowId, diagramEl) {
+    var svg = diagramEl.querySelector('svg');
+    if (!svg) return;
+    document.getElementById('flow-modal-diagram').innerHTML = svg.outerHTML;
+    var modalSvg = document.querySelector('#flow-modal-diagram svg');
+    if (modalSvg) { modalSvg.style.width = '100%'; modalSvg.style.height = 'auto'; modalSvg.style.maxHeight = '80vh'; }
+    flowModal.classList.add('open');
   }
 
-  function collapseFlowDiagram() {
-    flowsExpanded = null;
-    var container = document.getElementById('flows-container');
-    container.querySelectorAll('.flow-section').forEach(function(s) {
-      s.style.display = '';
-      s.classList.remove('expanded');
-      s.querySelector('.flow-header').style.display = '';
-      s.querySelector('.flow-diagram-container').style.display = 'none';
-    });
-    setSelection(null, null);
+  function closeFlowModal() {
+    flowModal.classList.remove('open');
   }
 
   // DATA TAB
@@ -1129,16 +1113,21 @@ body.sidebar-collapsed #info-badge { left: 24px; }
 .resilience-card-name { font-size: 14px; font-weight: 500; color: #ccc; }
 .resilience-card.active-failure { background: rgba(123,104,238,0.06); border-left: 3px solid #7b68ee; }
 .flow-section.active-flow { background: rgba(123,104,238,0.06); border-left: 3px solid #7b68ee; }
-.flow-section .flow-header { cursor: pointer; padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
-.flow-section .flow-header:hover { background: rgba(255,255,255,0.02); }
+.flow-section .flow-header { padding: 16px 24px; }
 .flow-section .flow-header h3 { margin: 0; font-size: 14px; font-weight: 500; color: #ccc; display: flex; align-items: center; gap: 8px; }
-.flow-desc-brief { font-size: 12px; color: #666; margin-top: 4px; display: block; }
-.flow-section.expanded { height: 100%; display: flex; flex-direction: column; }
-.flow-diagram-container { flex: 1; display: flex; flex-direction: column; overflow: auto; padding: 16px; }
-.flow-diagram-container .mermaid { flex: 1; display: flex; align-items: center; justify-content: center; }
-.flow-diagram-container .mermaid svg { max-width: 100%; max-height: 100%; }
-.flow-diagram-back { padding: 8px 0; margin-bottom: 12px; font-size: 13px; color: #7b68ee; cursor: pointer; transition: color 0.15s; }
-.flow-diagram-back:hover { color: #b8a9ff; }
+.flow-diagram { cursor: pointer; padding: 16px 24px; position: relative; transition: background 0.15s; }
+.flow-diagram:hover { background: rgba(255,255,255,0.02); }
+.flow-diagram .mermaid svg { width: 100%; height: auto; }
+.flow-expand-hint { position: absolute; top: 8px; right: 16px; font-size: 11px; color: #555; opacity: 0; transition: opacity 0.2s; }
+.flow-diagram:hover .flow-expand-hint { opacity: 1; }
+/* Flow modal */
+#flow-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
+#flow-modal.open { display: flex; align-items: center; justify-content: center; }
+#flow-modal-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); }
+#flow-modal-content { position: relative; z-index: 1; width: 90vw; max-height: 85vh; background: rgba(20,20,38,0.98); border: 1px solid rgba(123,104,238,0.2); border-radius: 12px; padding: 32px; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+#flow-modal-content svg { width: 100%; height: auto; }
+#flow-modal-close { position: absolute; top: 12px; right: 16px; background: none; border: none; color: #666; font-size: 24px; cursor: pointer; z-index: 2; }
+#flow-modal-close:hover { color: #fff; }
 #sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
 #sidebar-title { font-size: 13px; font-weight: 600; color: #b8a9ff; text-transform: uppercase; letter-spacing: 0.08em; }
 #sidebar-toggle { width: 28px; height: 28px; border: none; border-radius: 4px; background: transparent; color: #888; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 8px; transition: all 0.15s ease; }
