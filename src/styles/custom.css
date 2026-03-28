@@ -1,19 +1,41 @@
-/* ── Hero image — make it larger ── */
+/* ── Force dark theme ── */
+:root {
+  color-scheme: dark;
+}
+
+/* ── Hero image — sensible size ── */
 [data-has-hero] .hero > img,
 [data-has-hero] .hero picture img,
 .hero img {
-  max-width: 28rem !important;
-  width: 28rem !important;
+  max-width: 10rem !important;
+  width: 10rem !important;
   height: auto !important;
 }
 
-/* ── Card grid — even sizing, no stagger offset ── */
+/* ── Hero layout polish ── */
+[data-has-hero] .hero {
+  padding-block: 2rem !important;
+}
+
+/* ── Card grid — even sizing, visual weight ── */
 .card-grid {
   gap: 1.5rem;
 }
 
 .card-grid > .card {
   margin-top: 0 !important;
+}
+
+.sl-link-card {
+  border: 1px solid var(--sl-color-gray-5) !important;
+  background: var(--sl-color-gray-7, rgba(255,255,255,0.03)) !important;
+  border-radius: 0.75rem !important;
+  transition: border-color 0.2s ease, background 0.2s ease !important;
+}
+
+.sl-link-card:hover {
+  border-color: var(--sl-color-accent) !important;
+  background: var(--sl-color-gray-6, rgba(255,255,255,0.06)) !important;
 }
 
 /* ── Mermaid diagram sizing ── */
