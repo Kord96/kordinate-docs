@@ -209,7 +209,7 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
         });
         mermaidStr = lines.join('\n');
       }
-      DATA_FLOWS.push({ id: df.id, name: df.name, number: idx + 1, description: df.description || '', narrative: df.narrative || '', path: df.steps ? df.steps.map(function(s) { return s.component; }).filter(Boolean) : [], steps: df.steps || [], mermaid: mermaidStr });
+      DATA_FLOWS.push({ id: df.id, name: df.name, number: idx + 1, description: df.description || '', narrative: df.narrative || '', narrative_map: df.narrative_map || null, path: df.steps ? df.steps.map(function(s) { return s.component; }).filter(Boolean) : [], steps: df.steps || [], mermaid: mermaidStr });
     });
   }
   if (DATA_FLOWS.length === 0) {
