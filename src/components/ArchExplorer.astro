@@ -117,17 +117,15 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 <div id="arch-sidebar">
   <div id="sidebar-header">
     <span id="sidebar-title">Structure</span>
-    <button id="sidebar-collapse" title="Collapse sidebar">&#x276E;</button>
   </div>
   <div id="sidebar-content"></div>
 </div>
-<button id="sidebar-expand" title="Expand sidebar" style="display:none;">&#x276F;</button>
-
 <!-- ===== TAB 1: STRUCTURE ===== -->
 <div class="tab-panel active" id="structure-panel">
   <div id="cy-structure"></div>
 
   <div id="breadcrumb-bar">
+    <button id="sidebar-toggle" title="Toggle sidebar">&#x2261;</button>
     <div id="breadcrumb"></div>
     <div id="flow-dots"></div>
   </div>
@@ -705,24 +703,18 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   // ==========================================================================
   var sidebar = document.getElementById('arch-sidebar');
   var sidebarContent = document.getElementById('sidebar-content');
-  var sidebarCollapseBtn = document.getElementById('sidebar-collapse');
-  var sidebarExpandBtn = document.getElementById('sidebar-expand');
+  var sidebarToggleBtn = document.getElementById('sidebar-toggle');
   var sidebarTitle = document.getElementById('sidebar-title');
 
-  sidebarCollapseBtn.addEventListener('click', function() {
-    sidebarCollapsed = true;
-    sidebar.classList.add('collapsed');
-    sidebarExpandBtn.style.display = 'flex';
-    document.body.classList.add('sidebar-collapsed');
-    if (cyStructure) setTimeout(function() { cyStructure.resize(); }, 300);
-    if (cyData) setTimeout(function() { cyData.resize(); }, 300);
-  });
-
-  sidebarExpandBtn.addEventListener('click', function() {
-    sidebarCollapsed = false;
-    sidebar.classList.remove('collapsed');
-    sidebarExpandBtn.style.display = 'none';
-    document.body.classList.remove('sidebar-collapsed');
+  sidebarToggleBtn.addEventListener('click', function() {
+    sidebarCollapsed = !sidebarCollapsed;
+    if (sidebarCollapsed) {
+      sidebar.classList.add('collapsed');
+      document.body.classList.add('sidebar-collapsed');
+    } else {
+      sidebar.classList.remove('collapsed');
+      document.body.classList.remove('sidebar-collapsed');
+    }
     if (cyStructure) setTimeout(function() { cyStructure.resize(); }, 300);
     if (cyData) setTimeout(function() { cyData.resize(); }, 300);
   });
@@ -3827,50 +3819,31 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
     letter-spacing: 0.08em;
   }
 
-  #sidebar-collapse {
+  /* sidebar-collapse removed — toggle lives in breadcrumb now */
+
+  #sidebar-toggle {
     width: 28px;
     height: 28px;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px;
+    border: none;
+    border-radius: 4px;
     background: transparent;
-    color: #666;
-    font-size: 12px;
+    color: #888;
+    font-size: 18px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+    margin-right: 8px;
     transition: all 0.15s ease;
   }
 
-  #sidebar-collapse:hover {
-    background: rgba(255,255,255,0.05);
-    color: #ccc;
+  #sidebar-toggle:hover {
+    background: rgba(255,255,255,0.06);
+    color: #b8a9ff;
   }
 
-  #sidebar-expand {
-    position: fixed;
-    top: 50%;
-    left: 0;
-    transform: translateY(-50%);
-    z-index: 1009;
-    width: 20px;
-    height: 48px;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-left: none;
-    border-radius: 0 6px 6px 0;
-    background: rgba(26,26,46,0.9);
-    color: #666;
-    font-size: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(8px);
-    transition: all 0.15s ease;
-  }
-
-  #sidebar-expand:hover {
-    background: rgba(123,104,238,0.15);
+  body.sidebar-collapsed #sidebar-toggle {
     color: #b8a9ff;
   }
 
