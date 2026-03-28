@@ -397,20 +397,63 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       bpTitle.textContent = df.name;
       bpTypeBadge.textContent = 'flow';
       bpTypeBadge.style.cssText = 'background:rgba(74,144,217,0.2);color:#4a90d9;border-color:rgba(74,144,217,0.4);display:inline-block';
-      // Narrative
-      bpNarrative.innerHTML = df.narrative ? parseNarrativeToHtml(df.narrative) : (df.description ? '<p>' + escapeHtml(df.description) + '</p>' : '');
-      // Details: step table
+      // Narrative — use narrative_map if available for step badges
+      if (df.narrative_map && df.narrative_map.length > 0) {
+        var nh = '';
+        df.narrative_map.forEach(function(entry, pi) {
+          var steps = entry.steps || entry.refs || [];
+          var badge = '';
+          if (entry.steps && entry.steps.length > 0) {
+            var sorted = entry.steps.slice().sort(function(a,b) { return a - b; });
+            badge = sorted.length === 1 ? sorted[0] : sorted[0] + '–' + sorted[sorted.length - 1];
+          }
+          nh += '<div class="bp-narrative-para" data-para-idx="' + pi + '" data-steps="' + (entry.steps || []).join(',') + '">';
+          if (badge) nh += '<span class="bp-step-badge">' + badge + '</span>';
+          nh += parseNarrativeToHtml(entry.text);
+          nh += '</div>';
+        });
+        bpNarrative.innerHTML = nh;
+      } else {
+        bpNarrative.innerHTML = df.narrative ? parseNarrativeToHtml(df.narrative) : (df.description ? '<p>' + escapeHtml(df.description) + '</p>' : '');
+      }
+      // Details: step table with data-step-idx for cross-highlighting
       var dh = '';
       if (df.steps && df.steps.length > 0) {
         dh += '<table class="bp-steps-table"><thead><tr><th>#</th><th>Component</th><th>Action</th><th>To</th></tr></thead><tbody>';
         df.steps.forEach(function(s, i) {
-          dh += '<tr><td>' + (i+1) + '</td><td><span class="bp-node-ref" data-node-id="' + escapeHtml(resolveNodeId(s.component) || s.component) + '">' + escapeHtml(s.component) + '</span></td>';
+          dh += '<tr data-step-idx="' + (i+1) + '"><td>' + (i+1) + '</td><td><span class="bp-node-ref" data-node-id="' + escapeHtml(resolveNodeId(s.component) || s.component) + '">' + escapeHtml(s.component) + '</span></td>';
           dh += '<td>' + escapeHtml(s.action || '') + '</td>';
           dh += '<td>' + (s.to ? '<span class="bp-node-ref" data-node-id="' + escapeHtml(resolveNodeId(s.to) || s.to) + '">' + escapeHtml(s.to) + '</span>' : '') + '</td></tr>';
         });
         dh += '</tbody></table>';
       }
       bpDetails.innerHTML = dh;
+
+      // Cross-highlight: paragraph ↔ step rows
+      bpNarrative.querySelectorAll('.bp-narrative-para').forEach(function(para) {
+        var steps = (para.dataset.steps || '').split(',').filter(Boolean);
+        para.addEventListener('mouseenter', function() {
+          steps.forEach(function(si) {
+            var row = bpDetails.querySelector('tr[data-step-idx="' + si + '"]');
+            if (row) row.classList.add('cross-row-active');
+          });
+        });
+        para.addEventListener('mouseleave', function() {
+          bpDetails.querySelectorAll('tr.cross-row-active').forEach(function(r) { r.classList.remove('cross-row-active'); });
+        });
+      });
+      bpDetails.querySelectorAll('tr[data-step-idx]').forEach(function(row) {
+        var stepIdx = row.dataset.stepIdx;
+        row.addEventListener('mouseenter', function() {
+          bpNarrative.querySelectorAll('.bp-narrative-para').forEach(function(para) {
+            var steps = (para.dataset.steps || '').split(',');
+            if (steps.indexOf(stepIdx) >= 0) para.classList.add('cross-para-active');
+          });
+        });
+        row.addEventListener('mouseleave', function() {
+          bpNarrative.querySelectorAll('.cross-para-active').forEach(function(p) { p.classList.remove('cross-para-active'); });
+        });
+      });
 
     } else if (selectionState.type === 'node') {
       var n = nodeMap[selectionState.id];
@@ -1111,6 +1154,12 @@ body.sidebar-collapsed #info-badge { left: 24px; }
 .bp-node-ref.cross-active { color: #d0c8ff; background: rgba(123,104,238,0.15); border-radius: 3px; padding: 1px 3px; border-bottom-color: transparent; }
 tr.cross-row-active { background: rgba(123,104,238,0.1) !important; }
 tr.cross-row-active td { color: #d0d0d0; }
+/* Narrative paragraphs with step badges */
+.bp-narrative-para { position: relative; padding: 12px 16px 12px 48px; margin: 0 0 4px 0; border-radius: 6px; transition: background 0.15s; cursor: default; border-left: 2px solid transparent; }
+.bp-narrative-para:hover { background: rgba(255,255,255,0.02); border-left-color: rgba(123,104,238,0.3); }
+.bp-narrative-para.cross-para-active { background: rgba(123,104,238,0.08); border-left-color: #7b68ee; }
+.bp-narrative-para p { margin: 0; }
+.bp-step-badge { position: absolute; left: 8px; top: 14px; font-size: 10px; font-weight: 700; color: #7b68ee; background: rgba(123,104,238,0.1); border: 1px solid rgba(123,104,238,0.25); border-radius: 4px; padding: 1px 6px; font-family: 'Inter', monospace; min-width: 20px; text-align: center; }
 #sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
 #sidebar-title { font-size: 13px; font-weight: 600; color: #b8a9ff; text-transform: uppercase; letter-spacing: 0.08em; }
 #sidebar-toggle { width: 28px; height: 28px; border: none; border-radius: 4px; background: transparent; color: #888; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 8px; transition: all 0.15s ease; }
