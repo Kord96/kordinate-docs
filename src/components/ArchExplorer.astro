@@ -1696,7 +1696,312 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       'Showing <strong>' + visible + '</strong> of <strong>' + totalNodes + '</strong> nodes';
   }
 
-  // Flow filters
+  // ==========================================================================
+  // UNIFIED SELECTION STATE — one model drives graph, sidebar, and drawer
+  // ==========================================================================
+  var selectionState = { type: null, id: null };
+
+  function setSelection(type, id) {
+    // Toggle off if same selection
+    if (selectionState.type === type && selectionState.id === id) {
+      selectionState = { type: null, id: null };
+    } else {
+      selectionState = { type: type, id: id };
+    }
+    updateGraphHighlight();
+    updateSidebarNarrative();
+    updateDrawerDetails();
+    updateDotStates();
+  }
+
+  function updateGraphHighlight() {
+    cyStructure.elements().removeClass('dimmed flow-highlight flow-halo highlighted');
+    structureState.activeFlow = null;
+
+    if (!selectionState.type) return;
+
+    if (selectionState.type === 'flow') {
+      structureState.activeFlow = selectionState.id;
+      highlightFlow(selectionState.id);
+    } else if (selectionState.type === 'node') {
+      var cyNode = cyStructure.getElementById(selectionState.id);
+      if (cyNode.length > 0) {
+        cyStructure.elements().addClass('dimmed');
+        var neighborhood = cyNode.neighborhood().union(cyNode);
+        neighborhood.removeClass('dimmed').addClass('flow-halo');
+      }
+    } else if (selectionState.type === 'failure') {
+      var fm = (RAW.failure_modes || []).find(function(f) { return f.id === selectionState.id; });
+      if (fm && fm.cascade) {
+        var cascadeIds = new Set();
+        fm.cascade.forEach(function(c) { cascadeIds.add(c.component); });
+        cyStructure.elements().addClass('dimmed');
+        cascadeIds.forEach(function(nid) {
+          var n = cyStructure.getElementById(nid);
+          if (n.length > 0) n.removeClass('dimmed').addClass('flow-halo');
+        });
+      }
+    } else if (selectionState.type === 'state') {
+      var st = (RAW.state || []).find(function(s) { return s.id === selectionState.id; });
+      if (st) {
+        var stateIds = new Set();
+        (st.readers || []).forEach(function(r) { stateIds.add(r); });
+        (st.writers || []).forEach(function(w) { stateIds.add(w); });
+        stateIds.add(st.id);
+        cyStructure.elements().addClass('dimmed');
+        stateIds.forEach(function(nid) {
+          var n = cyStructure.getElementById(nid);
+          if (n.length > 0) n.removeClass('dimmed').addClass('flow-halo');
+        });
+      }
+    }
+  }
+
+  function renderNarrativeHtml(text) {
+    if (!text) return '';
+    // Convert **bold** to clickable node refs
+    return text.replace(/\*\*([^*]+)\*\*/g, function(match, name) {
+      // Find matching node
+      var node = RAW.nodes.find(function(n) { return n.id === name || n.name === name; });
+      if (node) {
+        return '<span class="sb-node-ref" data-node-id="' + node.id + '">' + escapeHtml(name) + '</span>';
+      }
+      return '<strong>' + escapeHtml(name) + '</strong>';
+    });
+  }
+
+  function updateSidebarNarrative() {
+    if (!selectionState.type) {
+      // Nothing selected — show overview
+      var overview = RAW.overview || '';
+      var structure = RAW.structure_narrative || '';
+      var html = '<div class="sb-narrative">';
+      if (overview) html += '<p class="sb-overview">' + renderNarrativeHtml(overview) + '</p>';
+      if (structure) html += '<div class="sb-structure">' + renderNarrativeHtml(structure) + '</div>';
+      // List available stories
+      html += '<div class="sb-stories-index">';
+      if (flows.length > 0) {
+        html += '<h3>Flows</h3>';
+        flows.forEach(function(f) {
+          html += '<button class="sb-story-link" data-type="flow" data-id="' + f.id + '">';
+          html += '<span class="sb-dot" style="background:' + f.color + '"></span>' + escapeHtml(f.name);
+          html += '</button>';
+        });
+      }
+      if ((RAW.failure_modes || []).length > 0) {
+        html += '<h3>Failure Scenarios</h3>';
+        (RAW.failure_modes || []).forEach(function(fm) {
+          var sevColor = fm.severity === 'critical' ? '#e74c3c' : fm.severity === 'high' ? '#e67e22' : '#f39c12';
+          html += '<button class="sb-story-link" data-type="failure" data-id="' + fm.id + '">';
+          html += '<span class="sb-dot" style="background:' + sevColor + '"></span>' + escapeHtml(fm.trigger || fm.id);
+          html += '</button>';
+        });
+      }
+      if ((RAW.state || []).length > 0) {
+        html += '<h3>State Stores</h3>';
+        (RAW.state || []).forEach(function(st) {
+          html += '<button class="sb-story-link" data-type="state" data-id="' + st.id + '">';
+          html += '<span class="sb-dot" style="background:#f59e0b"></span>' + escapeHtml(st.name || st.id);
+          html += '</button>';
+        });
+      }
+      html += '</div></div>';
+      sidebarContent.innerHTML = html;
+      sidebarTitle.textContent = 'Explorer';
+    } else if (selectionState.type === 'flow') {
+      var df = (RAW.data_flows || []).find(function(f) { return f.id === selectionState.id; });
+      if (df) {
+        var html = '<div class="sb-narrative">';
+        html += '<h2>' + escapeHtml(df.name) + '</h2>';
+        if (df.narrative) html += '<div class="sb-flow-narrative">' + renderNarrativeHtml(df.narrative) + '</div>';
+        if (df.steps && df.steps.length > 0) {
+          html += '<div class="sb-steps">';
+          df.steps.forEach(function(step, i) {
+            html += '<div class="sb-step"><span class="sb-step-num">' + (i + 1) + '</span>';
+            html += '<span class="sb-node-ref" data-node-id="' + step.component + '">' + escapeHtml(step.component) + '</span>';
+            if (step.action) html += ' <span class="sb-step-action">' + escapeHtml(step.action) + '</span>';
+            if (step.to) html += ' &rarr; <span class="sb-node-ref" data-node-id="' + step.to + '">' + escapeHtml(step.to) + '</span>';
+            html += '</div>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+        sidebarContent.innerHTML = html;
+        sidebarTitle.textContent = df.name;
+      }
+    } else if (selectionState.type === 'node') {
+      var node = RAW.nodes.find(function(n) { return n.id === selectionState.id; });
+      if (node) {
+        var html = '<div class="sb-narrative">';
+        html += '<h2>' + escapeHtml(node.name) + '</h2>';
+        if (node.description) html += '<p>' + escapeHtml(node.description) + '</p>';
+        // Which flows mention this node?
+        var nodeFlows = (RAW.data_flows || []).filter(function(df) {
+          return (df.steps || []).some(function(s) { return s.component === node.id || s.to === node.id; });
+        });
+        if (nodeFlows.length > 0) {
+          html += '<h3>Participates in</h3>';
+          nodeFlows.forEach(function(df) {
+            var f = flows.find(function(fl) { return fl.id === df.id; });
+            html += '<button class="sb-story-link" data-type="flow" data-id="' + df.id + '">';
+            html += '<span class="sb-dot" style="background:' + (f ? f.color : '#888') + '"></span>' + escapeHtml(df.name);
+            html += '</button>';
+          });
+        }
+        if (node.patterns && node.patterns.length > 0) {
+          html += '<h3>Patterns</h3>';
+          node.patterns.forEach(function(p) {
+            html += '<span class="sb-pattern-badge">' + escapeHtml(typeof p === 'string' ? p : p.name) + '</span> ';
+          });
+        }
+        if (node.debt) {
+          html += '<h3>Tech Debt</h3>';
+          var items = node.debt.items || [node.debt];
+          items.forEach(function(d) {
+            html += '<div class="sb-debt-item"><span class="sb-debt-sev" style="background:' +
+              (d.severity === 'critical' ? '#e74c3c' : d.severity === 'high' ? '#e67e22' : '#f39c12') +
+              '">' + (d.severity || 'warning') + '</span> ' + escapeHtml(d.title || d.description || '') + '</div>';
+          });
+        }
+        html += '</div>';
+        sidebarContent.innerHTML = html;
+        sidebarTitle.textContent = node.name;
+      }
+    } else if (selectionState.type === 'failure') {
+      var fm = (RAW.failure_modes || []).find(function(f) { return f.id === selectionState.id; });
+      if (fm) {
+        var html = '<div class="sb-narrative">';
+        html += '<h2>' + escapeHtml(fm.trigger || fm.id) + '</h2>';
+        var sevColor = fm.severity === 'critical' ? '#e74c3c' : fm.severity === 'high' ? '#e67e22' : '#f39c12';
+        html += '<span class="sb-debt-sev" style="background:' + sevColor + '">' + (fm.severity || '') + '</span>';
+        if (fm.narrative) html += '<div class="sb-failure-narrative">' + renderNarrativeHtml(fm.narrative) + '</div>';
+        if (fm.detection && fm.detection.length > 0) {
+          html += '<h3>Detection</h3><ul>';
+          fm.detection.forEach(function(d) { html += '<li>' + escapeHtml(d) + '</li>'; });
+          html += '</ul>';
+        }
+        if (fm.recovery && fm.recovery.length > 0) {
+          html += '<h3>Recovery</h3><ul>';
+          fm.recovery.forEach(function(r) { html += '<li>' + escapeHtml(r) + '</li>'; });
+          html += '</ul>';
+        }
+        html += '</div>';
+        sidebarContent.innerHTML = html;
+        sidebarTitle.textContent = 'Failure: ' + (fm.trigger || fm.id);
+      }
+    } else if (selectionState.type === 'state') {
+      var st = (RAW.state || []).find(function(s) { return s.id === selectionState.id; });
+      if (st) {
+        var html = '<div class="sb-narrative">';
+        html += '<h2>' + escapeHtml(st.name || st.id) + '</h2>';
+        if (st.narrative) html += '<div class="sb-state-narrative">' + renderNarrativeHtml(st.narrative) + '</div>';
+        if (st.readers && st.readers.length > 0) {
+          html += '<h3>Readers</h3>';
+          st.readers.forEach(function(r) {
+            html += '<span class="sb-node-ref" data-node-id="' + r + '">' + escapeHtml(r) + '</span> ';
+          });
+        }
+        if (st.writers && st.writers.length > 0) {
+          html += '<h3>Writers</h3>';
+          st.writers.forEach(function(w) {
+            html += '<span class="sb-node-ref" data-node-id="' + w + '">' + escapeHtml(w) + '</span> ';
+          });
+        }
+        html += '</div>';
+        sidebarContent.innerHTML = html;
+        sidebarTitle.textContent = st.name || st.id;
+      }
+    }
+
+    // Bind click handlers on node refs and story links
+    sidebarContent.querySelectorAll('.sb-node-ref').forEach(function(ref) {
+      ref.addEventListener('click', function() {
+        var nid = ref.dataset.nodeId;
+        setSelection('node', nid);
+      });
+    });
+    sidebarContent.querySelectorAll('.sb-story-link').forEach(function(link) {
+      link.addEventListener('click', function() {
+        setSelection(link.dataset.type, link.dataset.id);
+      });
+    });
+  }
+
+  function updateDrawerDetails() {
+    if (!selectionState.type) {
+      bottomPanel.classList.remove('open');
+      return;
+    }
+
+    if (selectionState.type === 'node') {
+      var node = RAW.nodes.find(function(n) { return n.id === selectionState.id; });
+      if (node) showContextPanel(node);
+    } else if (selectionState.type === 'flow') {
+      var df = (RAW.data_flows || []).find(function(f) { return f.id === selectionState.id; });
+      if (df) {
+        ctxName.textContent = df.name;
+        ctxTypeBadge.textContent = 'flow';
+        ctxTypeBadge.style.background = 'rgba(74,144,217,0.2)';
+        ctxTypeBadge.style.color = '#4a90d9';
+        ctxTypeBadge.style.borderColor = 'rgba(74,144,217,0.4)';
+        ctxFile.style.display = 'none';
+        var stepsHtml = (df.steps || []).map(function(s, i) {
+          return '<div class="ctx-step">' + (i+1) + '. <strong>' + escapeHtml(s.component) + '</strong>' +
+            (s.action ? ' — ' + escapeHtml(s.action) : '') +
+            (s.to ? ' → <strong>' + escapeHtml(s.to) + '</strong>' : '') + '</div>';
+        }).join('');
+        ctxDesc.innerHTML = stepsHtml || df.description || '';
+        ctxDesc.style.display = 'block';
+        ctxExports.innerHTML = '';
+        bottomPanel.classList.add('open');
+      }
+    } else if (selectionState.type === 'failure') {
+      var fm = (RAW.failure_modes || []).find(function(f) { return f.id === selectionState.id; });
+      if (fm) {
+        ctxName.textContent = fm.trigger || fm.id;
+        ctxTypeBadge.textContent = fm.severity || 'failure';
+        var sevColor = fm.severity === 'critical' ? '#e74c3c' : fm.severity === 'high' ? '#e67e22' : '#f39c12';
+        ctxTypeBadge.style.background = sevColor + '33';
+        ctxTypeBadge.style.color = sevColor;
+        ctxTypeBadge.style.borderColor = sevColor + '55';
+        ctxFile.style.display = 'none';
+        var cascadeHtml = (fm.cascade || []).map(function(c) {
+          return '<div class="ctx-step"><strong>' + escapeHtml(c.component) + '</strong> — ' + escapeHtml(c.effect || '') + '</div>';
+        }).join('');
+        ctxDesc.innerHTML = cascadeHtml || fm.impact || '';
+        ctxDesc.style.display = 'block';
+        ctxExports.innerHTML = '';
+        bottomPanel.classList.add('open');
+      }
+    } else if (selectionState.type === 'state') {
+      var st = (RAW.state || []).find(function(s) { return s.id === selectionState.id; });
+      if (st) {
+        ctxName.textContent = st.name || st.id;
+        ctxTypeBadge.textContent = st.purpose || 'store';
+        ctxTypeBadge.style.background = 'rgba(245,158,11,0.2)';
+        ctxTypeBadge.style.color = '#f59e0b';
+        ctxTypeBadge.style.borderColor = 'rgba(245,158,11,0.4)';
+        ctxFile.style.display = 'none';
+        ctxDesc.textContent = st.description || '';
+        ctxDesc.style.display = st.description ? 'block' : 'none';
+        var rwHtml = '';
+        if (st.readers) rwHtml += '<div><strong>Readers:</strong> ' + st.readers.join(', ') + '</div>';
+        if (st.writers) rwHtml += '<div><strong>Writers:</strong> ' + st.writers.join(', ') + '</div>';
+        ctxExports.innerHTML = rwHtml;
+        bottomPanel.classList.add('open');
+      }
+    }
+  }
+
+  function updateDotStates() {
+    document.querySelectorAll('.story-dot').forEach(function(d) {
+      d.classList.toggle('active',
+        d.dataset.storyType === selectionState.type && d.dataset.storyId === selectionState.id
+      );
+    });
+  }
+
+  // Story dots (flows + failures + state stores)
   var flowColors = ['#4a90d9', '#1abc9c', '#e67e22', '#9b59b6', '#e74c3c', '#f39c12', '#2ecc71', '#e91e63'];
   var flowIds = [];
   RAW.edges.forEach(function(e) {
@@ -1704,17 +2009,22 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       flowIds.push(e.flowId);
     }
   });
+  // Also include data_flows that might not have edges yet (backwards compat)
+  (RAW.data_flows || []).forEach(function(df) {
+    if (flowIds.indexOf(df.id) === -1) flowIds.push(df.id);
+  });
   var flows = flowIds.map(function(fid, i) {
     var df = (RAW.data_flows || []).find(function(f) { return f.id === fid; });
     var name = df ? df.name : fid.replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
     return { id: fid, name: name, color: flowColors[i % flowColors.length] };
   });
 
-  function buildFlowFilters() {
+  function buildStoryDots() {
     var container = document.getElementById('flow-filters');
     var dotsContainer = document.getElementById('flow-dots');
 
-    flows.forEach(function(flow, i) {
+    // Flow dots
+    flows.forEach(function(flow) {
       var pill = document.createElement('button');
       pill.className = 'flow-pill';
       pill.textContent = flow.name;
@@ -1722,27 +2032,41 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       container.appendChild(pill);
 
       var dot = document.createElement('button');
-      dot.className = 'flow-dot';
+      dot.className = 'story-dot flow-dot';
       dot.style.backgroundColor = flow.color;
       dot.style.setProperty('--dot-color', flow.color);
       dot.title = flow.name;
-      dot.dataset.flowId = flow.id;
+      dot.dataset.storyType = 'flow';
+      dot.dataset.storyId = flow.id;
+      dot.onclick = function() { setSelection('flow', flow.id); };
+      pill.onclick = dot.onclick;
+      dotsContainer.appendChild(dot);
+    });
 
-      var handler = function() {
-        if (structureState.activeFlow === flow.id) {
-          structureState.activeFlow = null;
-          document.querySelectorAll('.flow-dot').forEach(function(d) { d.classList.remove('active'); });
-          cyStructure.elements().removeClass('dimmed flow-highlight flow-halo highlighted');
-        } else {
-          structureState.activeFlow = flow.id;
-          document.querySelectorAll('.flow-dot').forEach(function(d) { d.classList.remove('active'); });
-          dot.classList.add('active');
-          highlightFlow(flow.id);
-        }
-      };
+    // Failure dots (red shades)
+    (RAW.failure_modes || []).forEach(function(fm) {
+      var sevColor = fm.severity === 'critical' ? '#e74c3c' : fm.severity === 'high' ? '#e67e22' : '#f39c12';
+      var dot = document.createElement('button');
+      dot.className = 'story-dot failure-dot';
+      dot.style.backgroundColor = sevColor;
+      dot.style.setProperty('--dot-color', sevColor);
+      dot.title = '⚠ ' + (fm.trigger || fm.id);
+      dot.dataset.storyType = 'failure';
+      dot.dataset.storyId = fm.id;
+      dot.onclick = function() { setSelection('failure', fm.id); };
+      dotsContainer.appendChild(dot);
+    });
 
-      pill.onclick = handler;
-      dot.onclick = handler;
+    // State dots (amber)
+    (RAW.state || []).forEach(function(st) {
+      var dot = document.createElement('button');
+      dot.className = 'story-dot state-dot';
+      dot.style.backgroundColor = '#f59e0b';
+      dot.style.setProperty('--dot-color', '#f59e0b');
+      dot.title = '◆ ' + (st.name || st.id);
+      dot.dataset.storyType = 'state';
+      dot.dataset.storyId = st.id;
+      dot.onclick = function() { setSelection('state', st.id); };
       dotsContainer.appendChild(dot);
     });
   }
@@ -1806,13 +2130,12 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   // Structure event handlers
   cyStructure.on('tap', 'node', function(e) {
     var id = e.target.data('id');
-    var n = nodeMap[id];
-    if (n) showContextPanel(n);
     if ((childrenOf[id] || []).length > 0 && !structureState.expandedNodes[id]) {
       expandNode(id);
+    } else {
+      // Select the node — drives sidebar, drawer, and graph highlight
+      setSelection('node', id);
     }
-    // Bidirectional: scroll sidebar to this node
-    scrollSidebarToNode(id);
   });
 
   cyStructure.on('cxttap', 'node', function(e) {
@@ -1871,7 +2194,9 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   });
 
   // Initialize structure
-  buildFlowFilters();
+  buildStoryDots();
+  // Initialize sidebar with overview
+  updateSidebarNarrative();
   rebuildStructureGraph(false);
   updateBreadcrumb(null);
   tabInitialized.structure = true;
@@ -2882,6 +3207,132 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
     border-color: rgba(255,255,255,0.5);
     box-shadow: 0 0 16px var(--dot-color, currentColor), 0 0 32px var(--dot-color, currentColor);
   }
+
+  .story-dot.active {
+    opacity: 1;
+    transform: scale(1.5);
+    border-color: rgba(255,255,255,0.5);
+    box-shadow: 0 0 16px var(--dot-color, currentColor), 0 0 32px var(--dot-color, currentColor);
+  }
+
+  .failure-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 2px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    opacity: 0.6;
+    position: relative;
+  }
+
+  .failure-dot:hover { opacity: 1; transform: scale(1.4); }
+
+  .state-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    transform: rotate(45deg);
+    border: 2px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    opacity: 0.6;
+    position: relative;
+  }
+
+  .state-dot:hover { opacity: 1; transform: rotate(45deg) scale(1.4); }
+  .state-dot.active { opacity: 1; transform: rotate(45deg) scale(1.5); border-color: rgba(255,255,255,0.5); box-shadow: 0 0 16px var(--dot-color); }
+
+  /* Narrative sidebar styles */
+  .sb-node-ref {
+    color: #b8a9ff;
+    cursor: pointer;
+    font-weight: 600;
+    border-bottom: 1px dotted rgba(184,169,255,0.3);
+    transition: all 0.15s;
+  }
+  .sb-node-ref:hover {
+    color: #d0c8ff;
+    border-bottom-color: #d0c8ff;
+  }
+
+  .sb-overview { font-size: 13px; color: #b0b0b0; line-height: 1.7; margin-bottom: 16px; }
+  .sb-structure { font-size: 12px; color: #999; line-height: 1.6; }
+
+  .sb-stories-index h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #666;
+    margin: 16px 0 6px 0;
+  }
+
+  .sb-story-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    color: #b0b0b0;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  .sb-story-link:hover { background: rgba(255,255,255,0.04); color: #e0e0e0; }
+
+  .sb-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .sb-flow-narrative, .sb-failure-narrative, .sb-state-narrative {
+    font-size: 13px;
+    color: #b0b0b0;
+    line-height: 1.7;
+    margin: 12px 0;
+  }
+
+  .sb-steps { margin: 12px 0; }
+  .sb-step {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12px;
+    color: #999;
+  }
+  .sb-step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(123,104,238,0.15);
+    color: #b8a9ff;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .sb-step-action { color: #888; }
+
+  .sb-debt-item { padding: 4px 0; font-size: 12px; color: #999; }
+  .sb-debt-sev {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    margin-right: 6px;
+  }
+
+  .ctx-step { padding: 3px 0; font-size: 12px; color: #b0b0b0; }
 
   .flow-dot:hover::after {
     content: attr(title);

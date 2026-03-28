@@ -1,0 +1,1597 @@
+{
+  "project": "logbd",
+  "generated": "2026-03-28",
+  "purpose": "Stream processing pipeline that consumes network logs, classifies them, and builds a queryable graph database for email security analytics.",
+  "stack": {
+    "languages": [
+      "Python"
+    ],
+    "frameworks": [
+      "stoik",
+      "FastAPI",
+      "confluent-kafka",
+      "DuckDB",
+      "LightGBM",
+      "PyArrow"
+    ],
+    "runtime": "Kubernetes (27 consumer deployments + API + FlightSQL + classifier)"
+  },
+  "groups": [
+    {
+      "id": "ingestion",
+      "label": "Ingestion",
+      "description": "Raw log discovery, parsing, and Kafka message production"
+    },
+    {
+      "id": "graph-engine",
+      "label": "Graph Engine",
+      "description": "Entity extraction, Kafka consumers, DuckDB storage, derived computation"
+    },
+    {
+      "id": "serving",
+      "label": "Serving Layer",
+      "description": "REST API, FlightSQL, MCP server, and client SDK"
+    },
+    {
+      "id": "ml-classification",
+      "label": "ML Classification",
+      "description": "Spam and infrastructure classification pipelines"
+    },
+    {
+      "id": "external",
+      "label": "External",
+      "description": "Infrastructure services and external data sources"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "ingestion",
+      "name": "Ingestion",
+      "description": "Raw log discovery, parsing, and Kafka message production",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "graph-engine",
+      "name": "Graph Engine",
+      "description": "Entity extraction, Kafka consumers, DuckDB storage, derived computation",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "serving",
+      "name": "Serving Layer",
+      "description": "REST API, FlightSQL, MCP server, and client SDK",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "ml-classification",
+      "name": "ML Classification",
+      "description": "Spam and infrastructure classification pipelines",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "external",
+      "name": "External",
+      "description": "Infrastructure services and external data sources",
+      "type": "group",
+      "hasChildren": true
+    },
+    {
+      "id": "message-producer",
+      "name": "Message Producer",
+      "description": "Scans NFS rawLog directories for slots, parses email messages, produces Kafka events",
+      "type": "worker",
+      "parent": "ingestion",
+      "file": "graphdb/data_source/logServer/messageProducer/",
+      "patterns": [
+        {
+          "name": "Service Manager",
+          "category": "lifecycle"
+        },
+        {
+          "name": "Worker Pool",
+          "category": "concurrency"
+        },
+        {
+          "name": "Pipeline/Filter",
+          "category": "structural"
+        }
+      ]
+    },
+    {
+      "id": "entity-extraction",
+      "name": "Entity Extraction",
+      "description": "Consumes raw messages from Kafka, extracts entities (URIs, emails, IPs, domains, text, images) and publishes to entity-specific topics",
+      "type": "worker",
+      "parent": "ingestion",
+      "file": "graphdb/data_source/logServer/entity_extraction/",
+      "patterns": [
+        {
+          "name": "Pipeline/Filter",
+          "category": "structural"
+        },
+        {
+          "name": "Strategy (callbacks)",
+          "category": "behavioral"
+        }
+      ]
+    },
+    {
+      "id": "metadata-archiver",
+      "name": "Metadata Archiver",
+      "description": "Archives raw email metadata and headers to DuckDB for historical reference",
+      "type": "worker",
+      "parent": "ingestion",
+      "file": "graphdb/data_source/logServer/metadata/"
+    },
+    {
+      "id": "domain-consumer",
+      "name": "Domain Consumer",
+      "description": "Processes domain entities, triggers DNS/WHOIS/HTTP enrichment, writes to domain.duckdb",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/domain/",
+      "patterns": [
+        {
+          "name": "Stream-to-Store",
+          "category": "data"
+        },
+        {
+          "name": "Template Method",
+          "category": "structural"
+        },
+        {
+          "name": "Backpressure",
+          "category": "resilience"
+        }
+      ],
+      "hasChildren": true,
+      "debt": {
+        "severity": "medium",
+        "items": [
+          {
+            "title": "Swallowed exceptions in enrichment",
+            "description": "10+ bare except Exception: pass/return False in enrichment and store code"
+          }
+        ]
+      }
+    },
+    {
+      "id": "domain-enrichment",
+      "name": "Domain Enrichment",
+      "description": "Multi-stage enrichment: WHOIS lookup, DNS resolution, UCLT probing, Certificate Transparency, HTTP reachability",
+      "type": "service",
+      "parent": "domain-consumer",
+      "file": "graphdb/graph/node/domain/enrichment/",
+      "patterns": [
+        {
+          "name": "Pipeline/Filter",
+          "category": "structural"
+        },
+        {
+          "name": "Retry with Backoff",
+          "category": "resilience"
+        }
+      ]
+    },
+    {
+      "id": "uri-consumer",
+      "name": "URI Consumer",
+      "description": "Processes URI entities with template extraction and path decomposition",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/uri/",
+      "patterns": [
+        {
+          "name": "Stream-to-Store",
+          "category": "data"
+        },
+        {
+          "name": "Template Method",
+          "category": "structural"
+        }
+      ]
+    },
+    {
+      "id": "uri-download",
+      "name": "URI Download",
+      "description": "Downloads and classifies URI content, extracts signals. Includes JS rendering via headless browser",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/uri/download/",
+      "patterns": [
+        {
+          "name": "Worker Pool",
+          "category": "concurrency"
+        },
+        {
+          "name": "Timeout",
+          "category": "resilience"
+        }
+      ]
+    },
+    {
+      "id": "subnet-consumer",
+      "name": "Subnet Consumer",
+      "description": "Processes IP subnet entities with ASN lookups",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/ip/"
+    },
+    {
+      "id": "host-consumer",
+      "name": "Host Consumer",
+      "description": "Processes hostname entities, resolves DNS records",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/host/"
+    },
+    {
+      "id": "email-consumer",
+      "name": "Email Address Consumer",
+      "description": "Processes email address entities extracted from message headers and bodies",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/email_address/"
+    },
+    {
+      "id": "text-consumer",
+      "name": "Text Consumer",
+      "description": "Processes text content entities extracted from email bodies",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/text/"
+    },
+    {
+      "id": "image-consumer",
+      "name": "Image Consumer",
+      "description": "Processes image entities extracted from emails and URI downloads",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/image/"
+    },
+    {
+      "id": "template-consumer",
+      "name": "Content Template Consumer",
+      "description": "Processes content template entities for structural similarity grouping",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/content_template/"
+    },
+    {
+      "id": "cluster-consumer",
+      "name": "Cluster Consumer",
+      "description": "Processes MinHash-based message clusters for campaign detection",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/cluster/",
+      "patterns": [
+        {
+          "name": "Stream-to-Store",
+          "category": "data"
+        }
+      ]
+    },
+    {
+      "id": "message-consumer",
+      "name": "Message Consumer",
+      "description": "Collects per-message metadata and writes to message.duckdb",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/node/message/"
+    },
+    {
+      "id": "edge-ew-consumer",
+      "name": "Edge: Emailed-With",
+      "description": "Builds co-occurrence edges between entities that appear in the same email (259M+ rows)",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/edge/"
+    },
+    {
+      "id": "edge-assoc-consumer",
+      "name": "Edge: Association",
+      "description": "Builds structural association edges (DNS, SPF, resolve_to, landing_of)",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/edge/"
+    },
+    {
+      "id": "edge-cluster-consumer",
+      "name": "Edge: Cluster Member",
+      "description": "Connects messages to their MinHash clusters",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/edge/"
+    },
+    {
+      "id": "message-role-consumer",
+      "name": "Message Role Consumer",
+      "description": "Tracks per-message entity roles (MailFrom, HeaderFrom, ReplyTo, Recipient, SPF auth)",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/edge/message_role/"
+    },
+    {
+      "id": "score-consumer",
+      "name": "Score Consumer",
+      "description": "Ingests external reputation scores (Spamhaus, etc.) into external_score.duckdb",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/score/"
+    },
+    {
+      "id": "spf-auth-consumer",
+      "name": "SPF Auth Consumer",
+      "description": "Processes SPF authentication results for sender verification",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph_support/spf_auth.py"
+    },
+    {
+      "id": "derived-refresh",
+      "name": "Derived Refresh",
+      "description": "Round-robin batch engine computing materialized views across 7 tiers (A-G) with configurable refresh intervals",
+      "type": "service",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/derived/",
+      "patterns": [
+        {
+          "name": "Materialized View",
+          "category": "data"
+        },
+        {
+          "name": "Batch Loader",
+          "category": "storage"
+        },
+        {
+          "name": "Retry with Backoff",
+          "category": "resilience"
+        }
+      ]
+    },
+    {
+      "id": "retention-scheduler",
+      "name": "Retention Scheduler",
+      "description": "Daily cronjob (02:00 UTC) that runs retention policies on all entity and edge DuckDB files",
+      "type": "worker",
+      "parent": "graph-engine",
+      "file": "graphdb/graph/retention_scheduler.py",
+      "patterns": [
+        {
+          "name": "Scheduler/Cron",
+          "category": "lifecycle"
+        }
+      ]
+    },
+    {
+      "id": "rest-api",
+      "name": "REST API",
+      "description": "FastAPI application with 15 routers: node lookup, search, ranking, subgraph, export, webhooks, health, metrics",
+      "type": "api",
+      "parent": "serving",
+      "file": "graphdb/api/",
+      "patterns": [
+        {
+          "name": "Factory",
+          "category": "creational"
+        },
+        {
+          "name": "Facade",
+          "category": "structural"
+        },
+        {
+          "name": "Cache-Aside",
+          "category": "storage"
+        },
+        {
+          "name": "API Key Auth",
+          "category": "security"
+        }
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/node/{type}/{key}",
+          "description": "Look up entity by type and key"
+        },
+        {
+          "method": "GET",
+          "path": "/search/{type}",
+          "description": "Full-text search across entity type"
+        },
+        {
+          "method": "GET",
+          "path": "/top/{type}",
+          "description": "Ranking/leaderboard for entity type"
+        },
+        {
+          "method": "GET",
+          "path": "/subgraph/{type}/{key}",
+          "description": "Neighborhood subgraph around entity"
+        },
+        {
+          "method": "GET",
+          "path": "/path/{from}/{to}",
+          "description": "Find shortest path between entities"
+        },
+        {
+          "method": "GET",
+          "path": "/messages/{type}/{key}",
+          "description": "Messages involving an entity"
+        },
+        {
+          "method": "GET",
+          "path": "/resolve/{query}",
+          "description": "Multi-type entity resolution"
+        },
+        {
+          "method": "POST",
+          "path": "/nodes/bulk",
+          "description": "Bulk entity lookup"
+        },
+        {
+          "method": "GET",
+          "path": "/export/{type}",
+          "description": "CSV/JSON export of entity data"
+        },
+        {
+          "method": "POST",
+          "path": "/webhooks",
+          "description": "CRUD for threshold-based alert webhooks"
+        },
+        {
+          "method": "GET",
+          "path": "/health",
+          "description": "Readiness probe with subsystem status"
+        },
+        {
+          "method": "GET",
+          "path": "/metrics",
+          "description": "Prometheus metrics endpoint"
+        }
+      ],
+      "hasChildren": true,
+      "debt": {
+        "severity": "high",
+        "items": [
+          {
+            "title": "SQL string interpolation",
+            "description": "API routers construct SQL via f-strings with hand-rolled _escape() instead of parameterized queries"
+          },
+          {
+            "title": "Zero test coverage",
+            "description": "Entire API layer has no tests \u2014 user-facing endpoints are untested"
+          },
+          {
+            "title": "Arbitrary SQL debug endpoint",
+            "description": "/debug/query executes user-supplied SQL \u2014 critical security risk"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge-pool",
+      "name": "EdgePool",
+      "description": "Direct DuckDB connection pool over 20+ snapshot files for fast point lookups (bypasses FlightSQL for latency-critical paths)",
+      "type": "library",
+      "parent": "rest-api",
+      "file": "graphdb/api/edge_pool.py",
+      "patterns": [
+        {
+          "name": "Facade",
+          "category": "structural"
+        },
+        {
+          "name": "Cache-Aside",
+          "category": "storage"
+        }
+      ]
+    },
+    {
+      "id": "sentinel",
+      "name": "Pipeline Sentinel",
+      "description": "Background health monitor: checks all 27 consumers, enrichment services, storage systems. Exports pipeline_status Prometheus gauges",
+      "type": "service",
+      "parent": "rest-api",
+      "file": "graphdb/monitor/sentinel.py",
+      "patterns": [
+        {
+          "name": "Health Check",
+          "category": "observability"
+        },
+        {
+          "name": "Metrics Instrumentation",
+          "category": "observability"
+        }
+      ],
+      "debt": {
+        "severity": "medium",
+        "items": [
+          {
+            "title": "God object (1256 lines)",
+            "description": "Probing, evaluation, composite scoring, and main loop all in one file"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dashboard-stats",
+      "name": "Dashboard Stats",
+      "description": "Background thread collecting aggregated stats for Grafana dashboards",
+      "type": "service",
+      "parent": "rest-api",
+      "file": "graphdb/monitor/dashboard_stats.py"
+    },
+    {
+      "id": "flight-sql",
+      "name": "FlightSQL Server",
+      "description": "Arrow Flight SQL endpoint on gRPC:8815 for high-throughput analytical queries. Attaches all snapshots + release DBs",
+      "type": "api",
+      "parent": "serving",
+      "file": "graphdb/api/flight.py",
+      "patterns": [
+        {
+          "name": "gRPC (Flight SQL)",
+          "category": "api"
+        }
+      ],
+      "debt": {
+        "severity": "medium",
+        "items": [
+          {
+            "title": "No authentication",
+            "description": "FlightSQL server relies on network isolation only \u2014 no auth mechanism"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp-server",
+      "name": "MCP Server",
+      "description": "Model Context Protocol server exposing graph database as tools for LLM agents",
+      "type": "api",
+      "parent": "serving",
+      "file": "graphdb/mcp_server/",
+      "debt": {
+        "severity": "medium",
+        "items": [
+          {
+            "title": "No auth tokens sent",
+            "description": "MCP server proxies to REST API without authentication \u2014 will get 401 in production"
+          }
+        ]
+      }
+    },
+    {
+      "id": "client-sdk",
+      "name": "Client SDK + CLI",
+      "description": "Python library and CLI for querying GraphDB via REST API. Commands: search, node, subgraph, top, export, messages, stream, cache",
+      "type": "cli",
+      "parent": "serving",
+      "file": "client/",
+      "debt": {
+        "severity": "high",
+        "items": [
+          {
+            "title": "Duplicated client package",
+            "description": "Entire client duplicated between client/ and graphdb/client/ \u2014 copies have diverged"
+          }
+        ]
+      }
+    },
+    {
+      "id": "spam-classifier",
+      "name": "Spam Classifier",
+      "description": "LightGBM regression model producing logbd.ml scores (-1 to +1) per entity type. 9 entity types trained independently",
+      "type": "service",
+      "parent": "ml-classification",
+      "file": "classifier/classifier/spam_classifier.py",
+      "patterns": [
+        {
+          "name": "Training Pipeline",
+          "category": "ml"
+        },
+        {
+          "name": "Model Registry",
+          "category": "ml"
+        }
+      ]
+    },
+    {
+      "id": "weighted-sum",
+      "name": "Weighted Sum Scorer",
+      "description": "Heuristic weighted average of 16 normalized signals producing logbd.ws scores (0 to 1). Domain only",
+      "type": "service",
+      "parent": "ml-classification",
+      "file": "classifier/classifier/weighted_sum.py"
+    },
+    {
+      "id": "verdict-merger",
+      "name": "Verdict Merger",
+      "description": "Combines 70% ML + 30% heuristic into final logbd verdict score",
+      "type": "service",
+      "parent": "ml-classification",
+      "file": "classifier/classifier/verdict.py"
+    },
+    {
+      "id": "infra-classifier",
+      "name": "Infrastructure Classifier",
+      "description": "LightGBM multiclass model identifying entity roles: regular, ESP, cloud, CDN, hosting. Suppresses infra entities from spam scoring",
+      "type": "service",
+      "parent": "ml-classification",
+      "file": "classifier/infra/",
+      "patterns": [
+        {
+          "name": "Training Pipeline",
+          "category": "ml"
+        }
+      ]
+    },
+    {
+      "id": "dataset-pipeline",
+      "name": "Dataset Pipeline",
+      "description": "Exports entity views with graduated labels, builds train/test splits as Parquet",
+      "type": "service",
+      "parent": "ml-classification",
+      "file": "classifier/dataset/",
+      "patterns": [
+        {
+          "name": "Feature Store (lightweight)",
+          "category": "ml"
+        }
+      ]
+    },
+    {
+      "id": "classifier-scheduler",
+      "name": "Classifier Scheduler",
+      "description": "Orchestrates full classification pipeline: infra -> dataset -> train -> infer -> verdict -> release",
+      "type": "worker",
+      "parent": "ml-classification",
+      "file": "classifier/scheduler/",
+      "debt": {
+        "severity": "medium",
+        "items": [
+          {
+            "title": "No readiness/liveness probes",
+            "description": "Classifier scheduler has no K8s health probes configured"
+          }
+        ]
+      }
+    },
+    {
+      "id": "kafka-broker",
+      "name": "Kafka (KRaft)",
+      "description": "Single-broker KRaft cluster handling 29 topics with retention-based compaction",
+      "type": "external",
+      "parent": "external",
+      "debt": {
+        "severity": "critical",
+        "items": [
+          {
+            "title": "Single broker, no replication",
+            "description": "KRaft single broker with replication factor 1. Loss halts entire ingestion pipeline"
+          }
+        ]
+      },
+      "resilience": {
+        "timeout": true,
+        "retry": true,
+        "circuitBreaker": false,
+        "fallback": "Pipeline halts; query serving continues from existing data"
+      },
+      "criticality": "critical"
+    },
+    {
+      "id": "schema-registry",
+      "name": "Schema Registry",
+      "description": "Confluent Schema Registry for Avro serialization of entity messages",
+      "type": "external",
+      "parent": "external"
+    },
+    {
+      "id": "minio",
+      "name": "MinIO",
+      "description": "S3-compatible object store for Parquet snapshots of all DuckDB databases",
+      "type": "external",
+      "parent": "external",
+      "debt": {
+        "severity": "critical",
+        "items": [
+          {
+            "title": "Single replica, no HA",
+            "description": "MinIO runs as single replica. Snapshot reads/writes fail if pod dies"
+          }
+        ]
+      },
+      "criticality": "critical"
+    },
+    {
+      "id": "redis",
+      "name": "Redis",
+      "description": "Deduplication, enrichment result queues, SPF auth cache. No persistence",
+      "type": "external",
+      "parent": "external",
+      "debt": {
+        "severity": "high",
+        "items": [
+          {
+            "title": "No manifest in repo",
+            "description": "Redis referenced everywhere but no K8s manifest \u2014 externally managed with unknown HA"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nfs-storage",
+      "name": "NFS (rawLog)",
+      "description": "Network-attached storage at /mnt/nfs/rawLog containing raw email log files organized by day",
+      "type": "external",
+      "parent": "external"
+    },
+    {
+      "id": "longhorn",
+      "name": "Longhorn Storage",
+      "description": "Distributed block storage providing ~1,090Gi across 18 PVCs with XFS formatting and 2 replicas",
+      "type": "external",
+      "parent": "external"
+    },
+    {
+      "id": "prometheus",
+      "name": "Prometheus",
+      "description": "Metrics collection. Scrapes 40+ metrics from all consumers and API",
+      "type": "external",
+      "parent": "external"
+    },
+    {
+      "id": "loki",
+      "name": "Loki",
+      "description": "Log aggregation. All services emit structured JSON logs via structlog",
+      "type": "external",
+      "parent": "external"
+    },
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "description": "Dashboard visualization. 5 provisioned dashboards: overview, operational-health, classifier, cluster-detail, uri-template-detail",
+      "type": "external",
+      "parent": "external"
+    },
+    {
+      "id": "spamhaus",
+      "name": "Spamhaus / External Scores",
+      "description": "External reputation data sources providing ground-truth labels for training",
+      "type": "external",
+      "parent": "external"
+    },
+    {
+      "id": "log-server",
+      "name": "Log Server",
+      "description": "Upstream email gateway producing rawLog files to NFS",
+      "type": "actor",
+      "parent": "external"
+    },
+    {
+      "id": "analyst",
+      "name": "Security Analyst",
+      "description": "Human analyst querying the graph via CLI, API, or MCP for email threat investigation",
+      "type": "actor",
+      "parent": "external"
+    },
+    {
+      "id": "llm-agent",
+      "name": "LLM Agent",
+      "description": "AI agent using MCP tools to investigate graph entities",
+      "type": "actor",
+      "parent": "external"
+    }
+  ],
+  "edges": [
+    {
+      "source": "log-server",
+      "target": "nfs-storage",
+      "label": "writes rawLog files",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "message-producer",
+      "target": "nfs-storage",
+      "label": "reads rawLog",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "message-producer",
+      "target": "kafka-broker",
+      "label": "produces messages",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "entity-extraction",
+      "target": "kafka-broker",
+      "label": "consumes + produces",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "entity-extraction",
+      "target": "schema-registry",
+      "label": "Avro schemas",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "metadata-archiver",
+      "target": "nfs-storage",
+      "label": "reads metadata",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "domain-consumer",
+      "target": "kafka-broker",
+      "label": "consumes node.domain",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "domain-consumer",
+      "target": "schema-registry",
+      "label": "Avro deser",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "domain-enrichment",
+      "target": "redis",
+      "label": "enrichment queues",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "uri-consumer",
+      "target": "kafka-broker",
+      "label": "consumes etl.uri + node.uri",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "uri-download",
+      "target": "kafka-broker",
+      "label": "consumes uri.download",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "subnet-consumer",
+      "target": "kafka-broker",
+      "label": "consumes node.subnet",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "host-consumer",
+      "target": "kafka-broker",
+      "label": "consumes host events",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "email-consumer",
+      "target": "kafka-broker",
+      "label": "consumes etl.email_address",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "text-consumer",
+      "target": "kafka-broker",
+      "label": "consumes node.text_content",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "image-consumer",
+      "target": "kafka-broker",
+      "label": "consumes node.image",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "template-consumer",
+      "target": "kafka-broker",
+      "label": "consumes node.content_template",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "cluster-consumer",
+      "target": "kafka-broker",
+      "label": "consumes node.cluster",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "message-consumer",
+      "target": "kafka-broker",
+      "label": "consumes messages",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "edge-ew-consumer",
+      "target": "kafka-broker",
+      "label": "consumes edge.emailed_with",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "edge-assoc-consumer",
+      "target": "kafka-broker",
+      "label": "consumes edge.dns/struct",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "edge-cluster-consumer",
+      "target": "kafka-broker",
+      "label": "consumes edge.cluster_member",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "message-role-consumer",
+      "target": "kafka-broker",
+      "label": "consumes message roles",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "score-consumer",
+      "target": "kafka-broker",
+      "label": "consumes score.external_source",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "spf-auth-consumer",
+      "target": "kafka-broker",
+      "label": "consumes SPF events",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "derived-refresh",
+      "target": "longhorn",
+      "label": "reads base + writes derived DuckDB",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "derived-refresh",
+      "target": "minio",
+      "label": "exports Parquet snapshots",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "rest-api",
+      "target": "longhorn",
+      "label": "reads DuckDB snapshots",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "rest-api",
+      "target": "minio",
+      "label": "reads Parquet via S3",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "flight-sql",
+      "target": "minio",
+      "label": "reads Parquet via S3",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "flight-sql",
+      "target": "longhorn",
+      "label": "attaches release DBs",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "sentinel",
+      "target": "prometheus",
+      "label": "queries + exports metrics",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "sentinel",
+      "target": "loki",
+      "label": "queries log patterns",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "mcp-server",
+      "target": "rest-api",
+      "label": "proxies to REST API",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "client-sdk",
+      "target": "rest-api",
+      "label": "HTTP API calls",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "spam-classifier",
+      "target": "flight-sql",
+      "label": "reads entity views via ADBC",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "infra-classifier",
+      "target": "flight-sql",
+      "label": "reads entity views via ADBC",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "verdict-merger",
+      "target": "longhorn",
+      "label": "reads sub-scores from signal.duckdb",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "classifier-scheduler",
+      "target": "kafka-broker",
+      "label": "publishes score.signal",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "dataset-pipeline",
+      "target": "flight-sql",
+      "label": "exports training data",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "score-consumer",
+      "target": "spamhaus",
+      "label": "ingests reputation data",
+      "style": "dashed",
+      "type": "data_flow"
+    },
+    {
+      "source": "analyst",
+      "target": "client-sdk",
+      "label": "CLI queries",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "analyst",
+      "target": "grafana",
+      "label": "views dashboards",
+      "style": "solid",
+      "type": "depends_on"
+    },
+    {
+      "source": "llm-agent",
+      "target": "mcp-server",
+      "label": "MCP tool calls",
+      "style": "solid",
+      "type": "depends_on"
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "log-ingestion",
+      "name": "Log Ingestion Pipeline",
+      "description": "The primary write path from raw email logs to structured Kafka events",
+      "trigger": "New rawLog files appear on NFS from the log server",
+      "actors": [
+        "log-server"
+      ],
+      "steps": [
+        {
+          "component": "message-producer",
+          "action": "Scans NFS directories, discovers slots",
+          "data": "Raw gzipped log files",
+          "to": "message-producer",
+          "technology": "NFS"
+        },
+        {
+          "component": "message-producer",
+          "action": "Parses email metadata using multiprocess pool",
+          "data": "Parsed message records",
+          "to": "kafka-broker",
+          "technology": "Kafka"
+        },
+        {
+          "component": "entity-extraction",
+          "action": "Extracts URIs, emails, IPs, text, images from messages",
+          "data": "Entity events (Avro)",
+          "to": "kafka-broker",
+          "technology": "Kafka + Avro"
+        },
+        {
+          "component": "domain-consumer",
+          "action": "Buffers domain entities, flushes to DuckDB",
+          "data": "Domain records",
+          "to": "longhorn",
+          "technology": "DuckDB"
+        },
+        {
+          "component": "domain-enrichment",
+          "action": "Enriches with WHOIS, DNS, HTTP reachability",
+          "data": "Enrichment results",
+          "to": "redis",
+          "technology": "DNS/HTTP/Redis"
+        }
+      ]
+    },
+    {
+      "id": "graph-computation",
+      "name": "Derived Computation Pipeline",
+      "description": "Batch computation of materialized views across 7 tiers of increasing complexity",
+      "trigger": "Continuous round-robin refresh (Tier A every 5min, Tier G every 6h)",
+      "actors": [],
+      "steps": [
+        {
+          "component": "derived-refresh",
+          "action": "Selects batch of stalest entities from base DuckDB",
+          "data": "Entity primary keys",
+          "to": "derived-refresh",
+          "technology": "DuckDB"
+        },
+        {
+          "component": "derived-refresh",
+          "action": "Computes tier A (traffic aggregation) through tier G (graph algorithms)",
+          "data": "Derived properties per entity",
+          "to": "longhorn",
+          "technology": "DuckDB + PyArrow"
+        },
+        {
+          "component": "derived-refresh",
+          "action": "Exports Parquet snapshots to MinIO for read path",
+          "data": "Parquet files",
+          "to": "minio",
+          "technology": "MinIO S3"
+        }
+      ]
+    },
+    {
+      "id": "classification",
+      "name": "ML Classification Pipeline",
+      "description": "Trains and runs spam + infrastructure classifiers, merges into final verdict",
+      "trigger": "Classifier scheduler periodic run",
+      "actors": [],
+      "steps": [
+        {
+          "component": "infra-classifier",
+          "action": "Seeds from known infrastructure lists, trains LightGBM multiclass",
+          "data": "infra_class + infra_score",
+          "to": "longhorn",
+          "technology": "LightGBM + DuckDB"
+        },
+        {
+          "component": "dataset-pipeline",
+          "action": "Exports entity views with graduated labels to Parquet",
+          "data": "Train/test splits",
+          "to": "longhorn",
+          "technology": "FlightSQL + Parquet"
+        },
+        {
+          "component": "spam-classifier",
+          "action": "Trains LightGBM regression on labeled entities",
+          "data": "logbd.ml scores (-1 to +1)",
+          "to": "longhorn",
+          "technology": "LightGBM"
+        },
+        {
+          "component": "weighted-sum",
+          "action": "Computes heuristic weighted average of 16 signals",
+          "data": "logbd.ws scores (0 to 1)",
+          "to": "longhorn",
+          "technology": "DuckDB"
+        },
+        {
+          "component": "verdict-merger",
+          "action": "Merges 70% ML + 30% heuristic",
+          "data": "Final logbd verdict",
+          "to": "kafka-broker",
+          "technology": "Kafka score.signal"
+        }
+      ]
+    },
+    {
+      "id": "entity-query",
+      "name": "Entity Investigation",
+      "description": "Analyst queries the graph to investigate a suspicious domain",
+      "trigger": "Security analyst runs CLI command or API call",
+      "actors": [
+        "analyst"
+      ],
+      "steps": [
+        {
+          "component": "client-sdk",
+          "action": "Sends lookup request for domain entity",
+          "data": "HTTP GET /node/domain/{key}",
+          "to": "rest-api",
+          "technology": "HTTP"
+        },
+        {
+          "component": "rest-api",
+          "action": "Queries EdgePool for fast point lookup",
+          "data": "Entity properties + scores",
+          "to": "client-sdk",
+          "technology": "DuckDB direct"
+        },
+        {
+          "component": "client-sdk",
+          "action": "Requests neighborhood subgraph",
+          "data": "HTTP GET /subgraph/domain/{key}",
+          "to": "rest-api",
+          "technology": "HTTP"
+        },
+        {
+          "component": "rest-api",
+          "action": "Traverses edges via EdgePool connections",
+          "data": "Graph neighborhood (nodes + edges)",
+          "to": "client-sdk",
+          "technology": "DuckDB"
+        }
+      ]
+    }
+  ],
+  "state": [
+    {
+      "id": "duckdb-nodes",
+      "name": "embedded-analytics",
+      "description": "Entity nodes (domain, subnet, host, uri, text, image, email, cluster, template, message) \u2014 one DuckDB file per entity type",
+      "purpose": "source-of-truth",
+      "technology": "DuckDB",
+      "component": "domain-consumer",
+      "persistence": "persistent",
+      "readers": [
+        "derived-refresh",
+        "spam-classifier",
+        "rest-api",
+        "flight-sql"
+      ],
+      "writers": [
+        "domain-consumer",
+        "uri-consumer",
+        "subnet-consumer",
+        "host-consumer",
+        "email-consumer",
+        "text-consumer",
+        "image-consumer",
+        "cluster-consumer"
+      ]
+    },
+    {
+      "id": "duckdb-edges",
+      "name": "embedded-analytics",
+      "description": "Relationship edges (emailed_with co-occurrence at 259M+ rows, DNS association, cluster membership, message roles)",
+      "purpose": "source-of-truth",
+      "technology": "DuckDB",
+      "component": "edge-ew-consumer",
+      "persistence": "persistent",
+      "readers": [
+        "derived-refresh",
+        "spam-classifier",
+        "rest-api"
+      ],
+      "writers": [
+        "edge-ew-consumer",
+        "edge-assoc-consumer",
+        "edge-cluster-consumer"
+      ]
+    },
+    {
+      "id": "duckdb-derived",
+      "name": "materialized-views",
+      "description": "Computed properties per entity: traffic aggregation, neighbor signals, reputation lookups, graph algorithm outputs",
+      "purpose": "derived",
+      "technology": "DuckDB",
+      "component": "derived-refresh",
+      "persistence": "persistent",
+      "readers": [
+        "spam-classifier",
+        "rest-api",
+        "flight-sql"
+      ],
+      "writers": [
+        "derived-refresh"
+      ]
+    },
+    {
+      "id": "minio-snapshots",
+      "name": "data-lake",
+      "description": "Parquet exports of all DuckDB databases for read-path serving via FlightSQL",
+      "purpose": "cache",
+      "technology": "MinIO (S3-compatible)",
+      "component": "derived-refresh",
+      "persistence": "persistent",
+      "readers": [
+        "flight-sql",
+        "rest-api",
+        "spam-classifier"
+      ],
+      "writers": [
+        "derived-refresh"
+      ]
+    },
+    {
+      "id": "kafka-topics",
+      "name": "event-log",
+      "description": "29 topics carrying entity events, edge events, enrichment signals, and scoring events",
+      "purpose": "staging",
+      "technology": "Kafka",
+      "component": "message-producer",
+      "persistence": "ephemeral",
+      "readers": [
+        "domain-consumer",
+        "uri-consumer",
+        "subnet-consumer",
+        "host-consumer",
+        "email-consumer",
+        "text-consumer",
+        "image-consumer",
+        "cluster-consumer",
+        "edge-ew-consumer",
+        "entity-extraction"
+      ],
+      "writers": [
+        "message-producer",
+        "entity-extraction",
+        "domain-consumer",
+        "classifier-scheduler"
+      ]
+    },
+    {
+      "id": "redis-cache",
+      "name": "cache",
+      "description": "Enrichment result queues (UCLT, WHOIS, CT), deduplication sets, SPF auth cache",
+      "purpose": "cache",
+      "technology": "Redis",
+      "component": "domain-enrichment",
+      "persistence": "ephemeral",
+      "readers": [
+        "domain-consumer",
+        "uri-download",
+        "spf-auth-consumer"
+      ],
+      "writers": [
+        "domain-enrichment",
+        "entity-extraction"
+      ]
+    },
+    {
+      "id": "duckdb-scores",
+      "name": "embedded-analytics",
+      "description": "External reputation scores (Spamhaus, etc.) and classifier output releases",
+      "purpose": "source-of-truth",
+      "technology": "DuckDB",
+      "component": "score-consumer",
+      "persistence": "persistent",
+      "readers": [
+        "spam-classifier",
+        "verdict-merger",
+        "flight-sql"
+      ],
+      "writers": [
+        "score-consumer",
+        "classifier-scheduler"
+      ]
+    },
+    {
+      "id": "model-registry",
+      "name": "model-storage",
+      "description": "LightGBM model files with date-suffix archiving and validation comparison metrics",
+      "purpose": "source-of-truth",
+      "technology": "File-based (.lgb + JSON metrics)",
+      "component": "spam-classifier",
+      "persistence": "persistent",
+      "readers": [
+        "flight-sql",
+        "rest-api"
+      ],
+      "writers": [
+        "spam-classifier",
+        "infra-classifier"
+      ]
+    }
+  ],
+  "failure_modes": [
+    {
+      "id": "kafka-down",
+      "trigger": "Kafka broker becomes unreachable (single point of failure)",
+      "severity": "critical",
+      "affectedNodes": [
+        "message-producer",
+        "entity-extraction",
+        "domain-consumer",
+        "uri-consumer",
+        "subnet-consumer",
+        "host-consumer",
+        "email-consumer",
+        "text-consumer",
+        "image-consumer",
+        "cluster-consumer",
+        "score-consumer",
+        "classifier-scheduler"
+      ],
+      "cascade": [
+        {
+          "component": "message-producer",
+          "effect": "Cannot publish parsed messages"
+        },
+        {
+          "component": "entity-extraction",
+          "effect": "Consumer poll fails, entity pipeline halts"
+        },
+        {
+          "component": "domain-consumer",
+          "effect": "All node consumers stop receiving events"
+        },
+        {
+          "component": "derived-refresh",
+          "effect": "No new data to process, staleness increases"
+        }
+      ],
+      "impact": "Complete ingestion halt. Query serving continues from existing data via DuckDB snapshots. No new entities enter the graph.",
+      "detection": [
+        "Consumer reconnection logs in Loki",
+        "kafka_consumer_lag metrics flatline",
+        "pipeline_ingestion_status gauge drops to FAIL"
+      ],
+      "recovery": [
+        "Consumers auto-reconnect on Kafka restart",
+        "Kafka replays from last committed offset",
+        "No data loss if Kafka storage intact"
+      ],
+      "name": "Kafka broker becomes unreachable (single point of failure)"
+    },
+    {
+      "id": "minio-down",
+      "trigger": "MinIO pod dies or storage becomes unavailable",
+      "severity": "critical",
+      "affectedNodes": [
+        "flight-sql",
+        "rest-api",
+        "derived-refresh",
+        "spam-classifier"
+      ],
+      "cascade": [
+        {
+          "component": "flight-sql",
+          "effect": "Cannot open Parquet views, new connections fail"
+        },
+        {
+          "component": "rest-api",
+          "effect": "EdgePool refresh fails, stale data served"
+        },
+        {
+          "component": "derived-refresh",
+          "effect": "Snapshot export fails, read path goes stale"
+        }
+      ],
+      "impact": "FlightSQL becomes unavailable for new queries. API serves increasingly stale data. Classifier training fails.",
+      "detection": [
+        "S3 connection errors in structlog",
+        "pipeline_storage_status FAIL",
+        "FlightSQL connection pool exhaustion"
+      ],
+      "recovery": [
+        "Restart MinIO pod",
+        "Snapshots regenerate on next derived-refresh cycle"
+      ],
+      "name": "MinIO pod dies or storage becomes unavailable"
+    },
+    {
+      "id": "duckdb-lock-contention",
+      "trigger": "Multiple processes attempt concurrent write access to same DuckDB file",
+      "severity": "medium",
+      "affectedNodes": [
+        "derived-refresh",
+        "domain-consumer",
+        "uri-consumer"
+      ],
+      "cascade": [
+        {
+          "component": "derived-refresh",
+          "effect": "Retry with exponential backoff (up to 5 attempts)"
+        },
+        {
+          "component": "domain-consumer",
+          "effect": "NodeStore reconnect attempt"
+        }
+      ],
+      "impact": "Temporary processing delays. Data eventually consistent after retry succeeds.",
+      "detection": [
+        "duckdb_open_failed / duckdb_attach_failed log messages",
+        "tier_computation_failed errors"
+      ],
+      "recovery": [
+        "Automatic retry with backoff and jitter",
+        "Process-level reconnection via NodeStore.reconnect()"
+      ],
+      "name": "Multiple processes attempt concurrent write access to same DuckDB file"
+    },
+    {
+      "id": "enrichment-backpressure",
+      "trigger": "Domain enrichment overwhelms consumer buffer (>80% capacity)",
+      "severity": "medium",
+      "affectedNodes": [
+        "domain-consumer",
+        "domain-enrichment",
+        "redis"
+      ],
+      "cascade": [
+        {
+          "component": "domain-consumer",
+          "effect": "Switches to catchup mode: skip enrichment, fast-stage only"
+        },
+        {
+          "component": "domain-enrichment",
+          "effect": "Enrichment paused until buffer drains"
+        }
+      ],
+      "impact": "Domains enter graph without enrichment data. Enrichment backfilled asynchronously once pressure subsides.",
+      "detection": [
+        "catchup_mode log entries",
+        "Buffer utilization metrics > 80%"
+      ],
+      "recovery": [
+        "Automatic: consumer resumes enrichment when buffer drops below threshold"
+      ],
+      "name": "Domain enrichment overwhelms consumer buffer (>80% capacity)"
+    },
+    {
+      "id": "nfs-unreachable",
+      "trigger": "NFS mount at /mnt/nfs/rawLog becomes unavailable",
+      "severity": "high",
+      "affectedNodes": [
+        "message-producer",
+        "metadata-archiver"
+      ],
+      "cascade": [
+        {
+          "component": "message-producer",
+          "effect": "Inventory scan returns empty, no new slots processed"
+        },
+        {
+          "component": "metadata-archiver",
+          "effect": "Cannot read metadata files"
+        }
+      ],
+      "impact": "Ingestion halts at source. All downstream consumers run out of work. Existing graph data unaffected.",
+      "detection": [
+        "nfs_mount_unreachable error logs",
+        "SLOTS_DISCOVERED_TOTAL stops incrementing"
+      ],
+      "recovery": [
+        "Automatic: message-producer retries on next scan cycle when NFS recovers"
+      ],
+      "name": "NFS mount at /mnt/nfs/rawLog becomes unavailable"
+    }
+  ]
+}
