@@ -42,7 +42,14 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       <span class="nav-title">Docs</span>
     </a>
     <span class="nav-sep">/</span>
-    <span class="nav-project">{title}</span>
+    <div class="nav-project-switcher">
+      <button class="nav-project-current" id="project-switcher-btn">{title} <span class="nav-chevron">&#9662;</span></button>
+      <div class="nav-project-dropdown" id="project-dropdown">
+        <a href="/sous-storefront/" class={title === 'sous-storefront' ? 'active' : ''}>sous-storefront</a>
+        <a href="/logbd/" class={title === 'logbd' ? 'active' : ''}>logbd</a>
+        <a href="/kordinate/" class={title === 'kordinate' ? 'active' : ''}>kordinate</a>
+      </div>
+    </div>
   </div>
   <div class="nav-right">
     <div class="env-toggle" title="Environment">
@@ -477,6 +484,9 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   // ENV TOGGLE
   document.querySelectorAll('.env-btn').forEach(function(btn) { btn.addEventListener('click', function() { document.querySelectorAll('.env-btn').forEach(function(b) { b.classList.remove('active'); }); btn.classList.add('active'); document.body.dataset.env = btn.dataset.env; }); });
 
+  // PROJECT SWITCHER
+  (function() { var btn = document.getElementById('project-switcher-btn'), dd = document.getElementById('project-dropdown'); btn.addEventListener('click', function(e) { e.stopPropagation(); dd.classList.toggle('open'); }); document.addEventListener('click', function() { dd.classList.remove('open'); }); })();
+
   // PANEL TOGGLES
   (function() { var ct = document.getElementById('controls-toggle'), cp = document.getElementById('controls-panel'), ht = document.getElementById('help-toggle'), hp = document.getElementById('help-panel'); ct.addEventListener('click', function(e) { e.stopPropagation(); cp.classList.toggle('controls-hidden'); hp.classList.add('help-hidden'); }); ht.addEventListener('click', function(e) { e.stopPropagation(); hp.classList.toggle('help-hidden'); cp.classList.add('controls-hidden'); }); document.addEventListener('click', function(e) { if (!cp.contains(e.target) && e.target !== ct) cp.classList.add('controls-hidden'); if (!hp.contains(e.target) && e.target !== ht) hp.classList.add('help-hidden'); }); })();
 
@@ -654,7 +664,15 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; back
 .env-btn:hover { color: #999; }
 .env-btn.active { background: rgba(123,104,238,0.15); color: #b8a9ff; }
 .nav-sep { color: #555; font-size: 14px; margin: 0 2px; }
-.nav-project { font-size: 14px; font-weight: 500; color: #b8a9ff; }
+.nav-project-switcher { position: relative; }
+.nav-project-current { background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 10px; font-size: 14px; font-weight: 500; color: #b8a9ff; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.nav-project-current:hover { background: rgba(255,255,255,0.04); border-color: rgba(123,104,238,0.3); }
+.nav-chevron { font-size: 10px; margin-left: 4px; }
+.nav-project-dropdown { display: none; position: absolute; top: calc(100% + 6px); left: 0; background: rgba(20,20,38,0.98); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; min-width: 180px; z-index: 2000; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.nav-project-dropdown.open { display: block; }
+.nav-project-dropdown a { display: block; padding: 8px 14px; color: #999; text-decoration: none; font-size: 13px; transition: all 0.1s; }
+.nav-project-dropdown a:hover { background: rgba(255,255,255,0.04); color: #e0e0e0; }
+.nav-project-dropdown a.active { color: #b8a9ff; background: rgba(123,104,238,0.08); }
 .nav-right { display: flex; align-items: center; gap: 16px; }
 .nav-link { display: flex; align-items: center; gap: 6px; text-decoration: none; font-size: 13px; font-weight: 500; color: #999; transition: color 0.15s ease; }
 .nav-link:hover { color: #e0e0e0; }
