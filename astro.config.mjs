@@ -82,6 +82,12 @@ export default defineConfig({
 						{ label: 'Project Explorer', link: '/sous-storefront/' },
 					],
 				},
+				{
+					label: 'Bookstore APIs',
+					items: [
+						{ label: 'Project Explorer', link: '/bookstore-apis/' },
+					],
+				},
 			],
 		}),
 	],
