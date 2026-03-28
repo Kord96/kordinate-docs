@@ -17,29 +17,12 @@ hero:
       icon: external
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 <div id="projects">
 <CardGrid>
-  <Card title="Kordinate" icon="rocket">
-    Coordinate specialized AI agents into a team — with kords, guards, and a recall system.
-    [Explore architecture](/kordinate/) · [Browse docs](/kordinate/framework/overview/)
-  </Card>
-  <Card title="Sous Storefront" icon="open-book">
-    Modern React e-commerce storefront with SSR, TanStack Query, and Radix UI.
-    [Explore architecture](/sous-storefront/)
-  </Card>
-  <Card title="Logbd" icon="bars">
-    Log-derived knowledge graph — ingestion, graph computation, ML classification, and investigation API.
-    [Explore architecture](/logbd/)
-  </Card>
-  <Card title="Stoik" icon="bars">
-    Kafka consumer library with buffered flushes and backpressure handling.
-    *Coming soon*
-  </Card>
-  <Card title="Klog" icon="list-format">
-    Structured logging library for consistent, queryable application logs.
-    *Coming soon*
-  </Card>
+  <LinkCard title="Kordinate" description="Coordinate specialized AI agents into a team — with kords, guards, and a recall system." href="/kordinate/" />
+  <LinkCard title="Sous Storefront" description="Modern React e-commerce storefront with SSR, TanStack Query, and Radix UI." href="/sous-storefront/" />
+  <LinkCard title="Logbd" description="Log-derived knowledge graph — ingestion, graph computation, ML classification, and investigation API." href="/logbd/" />
 </CardGrid>
 </div>

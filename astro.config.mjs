@@ -49,10 +49,7 @@ export default defineConfig({
 						{
 							label: 'Architecture',
 							items: [
-								{ label: 'Overview', slug: 'kordinate/framework/overview' },
-								{ label: 'Guards', slug: 'kordinate/framework/guards' },
-								{ label: 'Kords', slug: 'kordinate/framework/kords' },
-								{ label: 'Recall System', slug: 'kordinate/framework/memory' },
+								{ label: 'Explorer', link: '/kordinate/' },
 							],
 						},
 						{
