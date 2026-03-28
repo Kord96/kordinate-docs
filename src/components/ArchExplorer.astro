@@ -774,12 +774,53 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
     bindSidebarClicks();
   }
 
+  // ----- Helpers for narrative generation -----
+  function describeComponent(node, children) {
+    if (node.description) return node.description;
+    // Auto-generate a brief description from child types
+    if (!children || children.length === 0) return '';
+    var types = {};
+    children.forEach(function(c) {
+      var cn = nodeMap[c];
+      if (cn) types[cn.type] = (types[cn.type] || 0) + 1;
+    });
+    var parts = [];
+    for (var t in types) {
+      parts.push(types[t] + ' ' + t + (types[t] > 1 ? 's' : ''));
+    }
+    return 'Contains ' + parts.join(', ') + '.';
+  }
+
+  function describeEdges(nodeId) {
+    var incoming = [], outgoing = [];
+    RAW.edges.forEach(function(e) {
+      if (e.source === nodeId) outgoing.push(e);
+      if (e.target === nodeId) incoming.push(e);
+    });
+    if (incoming.length === 0 && outgoing.length === 0) return '';
+    var parts = [];
+    if (outgoing.length > 0) {
+      var targets = outgoing.map(function(e) { var tn = nodeMap[e.target]; return tn ? tn.name : e.target; });
+      var unique = targets.filter(function(v, i, a) { return a.indexOf(v) === i; });
+      parts.push('Depends on ' + unique.slice(0, 3).join(', ') + (unique.length > 3 ? ' and ' + (unique.length - 3) + ' more' : ''));
+    }
+    if (incoming.length > 0) {
+      var sources = incoming.map(function(e) { var sn = nodeMap[e.source]; return sn ? sn.name : e.source; });
+      var uniqueS = sources.filter(function(v, i, a) { return a.indexOf(v) === i; });
+      parts.push('Used by ' + uniqueS.slice(0, 3).join(', ') + (uniqueS.length > 3 ? ' and ' + (uniqueS.length - 3) + ' more' : ''));
+    }
+    return parts.join('. ') + '.';
+  }
+
   // ----- Structure tab: one section per top-level group -----
   function buildStructureSections(narrative) {
     var html = '';
 
     if (narrative) {
       html += '<div class="sb-narrative">' + narrative + '</div>';
+    } else {
+      // Auto-generate an intro
+      html += '<div class="sb-narrative"><p>This project has <strong>' + rootIds.length + ' top-level modules</strong> containing ' + totalNodes + ' components. Click any section to highlight it in the graph, or click a graph node to jump here.</p></div>';
     }
 
     rootIds.forEach(function(rid) {
@@ -788,12 +829,14 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       var kids = childrenOf[rid] || [];
       var allIds = [rid].concat(getAllDescendants(rid));
       var cfg = getTypeConfig(n.type);
+      var desc = describeComponent(n, kids);
+      var edgeDesc = describeEdges(rid);
 
       html += '<div class="sb-section" data-node-ids="' + allIds.join(',') + '">';
       html += '<div class="sb-section-heading" data-section-id="' + rid + '">';
       html += '<span class="sb-type-dot" style="background:' + (cfg.bg === '#2a2a4e' ? '#7b68ee' : cfg.bg) + '"></span>';
       html += '<span class="sb-section-title">' + escapeHtml(n.name) + '</span>';
-      html += '<span class="sb-node-count">' + (kids.length + 1) + ' nodes</span>';
+      html += '<span class="sb-node-count">' + (kids.length + 1) + '</span>';
 
       // Pattern badges
       if (n.patterns && n.patterns.length > 0) {
@@ -810,11 +853,15 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 
       html += '</div>';
 
-      if (n.description) {
-        html += '<div class="sb-section-desc">' + escapeHtml(n.description) + '</div>';
+      // Description + relationship context
+      if (desc) {
+        html += '<div class="sb-section-desc">' + escapeHtml(desc) + '</div>';
+      }
+      if (edgeDesc) {
+        html += '<div class="sb-section-context">' + escapeHtml(edgeDesc) + '</div>';
       }
 
-      // Children list
+      // Children
       if (kids.length > 0) {
         html += '<div class="sb-children">';
         kids.forEach(function(kid) {
@@ -889,6 +936,8 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 
     if (narrative) {
       html += '<div class="sb-narrative">' + narrative + '</div>';
+    } else if (DATA_FLOWS.length > 0) {
+      html += '<div class="sb-narrative"><p>This project defines <strong>' + DATA_FLOWS.length + ' data flows</strong> that trace how information moves through the system. Click a flow to highlight its path in the graph.</p></div>';
     }
 
     DATA_FLOWS.forEach(function(flow) {
@@ -3800,13 +3849,15 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 
   #sidebar-expand {
     position: fixed;
-    top: 96px;
-    left: 8px;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
     z-index: 1009;
-    width: 28px;
-    height: 28px;
+    width: 20px;
+    height: 48px;
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px;
+    border-left: none;
+    border-radius: 0 6px 6px 0;
     background: rgba(26,26,46,0.9);
     color: #666;
     font-size: 12px;
@@ -3930,10 +3981,40 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 
   .sb-section-desc {
     font-size: 12px;
-    color: #888;
-    line-height: 1.5;
+    color: #b0b0b0;
+    line-height: 1.6;
     margin-top: 6px;
     padding-left: 18px;
+  }
+
+  .sb-section-context {
+    font-size: 11px;
+    color: #777;
+    line-height: 1.5;
+    margin-top: 4px;
+    padding-left: 18px;
+    font-style: italic;
+  }
+
+  .sb-narrative {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 8px;
+  }
+
+  .sb-narrative p {
+    font-size: 12px;
+    color: #b0b0b0;
+    line-height: 1.6;
+    margin: 0 0 8px 0;
+  }
+
+  .sb-narrative p:last-child {
+    margin-bottom: 0;
+  }
+
+  .sb-narrative strong {
+    color: #d0c8ff;
   }
 
   /* Pattern badges */
