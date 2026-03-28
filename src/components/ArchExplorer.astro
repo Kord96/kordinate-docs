@@ -84,7 +84,6 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 </div>
 
 <!-- ===== HIGHLIGHT PICKER (left drawer, slides in) ===== -->
-<button id="highlight-toggle" title="Toggle highlights">&#x2261;</button>
 <div id="highlight-bar">
   <div id="highlight-header">Highlights</div>
   <div id="highlight-list"></div>
@@ -112,6 +111,7 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 <div class="tab-panel active" id="structure-panel">
   <div id="cy-structure"></div>
   <div id="breadcrumb-bar">
+    <button id="highlight-toggle" title="Toggle highlights">&#x276F;</button>
     <div id="breadcrumb"></div>
   </div>
   <button id="controls-toggle" title="Controls">&#9881;</button>
@@ -490,7 +490,7 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   hlToggle.addEventListener('click', function() {
     hlOpen = !hlOpen;
     hlBar.classList.toggle('open', hlOpen);
-    hlToggle.classList.toggle('shifted', hlOpen);
+    hlToggle.classList.toggle('active', hlOpen);
     if (cyStructure) setTimeout(function() { cyStructure.resize(); }, 300);
   });
 
@@ -711,7 +711,7 @@ body.sidebar-collapsed .tab-panel { left: 0; }
 .btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: #fff; }
 .btn.active { background: rgba(123,104,238,0.15); border-color: rgba(123,104,238,0.4); color: #b8a9ff; }
 #breadcrumb-bar { position: fixed; top: 88px; left: 0; right: 0; z-index: 1007; display: flex; align-items: center; justify-content: space-between; padding: 8px 24px; background: rgba(26,26,46,0.95); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; min-height: 32px; transition: left 0.3s ease; }
-body.sidebar-collapsed #breadcrumb-bar { left: 0; }
+/* old sidebar-collapsed rules removed — highlight drawer doesn't shift layout */
 #breadcrumb { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
 .bc-crumb { color: #888; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: all 0.15s ease; white-space: nowrap; }
 .bc-crumb:hover { color: #b8a9ff; background: rgba(123,104,238,0.1); }
@@ -727,8 +727,7 @@ body.sidebar-collapsed #breadcrumb-bar { left: 0; }
 .flow-dot:hover { opacity: 1; transform: scale(1.4); border-color: rgba(255,255,255,0.3); box-shadow: 0 0 10px var(--dot-color, currentColor); }
 .flow-dot.active { opacity: 1; transform: scale(1.5); border-color: rgba(255,255,255,0.5); box-shadow: 0 0 16px var(--dot-color, currentColor), 0 0 32px var(--dot-color, currentColor); }
 .flow-dot:hover::after { content: attr(title); position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(26,26,46,0.95); color: #ccc; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); }
-.graph-legend { position: fixed; bottom: 24px; left: 344px; z-index: 1010; background: rgba(26,26,46,0.92); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px 20px; min-width: 200px; transition: left 0.3s ease; }
-body.sidebar-collapsed .graph-legend { left: 24px; }
+.graph-legend { position: fixed; bottom: 24px; left: 24px; z-index: 1010; background: rgba(26,26,46,0.92); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px 20px; min-width: 200px; }
 .graph-legend h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #888; margin-bottom: 12px; font-weight: 600; }
 .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; font-size: 12px; color: #bbb; }
 .legend-item:last-child { margin-bottom: 0; }
@@ -791,8 +790,7 @@ body.sidebar-collapsed .graph-legend { left: 24px; }
 #info-badge { position: fixed; top: 92px; left: 344px; z-index: 1006; font-size: 12px; color: #666; transition: left 0.3s ease; }
 body.sidebar-collapsed #info-badge { left: 24px; }
 #info-badge strong { color: #b8a9ff; font-weight: 600; }
-#bottom-left { position: fixed; bottom: 24px; left: 344px; z-index: 1009; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; transition: left 0.3s ease; }
-body.sidebar-collapsed #bottom-left { left: 24px; }
+#bottom-left { position: fixed; bottom: 24px; left: 24px; z-index: 1009; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 #terminal-toggle { width: 48px; height: 48px; border: 1px solid rgba(232,143,60,0.35); border-radius: 12px; background: rgba(13,17,23,0.9); color: rgba(232,143,60,0.8); cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); box-shadow: 0 0 20px rgba(232,143,60,0.12), 0 0 40px rgba(232,143,60,0.06); }
 #terminal-toggle:hover { background: rgba(13,17,23,0.95); border-color: rgba(232,143,60,0.5); color: #e88f3c; }
 .terminal-prompt { color: #4ade80; margin-right: 8px; font-weight: 600; }
@@ -911,9 +909,9 @@ body.sidebar-collapsed #bottom-left { left: 24px; }
 /* Highlight bar (left drawer, slides in/out) */
 #highlight-bar { position: fixed; top: 88px; left: 0; bottom: 0; width: 220px; z-index: 1008; background: rgba(20,20,38,0.98); backdrop-filter: blur(16px); border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(123,104,238,0.2) transparent; transform: translateX(-220px); transition: transform 0.3s ease; }
 #highlight-bar.open { transform: translateX(0); }
-#highlight-toggle { position: fixed; top: 50%; left: 0; transform: translateY(-50%); z-index: 1009; width: 20px; height: 48px; border: 1px solid rgba(255,255,255,0.1); border-left: none; border-radius: 0 6px 6px 0; background: rgba(26,26,46,0.9); color: #666; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: all 0.15s; }
-#highlight-toggle:hover { background: rgba(123,104,238,0.15); color: #b8a9ff; }
-#highlight-toggle.shifted { left: 220px; }
+#highlight-toggle { width: 28px; height: 28px; border: none; border-radius: 4px; background: transparent; color: #888; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 8px; transition: all 0.2s; }
+#highlight-toggle:hover { background: rgba(255,255,255,0.06); color: #b8a9ff; }
+#highlight-toggle.active { color: #b8a9ff; transform: rotate(180deg); }
 #highlight-header { padding: 12px 14px; font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
 #highlight-list { padding: 8px 0; }
 .hl-group-label { padding: 10px 14px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #555; }
