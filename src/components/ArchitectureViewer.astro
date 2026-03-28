@@ -50,15 +50,46 @@ const { title, subtitle, data } = Astro.props;
   <div class="tab-description" id="tab-desc">Component hierarchy &mdash; expand and collapse to explore</div>
 </div>
 
-<!-- ===== TOOLTIP (shared) ===== -->
+<!-- ===== TOOLTIP (shared — simplified to name + type on hover) ===== -->
 <div id="tooltip">
   <div class="tt-label"></div>
   <div class="tt-type"></div>
-  <div class="tt-file"></div>
-  <div class="tt-desc"></div>
-  <div class="tt-exports"></div>
-  <div class="tt-children-hint"></div>
 </div>
+
+<!-- ===== NODE DETAIL DRAWER ===== -->
+<div id="node-drawer">
+  <div class="drawer-header">
+    <div class="drawer-name" id="drawer-name"></div>
+    <button class="drawer-close" id="drawer-close">&times;</button>
+  </div>
+  <div class="drawer-type-badge" id="drawer-type-badge"></div>
+  <div class="drawer-section" id="drawer-file-section" style="display:none;">
+    <div class="drawer-section-title">File</div>
+    <div class="drawer-file" id="drawer-file"></div>
+  </div>
+  <hr class="drawer-divider" id="drawer-desc-divider">
+  <div class="drawer-section">
+    <div class="drawer-section-title">Description</div>
+    <div class="drawer-desc" id="drawer-desc"></div>
+  </div>
+  <div id="drawer-exports-container" style="display:none;">
+    <hr class="drawer-divider">
+    <div class="drawer-section">
+      <div class="drawer-section-title" id="drawer-exports-title">Exports</div>
+      <div id="drawer-exports"></div>
+    </div>
+  </div>
+  <div id="drawer-children-container" style="display:none;">
+    <hr class="drawer-divider">
+    <div class="drawer-section">
+      <div class="drawer-section-title">Children</div>
+      <div class="drawer-children-count" id="drawer-children"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LEGEND TOGGLE BUTTON ===== -->
+<button class="legend-toggle-btn" id="legend-toggle-btn" style="display:none;">?</button>
 
 <!-- ===== TAB 1: STRUCTURE ===== -->
 <div class="tab-panel active" id="structure-panel">
@@ -121,7 +152,7 @@ const { title, subtitle, data } = Astro.props;
 <!-- ===== TAB 3: DATA ===== -->
 <div class="tab-panel" id="data-panel">
   <div id="cy-data"></div>
-  <div class="graph-legend" id="data-legend" style="display:none;">
+  <div class="graph-legend" id="data-legend">
     <h3>State Model</h3>
     <div class="legend-item">
       <div class="legend-shape"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="12" rx="3" fill="#e67e22"/></svg></div>
@@ -513,39 +544,16 @@ const { title, subtitle, data } = Astro.props;
   }
 
   // ==========================================================================
-  // SHARED: TOOLTIP
+  // SHARED: TOOLTIP (simplified — just name + type on hover)
   // ==========================================================================
   var tooltip = document.getElementById('tooltip');
   var ttLabel = tooltip.querySelector('.tt-label');
   var ttType = tooltip.querySelector('.tt-type');
-  var ttFile = tooltip.querySelector('.tt-file');
-  var ttDesc = tooltip.querySelector('.tt-desc');
-  var ttExports = tooltip.querySelector('.tt-exports');
-  var ttChildrenHint = tooltip.querySelector('.tt-children-hint');
 
   function showTooltip(data, cfg) {
     ttLabel.textContent = data.name || data.label || '';
     ttType.textContent = (data.type || data.nodeType || '').replace(/-/g, ' ');
     ttType.style.color = cfg ? (cfg.bg === '#2a2a4e' ? '#7b68ee' : cfg.bg) : '#7b68ee';
-    ttFile.textContent = data.file || '';
-    ttFile.style.display = data.file ? 'block' : 'none';
-    ttDesc.textContent = data.description || '';
-
-    if (data.exports && data.exports.length > 0) {
-      var html = '<div class="tt-exports-title">Exports (' + data.exports.length + ')</div>';
-      data.exports.forEach(function(exp) {
-        html += '<div class="tt-export-item">';
-        html += '<span class="export-name">' + escapeHtml(exp.name) + '</span>';
-        if (exp.kind) html += '<span class="export-kind"> (' + exp.kind + ')</span>';
-        html += '</div>';
-      });
-      ttExports.innerHTML = html;
-      ttExports.style.display = 'block';
-    } else {
-      ttExports.style.display = 'none';
-    }
-
-    ttChildrenHint.style.display = 'none';
     tooltip.classList.add('visible');
   }
 
@@ -555,15 +563,6 @@ const { title, subtitle, data } = Astro.props;
     if (!n) return;
     var cfg = getTypeConfig(n.type);
     showTooltip(n, cfg);
-
-    var kids = childrenOf[id] || [];
-    if (kids.length > 0 && !structureState.expandedNodes[id]) {
-      ttChildrenHint.textContent = 'Click to expand ' + countDescendants(id) + ' child nodes';
-      ttChildrenHint.style.display = 'block';
-    } else if (kids.length > 0 && structureState.expandedNodes[id]) {
-      ttChildrenHint.textContent = 'Right-click to collapse';
-      ttChildrenHint.style.display = 'block';
-    }
   }
 
   function hideTooltip() {
@@ -584,6 +583,139 @@ const { title, subtitle, data } = Astro.props;
     tooltip.style.left = left + 'px';
     tooltip.style.top = top + 'px';
   }
+
+  // ==========================================================================
+  // SHARED: SIDE DRAWER (full details on click)
+  // ==========================================================================
+  var nodeDrawer = document.getElementById('node-drawer');
+  var drawerName = document.getElementById('drawer-name');
+  var drawerTypeBadge = document.getElementById('drawer-type-badge');
+  var drawerFileSection = document.getElementById('drawer-file-section');
+  var drawerFile = document.getElementById('drawer-file');
+  var drawerDescDivider = document.getElementById('drawer-desc-divider');
+  var drawerDesc = document.getElementById('drawer-desc');
+  var drawerExportsContainer = document.getElementById('drawer-exports-container');
+  var drawerExportsTitle = document.getElementById('drawer-exports-title');
+  var drawerExports = document.getElementById('drawer-exports');
+  var drawerChildrenContainer = document.getElementById('drawer-children-container');
+  var drawerChildren = document.getElementById('drawer-children');
+  var infoBadge = document.getElementById('info-badge');
+
+  function openDrawer(data, cfg) {
+    drawerName.textContent = data.name || data.label || '';
+
+    var typeText = (data.type || data.nodeType || '').replace(/-/g, ' ');
+    drawerTypeBadge.textContent = typeText;
+    var badgeBg = cfg ? cfg.bg : '#7b68ee';
+    if (badgeBg === '#2a2a4e') badgeBg = '#7b68ee';
+    drawerTypeBadge.style.background = badgeBg + '22';
+    drawerTypeBadge.style.color = badgeBg;
+    drawerTypeBadge.style.border = '1px solid ' + badgeBg + '44';
+
+    // File
+    if (data.file) {
+      drawerFile.textContent = data.file;
+      drawerFileSection.style.display = '';
+    } else {
+      drawerFileSection.style.display = 'none';
+    }
+
+    // Description
+    drawerDesc.textContent = data.description || '';
+    drawerDescDivider.style.display = data.description ? '' : 'none';
+
+    // Exports
+    if (data.exports && data.exports.length > 0) {
+      drawerExportsTitle.textContent = 'Exports (' + data.exports.length + ')';
+      var html = '';
+      data.exports.forEach(function(exp) {
+        html += '<div class="drawer-export-item">';
+        html += '<span class="export-name">' + escapeHtml(exp.name) + '</span>';
+        if (exp.kind) html += '<span class="export-kind">(' + exp.kind + ')</span>';
+        if (exp.description) html += '<span class="export-desc">' + escapeHtml(exp.description) + '</span>';
+        html += '</div>';
+      });
+      drawerExports.innerHTML = html;
+      drawerExportsContainer.style.display = '';
+    } else {
+      drawerExportsContainer.style.display = 'none';
+    }
+
+    // Children count
+    var kids = data.id ? (childrenOf[data.id] || []) : [];
+    if (kids.length > 0) {
+      var desc = countDescendants(data.id);
+      drawerChildren.textContent = kids.length + ' direct children, ' + desc + ' total descendants';
+      drawerChildrenContainer.style.display = '';
+    } else {
+      drawerChildrenContainer.style.display = 'none';
+    }
+
+    nodeDrawer.classList.add('open');
+    infoBadge.classList.add('drawer-open');
+  }
+
+  function closeDrawer() {
+    nodeDrawer.classList.remove('open');
+    infoBadge.classList.remove('drawer-open');
+  }
+
+  document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      if (nodeDrawer.classList.contains('open')) closeDrawer();
+      if (legendVisible) hideLegend();
+    }
+  });
+
+  // ==========================================================================
+  // SHARED: LEGEND TOGGLE
+  // ==========================================================================
+  var legendToggleBtn = document.getElementById('legend-toggle-btn');
+  var legendVisible = false;
+
+  function getLegendForCurrentTab() {
+    if (currentTab === 'structure') return document.getElementById('structure-legend');
+    if (currentTab === 'data') return document.getElementById('data-legend');
+    return null;
+  }
+
+  function toggleLegend() {
+    var legend = getLegendForCurrentTab();
+    if (!legend) return;
+    legendVisible = !legendVisible;
+    if (legendVisible) {
+      legend.classList.add('legend-visible');
+      legendToggleBtn.classList.add('active');
+    } else {
+      legend.classList.remove('legend-visible');
+      legendToggleBtn.classList.remove('active');
+    }
+  }
+
+  function hideLegend() {
+    legendVisible = false;
+    legendToggleBtn.classList.remove('active');
+    var sl = document.getElementById('structure-legend');
+    var dl = document.getElementById('data-legend');
+    if (sl) sl.classList.remove('legend-visible');
+    if (dl) dl.classList.remove('legend-visible');
+  }
+
+  legendToggleBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleLegend();
+  });
+
+  // Close legend when clicking elsewhere
+  document.addEventListener('click', function(e) {
+    if (!legendVisible) return;
+    var legend = getLegendForCurrentTab();
+    if (legend && !legend.contains(e.target) && e.target !== legendToggleBtn) {
+      hideLegend();
+    }
+  });
 
   // ==========================================================================
   // TAB SWITCHING
@@ -642,19 +774,18 @@ const { title, subtitle, data } = Astro.props;
   });
 
   function hideTabSpecificElements(tab) {
+    // Close drawer and hide legend on any tab switch
+    closeDrawer();
+    hideLegend();
+
     if (tab === 'structure') {
       document.getElementById('breadcrumb-bar').style.display = 'none';
       document.getElementById('structure-controls').style.display = 'none';
       document.getElementById('flow-filters').style.display = 'none';
-      document.getElementById('structure-legend').style.display = 'none';
       document.getElementById('info-badge').style.display = 'none';
     }
-    if (tab === 'data') {
-      document.getElementById('data-legend').style.display = 'none';
-    }
-    if (tab === 'failure') {
-      // resilience tab is self-contained, no floating elements to hide
-    }
+    // Legend toggle button is hidden globally, will be re-shown by showTabSpecificElements
+    legendToggleBtn.style.display = 'none';
   }
 
   function showTabSpecificElements(tab) {
@@ -662,15 +793,13 @@ const { title, subtitle, data } = Astro.props;
       document.getElementById('breadcrumb-bar').style.display = '';
       document.getElementById('structure-controls').style.display = '';
       document.getElementById('flow-filters').style.display = '';
-      document.getElementById('structure-legend').style.display = '';
       document.getElementById('info-badge').style.display = '';
+      legendToggleBtn.style.display = '';
     }
     if (tab === 'data') {
-      document.getElementById('data-legend').style.display = '';
+      legendToggleBtn.style.display = '';
     }
-    if (tab === 'failure') {
-      // resilience tab is self-contained, no floating elements to show
-    }
+    // flows and failure tabs: no legend toggle (no graph legend to show)
   }
 
   // ==========================================================================
@@ -1104,8 +1233,18 @@ const { title, subtitle, data } = Astro.props;
   // Structure event handlers
   cyStructure.on('tap', 'node', function(e) {
     var id = e.target.data('id');
-    if ((childrenOf[id] || []).length > 0 && !structureState.expandedNodes[id]) {
+    var n = nodeMap[id];
+    var kids = childrenOf[id] || [];
+
+    // Expand collapsed group/parent nodes
+    if (kids.length > 0 && !structureState.expandedNodes[id]) {
       expandNode(id);
+    }
+
+    // Open drawer with full details
+    if (n) {
+      var cfg = getTypeConfig(n.type);
+      openDrawer(n, cfg);
     }
   });
 
@@ -1165,6 +1304,9 @@ const { title, subtitle, data } = Astro.props;
   rebuildStructureGraph(false);
   updateBreadcrumb(null);
   tabInitialized.structure = true;
+
+  // Show legend toggle button for initial tab (structure)
+  legendToggleBtn.style.display = '';
 
   cyStructure.ready(function() {
     setTimeout(function() {
@@ -1949,10 +2091,10 @@ const { title, subtitle, data } = Astro.props;
     font-weight: 600;
   }
 
-  /* ========= LEGEND ========= */
+  /* ========= LEGEND (shared across structure/data) ========= */
   .graph-legend {
     position: fixed;
-    bottom: 24px;
+    bottom: 66px;
     left: 24px;
     z-index: 1010;
     background: rgba(26,26,46,0.92);
@@ -1961,6 +2103,11 @@ const { title, subtitle, data } = Astro.props;
     border-radius: 12px;
     padding: 16px 20px;
     min-width: 200px;
+    display: none;
+  }
+
+  .graph-legend.legend-visible {
+    display: block;
   }
 
   .graph-legend h3 {
@@ -1997,16 +2144,16 @@ const { title, subtitle, data } = Astro.props;
     height: 16px;
   }
 
-  /* ========= TOOLTIP ========= */
+  /* ========= TOOLTIP (simplified — name + type only) ========= */
   #tooltip {
     position: fixed;
     z-index: 1020;
     background: rgba(16,16,32,0.96);
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 10px;
-    padding: 14px 18px;
-    max-width: 380px;
+    border-radius: 8px;
+    padding: 8px 14px;
+    max-width: 260px;
     pointer-events: none;
     opacity: 0;
     transform: translateY(4px);
@@ -2020,73 +2167,17 @@ const { title, subtitle, data } = Astro.props;
   }
 
   #tooltip .tt-label {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #f0f0f0;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
 
   #tooltip .tt-type {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin-bottom: 6px;
-    font-weight: 600;
-  }
-
-  #tooltip .tt-file {
-    font-size: 11px;
-    color: #7b68ee;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    margin-bottom: 6px;
-  }
-
-  #tooltip .tt-desc {
-    font-size: 12px;
-    color: #aaa;
-    line-height: 1.5;
-    margin-bottom: 0;
-  }
-
-  #tooltip .tt-exports {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(255,255,255,0.08);
-  }
-
-  #tooltip .tt-exports-title {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    color: #666;
-    margin-bottom: 6px;
     font-weight: 600;
-  }
-
-  #tooltip .tt-export-item {
-    font-size: 11px;
-    color: #999;
-    margin-bottom: 3px;
-    line-height: 1.4;
-  }
-
-  #tooltip .tt-export-item .export-name {
-    color: #b8a9ff;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 11px;
-  }
-
-  #tooltip .tt-export-item .export-kind {
-    color: #666;
-    font-size: 10px;
-    margin-left: 4px;
-  }
-
-  #tooltip .tt-children-hint {
-    margin-top: 8px;
-    font-size: 11px;
-    color: #7b68ee;
-    font-style: italic;
   }
 
   /* ========= FLOW FILTER PILLS ========= */
@@ -2450,6 +2541,189 @@ const { title, subtitle, data } = Astro.props;
   }
 
   .signal-item:last-child { margin-bottom: 0; }
+
+  /* ========= LEGEND TOGGLE BUTTON ========= */
+  .legend-toggle-btn {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 1011;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #ccc;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .legend-toggle-btn:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
+    color: #fff;
+  }
+
+  .legend-toggle-btn.active {
+    background: rgba(123,104,238,0.15);
+    border-color: rgba(123,104,238,0.4);
+    color: #b8a9ff;
+  }
+
+  /* ========= SIDE DRAWER ========= */
+  #node-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 360px;
+    z-index: 1015;
+    background: rgba(26,26,46,0.96);
+    backdrop-filter: blur(16px);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    padding: 0 0 24px;
+  }
+
+  #node-drawer.open {
+    transform: translateX(0);
+  }
+
+  .drawer-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px 20px 0;
+    gap: 12px;
+  }
+
+  .drawer-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #888;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .drawer-close:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
+    color: #fff;
+  }
+
+  .drawer-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f0f0f0;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
+  .drawer-type-badge {
+    display: inline-block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    margin: 12px 20px 0;
+  }
+
+  .drawer-section {
+    padding: 14px 20px 0;
+  }
+
+  .drawer-section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #666;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .drawer-file {
+    font-size: 12px;
+    color: #7b68ee;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .drawer-desc {
+    font-size: 13px;
+    color: #aaa;
+    line-height: 1.6;
+  }
+
+  .drawer-export-item {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 5px;
+    line-height: 1.4;
+  }
+
+  .drawer-export-item .export-name {
+    color: #b8a9ff;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+  }
+
+  .drawer-export-item .export-kind {
+    color: #666;
+    font-size: 10px;
+    margin-left: 4px;
+  }
+
+  .drawer-export-item .export-desc {
+    display: block;
+    color: #777;
+    font-size: 11px;
+    margin-top: 2px;
+    padding-left: 2px;
+  }
+
+  .drawer-children-count {
+    font-size: 13px;
+    color: #7b68ee;
+    font-style: italic;
+  }
+
+  .drawer-divider {
+    margin: 14px 20px 0;
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  #info-badge {
+    transition: right 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  #info-badge.drawer-open {
+    right: 384px;
+  }
 
   /* Data tab legend overrides */
   #data-legend .legend-swatch {
