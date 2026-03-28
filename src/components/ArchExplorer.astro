@@ -76,43 +76,35 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   <div class="tt-children-hint"></div>
 </div>
 
-<!-- ===== CONTEXT PANEL (bottom drawer) ===== -->
-<div id="bottom-panel">
-  <div id="bottom-panel-tabs">
-    <button class="bp-tab active" data-bp-tab="details">Details</button>
-    <button class="bp-tab" data-bp-tab="terminal">Terminal</button>
-    <button id="bottom-panel-close" aria-label="Close">&times;</button>
-  </div>
-  <div class="bp-content active" id="bp-details">
-    <div id="ctx-header"><span id="ctx-name"></span><span id="ctx-type-badge"></span></div>
-    <a id="ctx-file" href="#" target="_blank" rel="noopener"></a>
-    <p id="ctx-desc"></p>
-    <div id="ctx-exports"></div>
-  </div>
-  <div class="bp-content" id="bp-terminal">
-    <div class="terminal-body">
-      <p class="terminal-welcome">Talk to this project's architecture. Ask questions, request changes, explore flows.</p>
-      <div class="terminal-input-area">
-        <span class="terminal-prompt">$</span>
-        <input type="text" id="terminal-input" placeholder="Coming soon..." disabled />
-      </div>
-    </div>
-  </div>
+<!-- ===== HIGHLIGHT PICKER (left sidebar, narrow) ===== -->
+<div id="highlight-bar">
+  <div id="highlight-header">Highlights</div>
+  <div id="highlight-list"></div>
 </div>
 
-<!-- ===== SIDEBAR ===== -->
-<div id="arch-sidebar">
-  <div id="sidebar-header"><span id="sidebar-title">Structure</span></div>
-  <div id="sidebar-content"></div>
+<!-- ===== BOTTOM DRAWER (narrative + details, slides up) ===== -->
+<div id="bottom-panel">
+  <div id="bottom-panel-header">
+    <span id="bp-title"></span>
+    <span id="bp-type-badge"></span>
+    <button id="bottom-panel-close" aria-label="Close">&times;</button>
+  </div>
+  <div id="bottom-panel-body">
+    <div id="bp-narrative"></div>
+    <div id="bp-details">
+      <div id="ctx-header"><span id="ctx-name"></span><span id="ctx-type-badge" style="display:none"></span></div>
+      <a id="ctx-file" href="#" target="_blank" rel="noopener"></a>
+      <p id="ctx-desc"></p>
+      <div id="ctx-exports"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ===== TAB 1: STRUCTURE ===== -->
 <div class="tab-panel active" id="structure-panel">
   <div id="cy-structure"></div>
   <div id="breadcrumb-bar">
-    <button id="sidebar-toggle" title="Toggle sidebar">&#x2261;</button>
     <div id="breadcrumb"></div>
-    <div id="flow-dots"></div>
   </div>
   <button id="controls-toggle" title="Controls">&#9881;</button>
   <div id="controls-panel" class="controls-hidden">
@@ -267,12 +259,212 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   function hideTooltip() { tooltip.classList.remove('visible'); }
   function positionTooltip(evt) { if (!tooltip.classList.contains('visible') || !evt) return; var x = evt.clientX || 0, y = evt.clientY || 0, pad = 16, tw = tooltip.offsetWidth, th = tooltip.offsetHeight; var left = x + pad, top = y + pad; if (left + tw > window.innerWidth - 20) left = x - tw - pad; if (top + th > window.innerHeight - 20) top = y - th - pad; tooltip.style.left = left + 'px'; tooltip.style.top = top + 'px'; }
 
-  // BOTTOM PANEL
-  var bottomPanel = document.getElementById('bottom-panel'), ctxName = document.getElementById('ctx-name'), ctxTypeBadge = document.getElementById('ctx-type-badge'), ctxFile = document.getElementById('ctx-file'), ctxDesc = document.getElementById('ctx-desc'), ctxExports = document.getElementById('ctx-exports');
-  document.querySelectorAll('.bp-tab').forEach(function(tab) { tab.addEventListener('click', function() { document.querySelectorAll('.bp-tab').forEach(function(t) { t.classList.remove('active'); }); document.querySelectorAll('.bp-content').forEach(function(c) { c.classList.remove('active'); }); tab.classList.add('active'); document.getElementById('bp-' + tab.dataset.bpTab).classList.add('active'); }); });
-  document.getElementById('bottom-panel-close').addEventListener('click', function() { bottomPanel.classList.remove('open'); });
-  function showContextPanel(nd) { document.querySelectorAll('.bp-tab').forEach(function(t) { t.classList.remove('active'); }); document.querySelectorAll('.bp-content').forEach(function(c) { c.classList.remove('active'); }); document.querySelector('[data-bp-tab="details"]').classList.add('active'); document.getElementById('bp-details').classList.add('active'); var cfg = getTypeConfig(nd.type || nd.nodeType); ctxName.textContent = nd.name || nd.label || ''; var tl = (nd.type || nd.nodeType || '').replace(/-/g, ' '); ctxTypeBadge.textContent = tl; ctxTypeBadge.style.background = cfg.bg + '33'; ctxTypeBadge.style.color = cfg.bg === '#2a2a4e' ? '#7b68ee' : cfg.bg; ctxTypeBadge.style.borderColor = cfg.bg === '#2a2a4e' ? 'rgba(123,104,238,0.3)' : cfg.bg + '55'; if (nd.file) { ctxFile.textContent = nd.file; ctxFile.href = REPO_URL + '/blob/main/' + nd.file; ctxFile.style.display = 'inline-block'; } else { ctxFile.style.display = 'none'; } ctxDesc.textContent = nd.description || ''; ctxDesc.style.display = nd.description ? 'block' : 'none'; var exps = nd.exports; if (exps && exps.length > 0) { var h = '<div class="ctx-exports-title">Exports (' + exps.length + ')</div><ul class="ctx-exports-list">'; exps.forEach(function(exp) { var en = typeof exp === 'string' ? exp : exp.name; var ek = typeof exp === 'string' ? '' : (exp.kind || ''); var ed = typeof exp === 'string' ? '' : (exp.description || ''); h += '<li><span class="ctx-export-name">' + escapeHtml(en) + '</span>'; if (ek) h += ' <span class="ctx-export-kind">(' + ek + ')</span>'; if (ed) h += '<div class="ctx-export-desc">' + escapeHtml(ed) + '</div>'; h += '</li>'; }); h += '</ul>'; ctxExports.innerHTML = h; ctxExports.style.display = 'block'; } else { ctxExports.style.display = 'none'; } bottomPanel.classList.add('open'); }
-  function hideContextPanel() { bottomPanel.classList.remove('open'); }
+  // BOTTOM PANEL + HIGHLIGHT BAR — unified selection state
+  var bottomPanel = document.getElementById('bottom-panel'), bpTitle = document.getElementById('bp-title'), bpTypeBadge = document.getElementById('bp-type-badge'), bpNarrative = document.getElementById('bp-narrative'), bpDetails = document.getElementById('bp-details');
+  var ctxName = document.getElementById('ctx-name'), ctxTypeBadge = document.getElementById('ctx-type-badge'), ctxFile = document.getElementById('ctx-file'), ctxDesc = document.getElementById('ctx-desc'), ctxExports = document.getElementById('ctx-exports');
+  var highlightList = document.getElementById('highlight-list');
+  var selectionState = { type: null, id: null };
+
+  document.getElementById('bottom-panel-close').addEventListener('click', function() { setSelection(null, null); });
+
+  function setSelection(type, id) {
+    if (selectionState.type === type && selectionState.id === id) { type = null; id = null; }
+    selectionState = { type: type, id: id };
+    updateHighlightBar();
+    updateDrawer();
+    updateGraphForSelection();
+  }
+
+  function updateHighlightBar() {
+    highlightList.querySelectorAll('.hl-item').forEach(function(el) {
+      el.classList.toggle('active', el.dataset.selType === selectionState.type && el.dataset.selId === selectionState.id);
+    });
+  }
+
+  function buildHighlightBar() {
+    var html = '';
+    if (DATA_FLOWS.length > 0) {
+      html += '<div class="hl-group-label">Flows</div>';
+      DATA_FLOWS.forEach(function(f, i) {
+        var color = flowColors[i % flowColors.length];
+        html += '<button class="hl-item hl-flow" data-sel-type="flow" data-sel-id="' + f.id + '" style="--hl-color:' + color + '"><span class="hl-dot" style="background:' + color + '"></span>' + escapeHtml(f.name) + '</button>';
+      });
+    }
+    if (FAILURE_MODES.length > 0) {
+      html += '<div class="hl-group-label">Failures</div>';
+      FAILURE_MODES.forEach(function(fm) {
+        var color = fm.severity === 'critical' ? '#e74c3c' : fm.severity === 'high' ? '#e67e22' : '#f39c12';
+        html += '<button class="hl-item hl-failure" data-sel-type="failure" data-sel-id="' + fm.id + '" style="--hl-color:' + color + '"><span class="hl-square" style="background:' + color + '"></span>' + escapeHtml(fm.name || fm.trigger || fm.id) + '</button>';
+      });
+    }
+    if (STATE_DATA.stores && STATE_DATA.stores.length > 0) {
+      html += '<div class="hl-group-label">State</div>';
+      STATE_DATA.stores.forEach(function(st) {
+        html += '<button class="hl-item hl-state" data-sel-type="state" data-sel-id="' + st.id + '" style="--hl-color:#f59e0b"><span class="hl-diamond" style="background:#f59e0b"></span>' + escapeHtml(st.name || st.id) + '</button>';
+      });
+    }
+    highlightList.innerHTML = html;
+    highlightList.querySelectorAll('.hl-item').forEach(function(el) {
+      el.addEventListener('click', function() { setSelection(el.dataset.selType, el.dataset.selId); });
+    });
+  }
+
+  function parseNarrativeToHtml(text) {
+    if (!text) return '';
+    return text.replace(/\*\*([^*]+)\*\*/g, function(m, name) {
+      var nid = resolveNodeId(name);
+      if (nid) return '<span class="bp-node-ref" data-node-id="' + escapeHtml(nid) + '">' + escapeHtml(name) + '</span>';
+      return '<strong>' + escapeHtml(name) + '</strong>';
+    });
+  }
+
+  function updateDrawer() {
+    if (!selectionState.type) { bottomPanel.classList.remove('open'); return; }
+    bottomPanel.classList.add('open');
+
+    if (selectionState.type === 'flow') {
+      var df = DATA_FLOWS.find(function(f) { return f.id === selectionState.id; });
+      if (!df) return;
+      bpTitle.textContent = df.name;
+      bpTypeBadge.textContent = 'flow';
+      bpTypeBadge.style.cssText = 'background:rgba(74,144,217,0.2);color:#4a90d9;border-color:rgba(74,144,217,0.4);display:inline-block';
+      // Narrative
+      bpNarrative.innerHTML = df.narrative ? parseNarrativeToHtml(df.narrative) : (df.description ? '<p>' + escapeHtml(df.description) + '</p>' : '');
+      // Details: step table
+      var dh = '';
+      if (df.steps && df.steps.length > 0) {
+        dh += '<table class="bp-steps-table"><thead><tr><th>#</th><th>Component</th><th>Action</th><th>To</th></tr></thead><tbody>';
+        df.steps.forEach(function(s, i) {
+          dh += '<tr><td>' + (i+1) + '</td><td><span class="bp-node-ref" data-node-id="' + escapeHtml(resolveNodeId(s.component) || s.component) + '">' + escapeHtml(s.component) + '</span></td>';
+          dh += '<td>' + escapeHtml(s.action || '') + '</td>';
+          dh += '<td>' + (s.to ? '<span class="bp-node-ref" data-node-id="' + escapeHtml(resolveNodeId(s.to) || s.to) + '">' + escapeHtml(s.to) + '</span>' : '') + '</td></tr>';
+        });
+        dh += '</tbody></table>';
+      }
+      bpDetails.innerHTML = dh;
+
+    } else if (selectionState.type === 'node') {
+      var n = nodeMap[selectionState.id];
+      if (!n) return;
+      var cfg = getTypeConfig(n.type);
+      bpTitle.textContent = n.name;
+      bpTypeBadge.textContent = (n.type || '').replace(/-/g, ' ');
+      bpTypeBadge.style.cssText = 'background:' + cfg.bg + '33;color:' + (cfg.bg === '#2a2a4e' ? '#7b68ee' : cfg.bg) + ';display:inline-block';
+      // Narrative: description
+      bpNarrative.innerHTML = n.description ? '<p>' + escapeHtml(n.description) + '</p>' : '';
+      // Details: file, patterns, debt, exports, flows
+      var dh = '';
+      if (n.file) dh += '<div class="bp-detail-row"><span class="bp-detail-label">File</span><a href="' + REPO_URL + '/blob/main/' + escapeHtml(n.file) + '" target="_blank">' + escapeHtml(n.file) + '</a></div>';
+      if (n.patterns && n.patterns.length > 0) {
+        dh += '<div class="bp-detail-row"><span class="bp-detail-label">Patterns</span><div class="bp-badges">';
+        n.patterns.forEach(function(p) { dh += '<span class="bp-badge pattern">' + escapeHtml(typeof p === 'string' ? p : p.name) + '</span>'; });
+        dh += '</div></div>';
+      }
+      if (n.debt) {
+        var ds = typeof n.debt === 'string' ? n.debt : (n.debt.severity || '');
+        var dc = ds === 'critical' ? '#e74c3c' : ds === 'high' ? '#e67e22' : '#f39c12';
+        dh += '<div class="bp-detail-row"><span class="bp-detail-label">Debt</span><span class="bp-badge" style="background:' + dc + '33;color:' + dc + '">' + ds + '</span></div>';
+      }
+      if (n.exports && n.exports.length > 0) {
+        dh += '<div class="bp-detail-row"><span class="bp-detail-label">Exports (' + n.exports.length + ')</span><div class="bp-exports">';
+        n.exports.forEach(function(exp) { var en = typeof exp === 'string' ? exp : exp.name; dh += '<code>' + escapeHtml(en) + '</code> '; });
+        dh += '</div></div>';
+      }
+      var nodeFlows = DATA_FLOWS.filter(function(f) { return (f.steps || []).some(function(s) { return resolveNodeId(s.component) === n.id || resolveNodeId(s.to) === n.id; }); });
+      if (nodeFlows.length > 0) {
+        dh += '<div class="bp-detail-row"><span class="bp-detail-label">In flows</span><div class="bp-flow-links">';
+        nodeFlows.forEach(function(f, i) { dh += '<span class="bp-node-ref" data-sel-type="flow" data-sel-id="' + f.id + '" style="color:' + flowColors[i % flowColors.length] + '">' + escapeHtml(f.name) + '</span> '; });
+        dh += '</div></div>';
+      }
+      bpDetails.innerHTML = dh;
+
+    } else if (selectionState.type === 'failure') {
+      var fm = FAILURE_MODES.find(function(f) { return f.id === selectionState.id; });
+      if (!fm) return;
+      var sc = fm.severity === 'critical' ? '#e74c3c' : fm.severity === 'high' ? '#e67e22' : '#f39c12';
+      bpTitle.textContent = fm.name || fm.trigger || fm.id;
+      bpTypeBadge.textContent = fm.severity;
+      bpTypeBadge.style.cssText = 'background:' + sc + '33;color:' + sc + ';display:inline-block';
+      bpNarrative.innerHTML = fm.narrative ? parseNarrativeToHtml(fm.narrative) : (fm.trigger ? '<p>' + escapeHtml(fm.trigger) + '</p>' : '');
+      var dh = '';
+      if (fm.cascade && fm.cascade.length > 0) {
+        dh += '<div class="bp-detail-row"><span class="bp-detail-label">Cascade</span><div class="bp-cascade">';
+        fm.cascade.forEach(function(c) { dh += '<div class="bp-cascade-step"><span class="bp-node-ref" data-node-id="' + escapeHtml(c.component) + '">' + escapeHtml(c.component) + '</span> — ' + escapeHtml(c.effect || '') + '</div>'; });
+        dh += '</div></div>';
+      }
+      if (fm.detection && fm.detection.length > 0) {
+        dh += '<div class="bp-detail-row"><span class="bp-detail-label">Detection</span><ul class="bp-list">';
+        fm.detection.forEach(function(d) { dh += '<li>' + escapeHtml(d) + '</li>'; });
+        dh += '</ul></div>';
+      }
+      if (fm.recovery && fm.recovery.length > 0) {
+        dh += '<div class="bp-detail-row"><span class="bp-detail-label">Recovery</span><ul class="bp-list">';
+        fm.recovery.forEach(function(r) { dh += '<li>' + escapeHtml(r) + '</li>'; });
+        dh += '</ul></div>';
+      }
+      bpDetails.innerHTML = dh;
+
+    } else if (selectionState.type === 'state') {
+      var st = STATE_DATA.stores.find(function(s) { return s.id === selectionState.id; });
+      if (!st) return;
+      bpTitle.textContent = st.name || st.id;
+      bpTypeBadge.textContent = st.purpose || 'store';
+      bpTypeBadge.style.cssText = 'background:rgba(245,158,11,0.2);color:#f59e0b;display:inline-block';
+      bpNarrative.innerHTML = st.narrative ? parseNarrativeToHtml(st.narrative) : (st.description ? '<p>' + escapeHtml(st.description) + '</p>' : '');
+      var dh = '';
+      if (st.readers && st.readers.length > 0) {
+        dh += '<div class="bp-detail-row"><span class="bp-detail-label">Readers</span><div class="bp-node-list">';
+        st.readers.forEach(function(r) { var rn = nodeMap[r]; dh += '<span class="bp-node-ref" data-node-id="' + escapeHtml(r) + '">' + escapeHtml(rn ? rn.name : r) + '</span> '; });
+        dh += '</div></div>';
+      }
+      if (st.writers && st.writers.length > 0) {
+        dh += '<div class="bp-detail-row"><span class="bp-detail-label">Writers</span><div class="bp-node-list">';
+        st.writers.forEach(function(w) { var wn = nodeMap[w]; dh += '<span class="bp-node-ref" data-node-id="' + escapeHtml(w) + '">' + escapeHtml(wn ? wn.name : w) + '</span> '; });
+        dh += '</div></div>';
+      }
+      bpDetails.innerHTML = dh;
+    }
+
+    // Bind clickable refs in drawer
+    bottomPanel.querySelectorAll('.bp-node-ref').forEach(function(ref) {
+      ref.style.cursor = 'pointer';
+      ref.addEventListener('click', function() {
+        if (ref.dataset.selType) setSelection(ref.dataset.selType, ref.dataset.selId);
+        else if (ref.dataset.nodeId) setSelection('node', ref.dataset.nodeId);
+      });
+    });
+  }
+
+  function updateGraphForSelection() {
+    cyStructure.elements().removeClass('dimmed flow-highlight flow-halo highlighted');
+    structureState.activeFlow = null;
+    if (!selectionState.type) return;
+    if (selectionState.type === 'flow') {
+      structureState.activeFlow = selectionState.id;
+      highlightFlow(selectionState.id);
+    } else if (selectionState.type === 'node') {
+      var cyNode = cyStructure.getElementById(selectionState.id);
+      if (cyNode.length > 0) {
+        cyStructure.elements().addClass('dimmed');
+        cyNode.neighborhood().union(cyNode).removeClass('dimmed').addClass('flow-halo');
+      }
+    } else if (selectionState.type === 'failure') {
+      var fm = FAILURE_MODES.find(function(f) { return f.id === selectionState.id; });
+      if (fm) {
+        var ids = new Set(); (fm.cascade || []).forEach(function(c) { ids.add(c.component); });
+        if (ids.size > 0) { cyStructure.elements().addClass('dimmed'); ids.forEach(function(nid) { var n = cyStructure.getElementById(nid); if (n.length > 0) n.removeClass('dimmed').addClass('flow-halo'); }); }
+      }
+    } else if (selectionState.type === 'state') {
+      var st = STATE_DATA.stores.find(function(s) { return s.id === selectionState.id; });
+      if (st) {
+        var ids = new Set(); ids.add(st.id); (st.readers || []).forEach(function(r) { ids.add(r); }); (st.writers || []).forEach(function(w) { ids.add(w); });
+        cyStructure.elements().addClass('dimmed'); ids.forEach(function(nid) { var n = cyStructure.getElementById(nid); if (n.length > 0) n.removeClass('dimmed').addClass('flow-halo'); });
+      }
+    }
+  }
+
+  function showContextPanel(nd) { setSelection('node', nd.id || nd.name); }
+  function hideContextPanel() { setSelection(null, null); }
 
   // TAB SWITCHING
   var tabDescriptions = { structure: 'Component hierarchy &mdash; expand and collapse to explore', flows: 'Sequence diagrams for each data flow through the system', data: 'State stores and which components read or write them', failure: 'Resilience runbook &mdash; trigger, cascade, detection, recovery' };
@@ -286,16 +478,10 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   document.querySelectorAll('.env-btn').forEach(function(btn) { btn.addEventListener('click', function() { document.querySelectorAll('.env-btn').forEach(function(b) { b.classList.remove('active'); }); btn.classList.add('active'); document.body.dataset.env = btn.dataset.env; }); });
 
   // PANEL TOGGLES
-  (function() { var ct = document.getElementById('controls-toggle'), cp = document.getElementById('controls-panel'), ht = document.getElementById('help-toggle'), hp = document.getElementById('help-panel'), tt = document.getElementById('terminal-toggle'), bp = document.getElementById('bottom-panel'); ct.addEventListener('click', function(e) { e.stopPropagation(); cp.classList.toggle('controls-hidden'); hp.classList.add('help-hidden'); }); ht.addEventListener('click', function(e) { e.stopPropagation(); hp.classList.toggle('help-hidden'); cp.classList.add('controls-hidden'); }); tt.addEventListener('click', function(e) { e.stopPropagation(); document.querySelectorAll('.bp-tab').forEach(function(t) { t.classList.remove('active'); }); document.querySelectorAll('.bp-content').forEach(function(c) { c.classList.remove('active'); }); document.querySelector('[data-bp-tab="terminal"]').classList.add('active'); document.getElementById('bp-terminal').classList.add('active'); bp.classList.toggle('open'); cp.classList.add('controls-hidden'); hp.classList.add('help-hidden'); }); document.addEventListener('click', function(e) { if (!cp.contains(e.target) && e.target !== ct) cp.classList.add('controls-hidden'); if (!hp.contains(e.target) && e.target !== ht) hp.classList.add('help-hidden'); }); })();
+  (function() { var ct = document.getElementById('controls-toggle'), cp = document.getElementById('controls-panel'), ht = document.getElementById('help-toggle'), hp = document.getElementById('help-panel'); ct.addEventListener('click', function(e) { e.stopPropagation(); cp.classList.toggle('controls-hidden'); hp.classList.add('help-hidden'); }); ht.addEventListener('click', function(e) { e.stopPropagation(); hp.classList.toggle('help-hidden'); cp.classList.add('controls-hidden'); }); document.addEventListener('click', function(e) { if (!cp.contains(e.target) && e.target !== ct) cp.classList.add('controls-hidden'); if (!hp.contains(e.target) && e.target !== ht) hp.classList.add('help-hidden'); }); })();
 
-  // SIDEBAR STATE
-  var sidebarScrollPositions = { structure: 0, flows: 0, data: 0, failure: 0 }, sidebarCollapsed = false, sidebarObserver = null, activeSidebarSection = null;
-  var sidebarContext = { type: 'overview', flowId: null, nodeId: null };
-  var sidebar = document.getElementById('arch-sidebar'), sidebarContent = document.getElementById('sidebar-content'), sidebarToggleBtn = document.getElementById('sidebar-toggle'), sidebarTitle = document.getElementById('sidebar-title');
-  sidebarToggleBtn.addEventListener('click', function() { sidebarCollapsed = !sidebarCollapsed; if (sidebarCollapsed) { sidebar.classList.add('collapsed'); document.body.classList.add('sidebar-collapsed'); } else { sidebar.classList.remove('collapsed'); document.body.classList.remove('sidebar-collapsed'); } if (cyStructure) setTimeout(function() { cyStructure.resize(); }, 300); if (cyData) setTimeout(function() { cyData.resize(); }, 300); });
-
-  // SIDEBAR CONTEXT-DRIVEN RENDERING
-  function buildSidebarForTab(tab) { if (sidebarContent.scrollTop > 0) sidebarScrollPositions[currentTab] = sidebarContent.scrollTop; var tabNames = { structure: 'Structure', flows: 'Flows', data: 'Data', failure: 'Resilience' }; sidebarTitle.textContent = tabNames[tab] || tab; if (sidebarObserver) { sidebarObserver.disconnect(); sidebarObserver = null; } if (tab === 'data') sidebarContext = { type: 'tab-data', flowId: null, nodeId: null }; else if (tab === 'failure') sidebarContext = { type: 'tab-resilience', flowId: null, nodeId: null }; else if (sidebarContext.type !== 'flow' && sidebarContext.type !== 'node') sidebarContext = { type: 'overview', flowId: null, nodeId: null }; renderSidebarForContext(); sidebarContent.scrollTop = sidebarScrollPositions[tab] || 0; setupScrollSpy(); bindSidebarClicks(); }
+  // HIGHLIGHT BAR INIT (replaces old sidebar)
+  function buildSidebarForTab(tab) { /* highlight bar doesn't change per tab */ }
 
   function renderSidebarForContext() { var html = ''; if (sidebarContext.type === 'overview') html = buildOverviewSidebar(); else if (sidebarContext.type === 'flow') html = buildFlowNarrativeSidebar(sidebarContext.flowId); else if (sidebarContext.type === 'node') html = buildNodeDetailSidebar(sidebarContext.nodeId); else if (sidebarContext.type === 'tab-data') html = buildDataNarrativeSidebar(); else if (sidebarContext.type === 'tab-resilience') html = buildResilienceNarrativeSidebar(); sidebarContent.innerHTML = html; bindSidebarClicks(); bindNodeRefClicks(); }
 
@@ -379,7 +565,7 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   document.getElementById('btn-collapse-all').addEventListener('click', collapseAll);
   document.getElementById('btn-reset').addEventListener('click', resetView);
   document.getElementById('btn-fit').addEventListener('click', function() { cyStructure.animate({ fit: { padding: 100 }, duration: 400, easing: 'ease-in-out-cubic' }); });
-  buildFlowFilters(); rebuildStructureGraph(false); updateBreadcrumb(null); tabInitialized.structure = true;
+  buildHighlightBar(); rebuildStructureGraph(false); updateBreadcrumb(null); tabInitialized.structure = true;
   cyStructure.ready(function() { setTimeout(function() { cyStructure.fit(undefined, 100); cyStructure.panBy({ x: 0, y: 50 }); }, 300); });
 
   // FLOWS TAB
@@ -483,7 +669,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; back
 .tab-btn .tab-icon { margin-right: 6px; font-size: 14px; opacity: 0.7; }
 .tab-btn.active .tab-icon { opacity: 1; }
 .tab-description { margin-left: auto; display: flex; align-items: center; padding-right: 4px; font-size: 12px; color: #555; font-style: italic; }
-.tab-panel { position: absolute; top: 0; left: 320px; right: 0; bottom: 0; display: none; padding-top: 88px; transition: left 0.3s ease; }
+.tab-panel { position: absolute; top: 0; left: 180px; right: 0; bottom: 0; display: none; padding-top: 88px; transition: left 0.3s ease; }
 body.sidebar-collapsed .tab-panel { left: 0; }
 .tab-panel.active { display: block; }
 #structure-panel #cy-structure { width: 100%; height: 100%; position: absolute; top: 0; left: 0; padding-top: 88px; }
@@ -496,7 +682,7 @@ body.sidebar-collapsed .tab-panel { left: 0; }
 .btn { padding: 7px 16px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(255,255,255,0.04); color: #ccc; font-size: 12px; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.2s ease; font-weight: 500; }
 .btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: #fff; }
 .btn.active { background: rgba(123,104,238,0.15); border-color: rgba(123,104,238,0.4); color: #b8a9ff; }
-#breadcrumb-bar { position: fixed; top: 88px; left: 320px; right: 0; z-index: 1007; display: flex; align-items: center; justify-content: space-between; padding: 8px 24px; background: rgba(26,26,46,0.95); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; min-height: 32px; transition: left 0.3s ease; }
+#breadcrumb-bar { position: fixed; top: 88px; left: 180px; right: 0; z-index: 1007; display: flex; align-items: center; justify-content: space-between; padding: 8px 24px; background: rgba(26,26,46,0.95); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; min-height: 32px; transition: left 0.3s ease; }
 body.sidebar-collapsed #breadcrumb-bar { left: 0; }
 #breadcrumb { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
 .bc-crumb { color: #888; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: all 0.15s ease; white-space: nowrap; }
@@ -532,18 +718,31 @@ body.sidebar-collapsed .graph-legend { left: 24px; }
 #tooltip .tt-export-item .export-name { color: #b8a9ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; }
 #tooltip .tt-export-item .export-kind { color: #666; font-size: 10px; margin-left: 4px; }
 #tooltip .tt-children-hint { margin-top: 8px; font-size: 11px; color: #7b68ee; font-style: italic; }
-#bottom-panel { position: fixed; bottom: 0; left: 320px; right: 0; z-index: 1015; height: 35vh; background: rgba(16,16,32,0.95); backdrop-filter: blur(20px); border-top: 1px solid rgba(123,104,238,0.2); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), left 0.3s ease; display: flex; flex-direction: column; box-shadow: 0 -8px 40px rgba(0,0,0,0.4); }
-body.sidebar-collapsed #bottom-panel { left: 0; }
-.bp-content { flex: 1; overflow-y: auto; }
+#bottom-panel { position: fixed; bottom: 0; left: 180px; right: 0; z-index: 1015; height: 40vh; background: rgba(16,16,32,0.95); backdrop-filter: blur(20px); border-top: 1px solid rgba(123,104,238,0.2); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); display: flex; flex-direction: column; box-shadow: 0 -8px 40px rgba(0,0,0,0.4); }
 #bottom-panel.open { transform: translateY(0); }
-#bottom-panel-tabs { display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid rgba(255,255,255,0.06); position: sticky; top: 0; background: rgba(16,16,32,0.98); z-index: 1; }
-.bp-tab { padding: 10px 16px; border: none; border-bottom: 2px solid transparent; background: transparent; color: #666; font-size: 12px; font-family: 'Inter', sans-serif; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
-.bp-tab:hover { color: #aaa; }
-.bp-tab.active { color: #b8a9ff; border-bottom-color: #7b68ee; }
+#bottom-panel-header { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(16,16,32,0.98); flex-shrink: 0; }
+#bp-title { font-size: 15px; font-weight: 600; color: #e0e0e0; }
+#bp-type-badge { display: none; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid; }
+#bottom-panel-body { display: flex; flex: 1; overflow: hidden; }
+#bp-narrative { flex: 3; padding: 16px 24px; overflow-y: auto; font-size: 14px; line-height: 1.7; color: #c8c8d0; scrollbar-width: thin; scrollbar-color: rgba(123,104,238,0.2) transparent; }
+#bp-details { flex: 2; padding: 16px 20px; overflow-y: auto; border-left: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: #999; scrollbar-width: thin; }
 #bottom-panel-close { margin-left: auto; background: none; border: none; color: #555; font-size: 18px; cursor: pointer; padding: 8px; }
 #bottom-panel-close:hover { color: #fff; }
-.bp-content:not(.active) { display: none; }
-.bp-content.active { display: block; padding: 16px 24px; }
+.bp-node-ref { color: #b8a9ff; cursor: pointer; font-weight: 600; border-bottom: 1px dotted rgba(184,169,255,0.3); transition: color 0.15s; }
+.bp-node-ref:hover { color: #d0c8ff; }
+.bp-detail-row { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.bp-detail-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 4px; display: block; }
+.bp-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.bp-badge.pattern { background: rgba(123,104,238,0.12); color: #b8a9ff; border: 1px solid rgba(123,104,238,0.25); }
+.bp-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.bp-exports code { font-size: 11px; color: #888; background: rgba(255,255,255,0.04); padding: 1px 4px; border-radius: 2px; }
+.bp-steps-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.bp-steps-table th { text-align: left; padding: 4px 8px; color: #666; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.bp-steps-table td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.bp-cascade-step { padding: 3px 0; }
+.bp-list { margin: 4px 0; padding-left: 16px; }
+.bp-list li { padding: 2px 0; }
+.bp-flow-links { display: flex; flex-wrap: wrap; gap: 6px; }
 #ctx-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 #ctx-name { font-size: 18px; font-weight: 700; color: #f0f0f0; letter-spacing: -0.3px; }
 #ctx-type-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid; }
@@ -681,8 +880,17 @@ body.sidebar-collapsed #bottom-left { left: 24px; }
 .mermaid #arrowhead path { fill: #7b68ee !important; }
 .mermaid #crosshead path { fill: #7b68ee !important; stroke: #7b68ee !important; }
 .mermaid .sequenceNumber { fill: #1a1a2e !important; }
-#arch-sidebar { position: fixed; top: 88px; left: 0; bottom: 0; width: 320px; z-index: 1008; background: rgba(20,20,38,0.98); backdrop-filter: blur(16px); border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; transition: transform 0.3s ease, opacity 0.3s ease; }
-#arch-sidebar.collapsed { transform: translateX(-320px); opacity: 0; pointer-events: none; }
+/* Highlight bar (left, narrow) */
+#highlight-bar { position: fixed; top: 88px; left: 0; bottom: 0; width: 180px; z-index: 1008; background: rgba(20,20,38,0.98); backdrop-filter: blur(16px); border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(123,104,238,0.2) transparent; }
+#highlight-header { padding: 12px 14px; font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid rgba(255,255,255,0.06); }
+#highlight-list { padding: 8px 0; }
+.hl-group-label { padding: 10px 14px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #555; }
+.hl-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 14px; border: none; background: transparent; color: #888; font-size: 12px; cursor: pointer; text-align: left; transition: all 0.15s; border-left: 2px solid transparent; }
+.hl-item:hover { background: rgba(255,255,255,0.03); color: #ccc; }
+.hl-item.active { background: rgba(var(--hl-color-rgb, 123,104,238), 0.08); color: #e0e0e0; border-left-color: var(--hl-color, #7b68ee); }
+.hl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.hl-square { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.hl-diamond { width: 8px; height: 8px; border-radius: 1px; transform: rotate(45deg); flex-shrink: 0; }
 #sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
 #sidebar-title { font-size: 13px; font-weight: 600; color: #b8a9ff; text-transform: uppercase; letter-spacing: 0.08em; }
 #sidebar-toggle { width: 28px; height: 28px; border: none; border-radius: 4px; background: transparent; color: #888; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 8px; transition: all 0.15s ease; }
