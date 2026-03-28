@@ -747,7 +747,7 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
         });
         mermaidSrc = lines.join('\n');
       }
-      section.innerHTML = '<div class="flow-header" data-flow-id="' + flow.id + '"><h3><span class="flow-number">' + flow.number + '</span>' + escapeHtml(flow.name) + '</h3></div><div class="flow-diagram" data-flow-id="' + flow.id + '"><div class="mermaid" id="mermaid-' + idx + '">' + escapeHtml(mermaidSrc) + '</div><div class="flow-expand-hint">Click to expand</div></div>';
+      section.innerHTML = '<div class="flow-header" data-flow-id="' + flow.id + '"><h3><span class="flow-number">' + flow.number + '</span>' + escapeHtml(flow.name) + '</h3></div><div class="flow-diagram"><div class="mermaid" id="mermaid-' + idx + '">' + escapeHtml(mermaidSrc) + '</div></div>';
       container.appendChild(section);
     });
     // Render mermaid diagrams
@@ -757,108 +757,16 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       var src = el.textContent.trim();
       mermaid.render('mermaid-svg-' + idx, src).then(function(result) { el.innerHTML = result.svg; }).catch(function(err) { el.innerHTML = '<pre style="color:#e74c3c;font-size:12px;">Diagram error: ' + escapeHtml(err.message || String(err)) + '</pre>'; });
     });
-    // Click diagram → open in modal
+    // Click flow header → select it
     container.addEventListener('click', function(e) {
-      var diagram = e.target.closest('.flow-diagram');
-      if (diagram) {
-        var fid = diagram.dataset.flowId;
-        openFlowModal(fid, diagram);
-        setSelection('flow', fid);
-        return;
-      }
       var header = e.target.closest('.flow-header');
       if (header) setSelection('flow', header.dataset.flowId);
     });
   }
 
-  // Flow modal overlay
-  var flowModal = document.createElement('div');
-  flowModal.id = 'flow-modal';
-  flowModal.innerHTML = '<div id="flow-modal-backdrop"></div><div id="flow-modal-content"><button id="flow-modal-close">&times;</button><div id="flow-modal-diagram"></div></div>';
-  document.body.appendChild(flowModal);
-  document.getElementById('flow-modal-backdrop').addEventListener('click', closeFlowModal);
-  document.getElementById('flow-modal-close').addEventListener('click', closeFlowModal);
-  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && flowModal.classList.contains('open')) closeFlowModal(); });
+  // Flow modal removed — diagrams shown inline
 
-  function openFlowModal(flowId, diagramEl) {
-    var svg = diagramEl.querySelector('svg');
-    if (!svg) return;
-    var df = DATA_FLOWS.find(function(f) { return f.id === flowId; });
-    // Build modal content: diagram + narrative + details
-    var html = '<div id="flow-modal-diagram">' + svg.outerHTML + '</div>';
-    html += '<div id="flow-modal-info">';
-    html += '<div id="flow-modal-narrative">';
-    if (df) {
-      html += '<h2>' + escapeHtml(df.name) + ' <span class="bp-badge pattern">flow</span></h2>';
-      if (df.narrative) html += parseNarrativeToHtml(df.narrative);
-      else if (df.description) html += '<p>' + escapeHtml(df.description) + '</p>';
-    }
-    html += '</div>';
-    html += '<div id="flow-modal-details">';
-    if (df && df.steps && df.steps.length > 0) {
-      html += '<table class="bp-steps-table"><thead><tr><th>#</th><th>Component</th><th>Action</th><th>To</th></tr></thead><tbody>';
-      df.steps.forEach(function(s, i) {
-        html += '<tr><td>' + (i+1) + '</td><td><span class="bp-node-ref" data-node-id="' + escapeHtml(resolveNodeId(s.component) || s.component) + '">' + escapeHtml(s.component) + '</span></td>';
-        html += '<td>' + escapeHtml(s.action || '') + '</td>';
-        html += '<td>' + (s.to ? '<span class="bp-node-ref" data-node-id="' + escapeHtml(resolveNodeId(s.to) || s.to) + '">' + escapeHtml(s.to) + '</span>' : '') + '</td></tr>';
-      });
-      html += '</tbody></table>';
-    }
-    html += '</div></div>';
-    document.getElementById('flow-modal-content').innerHTML = '<button id="flow-modal-close">&times;</button>' + html;
-    document.getElementById('flow-modal-close').addEventListener('click', closeFlowModal);
-    // Make modal SVG large
-    var modalSvg = document.querySelector('#flow-modal-diagram svg');
-    if (modalSvg) { modalSvg.style.width = '100%'; modalSvg.style.height = 'auto'; modalSvg.style.minHeight = '300px'; }
-    // Cross-highlighting: hover any node ref → highlight all matching refs + mermaid participants
-    function crossHighlight(nodeId, on) {
-      // Highlight all bp-node-ref with same nodeId
-      document.querySelectorAll('#flow-modal-content .bp-node-ref').forEach(function(el) {
-        if (el.dataset.nodeId === nodeId) el.classList.toggle('cross-active', on);
-      });
-      // Highlight step table rows containing this node
-      document.querySelectorAll('#flow-modal-details tr').forEach(function(row) {
-        var refs = row.querySelectorAll('.bp-node-ref');
-        var match = false;
-        refs.forEach(function(r) { if (r.dataset.nodeId === nodeId) match = true; });
-        row.classList.toggle('cross-row-active', on && match);
-      });
-      // Highlight mermaid participants — find text elements matching the node name
-      var node = nodeMap[nodeId];
-      var name = node ? node.name : nodeId;
-      var nameLower = name.toLowerCase().replace(/-/g, ' ');
-      document.querySelectorAll('#flow-modal-diagram svg text').forEach(function(txt) {
-        var content = (txt.textContent || '').toLowerCase().trim();
-        if (content === nameLower || content.includes(nameLower)) {
-          var rect = txt.previousElementSibling || txt.parentElement.querySelector('rect');
-          if (on) {
-            txt.setAttribute('data-orig-fill', txt.getAttribute('fill') || '');
-            txt.setAttribute('fill', '#b8a9ff');
-            if (rect && rect.tagName === 'rect') { rect.setAttribute('data-orig-stroke', rect.getAttribute('stroke') || ''); rect.setAttribute('stroke', '#7b68ee'); rect.setAttribute('stroke-width', '3'); }
-          } else {
-            txt.setAttribute('fill', txt.getAttribute('data-orig-fill') || '');
-            if (rect && rect.tagName === 'rect') { rect.setAttribute('stroke', rect.getAttribute('data-orig-stroke') || ''); rect.setAttribute('stroke-width', ''); }
-          }
-        }
-      });
-    }
-
-    // Bind hover + click on all node refs
-    document.querySelectorAll('#flow-modal-content .bp-node-ref').forEach(function(ref) {
-      ref.style.cursor = 'pointer';
-      ref.addEventListener('mouseenter', function() { crossHighlight(ref.dataset.nodeId, true); });
-      ref.addEventListener('mouseleave', function() { crossHighlight(ref.dataset.nodeId, false); });
-      ref.addEventListener('click', function() {
-        closeFlowModal();
-        setSelection('node', ref.dataset.nodeId);
-      });
-    });
-    flowModal.classList.add('open');
-  }
-
-  function closeFlowModal() {
-    flowModal.classList.remove('open');
-  }
+  // Modal removed — flow diagrams shown inline, narrative in bottom drawer
 
   // DATA TAB
   var cyData = null;
@@ -1197,26 +1105,9 @@ body.sidebar-collapsed #info-badge { left: 24px; }
 .flow-section.active-flow { background: rgba(123,104,238,0.06); border-left: 3px solid #7b68ee; }
 .flow-section .flow-header { padding: 16px 24px; }
 .flow-section .flow-header h3 { margin: 0; font-size: 14px; font-weight: 500; color: #ccc; display: flex; align-items: center; gap: 8px; }
-.flow-diagram { cursor: pointer; padding: 16px 24px; position: relative; transition: background 0.15s; }
-.flow-diagram:hover { background: rgba(255,255,255,0.02); }
+.flow-diagram { padding: 16px 24px; }
 .flow-diagram .mermaid svg { width: 100%; height: auto; }
-.flow-expand-hint { position: absolute; top: 8px; right: 16px; font-size: 11px; color: #555; opacity: 0; transition: opacity 0.2s; }
-.flow-diagram:hover .flow-expand-hint { opacity: 1; }
-/* Flow modal */
-#flow-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
-#flow-modal.open { display: flex; align-items: center; justify-content: center; }
-#flow-modal-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); }
-#flow-modal-content { position: relative; z-index: 1; width: 92vw; max-height: 90vh; background: rgba(20,20,38,0.98); border: 1px solid rgba(123,104,238,0.2); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
-#flow-modal-diagram { padding: 24px 32px; overflow: auto; flex-shrink: 0; max-height: 55vh; border-bottom: 1px solid rgba(255,255,255,0.06); }
-#flow-modal-diagram svg { width: 100%; height: auto; min-height: 250px; }
-#flow-modal-info { display: flex; flex: 1; overflow: hidden; min-height: 0; }
-#flow-modal-narrative { flex: 3; padding: 20px 28px; overflow-y: auto; font-size: 14px; line-height: 1.8; color: #c8c8d0; }
-#flow-modal-narrative h2 { font-size: 16px; font-weight: 600; color: #e0e0e0; margin: 0 0 12px 0; display: flex; align-items: center; gap: 8px; }
-#flow-modal-narrative p { margin: 0 0 14px 0; }
-#flow-modal-details { flex: 2; padding: 20px; overflow-y: auto; border-left: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: #999; }
-#flow-modal-close { position: absolute; top: 10px; right: 16px; background: none; border: none; color: #555; font-size: 24px; cursor: pointer; z-index: 2; }
-#flow-modal-close:hover { color: #fff; }
-/* Cross-highlighting in modal */
+/* Cross-highlighting in drawer */
 .bp-node-ref.cross-active { color: #d0c8ff; background: rgba(123,104,238,0.15); border-radius: 3px; padding: 1px 3px; border-bottom-color: transparent; }
 tr.cross-row-active { background: rgba(123,104,238,0.1) !important; }
 tr.cross-row-active td { color: #d0d0d0; }
