@@ -53,8 +53,8 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   </div>
   <div class="nav-right">
     <div class="env-toggle" title="Environment">
-      <button class="env-btn active" data-env="prod">prod</button>
-      <button class="env-btn" data-env="dev">dev</button>
+      <a class="env-btn" href={'/' + title + '/'}>prod</a>
+      <a class="env-btn" href={'/dev/' + title + '/'}>dev</a>
     </div>
     <a href="/" class="nav-link back-link">&larr; Back to docs</a>
     <a href={repoUrl} class="nav-link gh-link" target="_blank" rel="noopener">
@@ -570,7 +570,8 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   function showTabSpecificElements(tab) { if (tab === 'structure') { document.getElementById('breadcrumb-bar').style.display = ''; document.getElementById('controls-toggle').style.display = ''; document.getElementById('controls-panel').style.display = ''; document.getElementById('flow-filters').style.display = ''; document.getElementById('info-badge').style.display = ''; } if (tab === 'data') document.getElementById('data-legend').style.display = ''; }
 
   // ENV TOGGLE
-  document.querySelectorAll('.env-btn').forEach(function(btn) { btn.addEventListener('click', function() { document.querySelectorAll('.env-btn').forEach(function(b) { b.classList.remove('active'); }); btn.classList.add('active'); document.body.dataset.env = btn.dataset.env; }); });
+  // Highlight active env toggle based on current path
+  (function() { var isDev = window.location.pathname.startsWith('/dev/'); document.querySelectorAll('.env-btn').forEach(function(a) { a.classList.toggle('active', isDev ? a.href.includes('/dev/') : !a.href.includes('/dev/')); }); })();
 
   // TERMINAL TOGGLE
   document.getElementById('terminal-toggle').addEventListener('click', function() {
