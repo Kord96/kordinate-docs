@@ -108,6 +108,15 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       <p id="ctx-desc"></p>
       <div id="ctx-exports"></div>
     </div>
+    <div id="bp-terminal" style="display:none">
+      <div class="terminal-body">
+        <p class="terminal-welcome">Talk to this project's architecture. Ask questions, explore flows, understand decisions.</p>
+        <div class="terminal-input-area">
+          <span class="terminal-prompt">$</span>
+          <input type="text" id="terminal-input" placeholder="Coming soon..." disabled />
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -333,6 +342,10 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 
   function updateDrawer() {
     if (!selectionState.type) { bottomPanel.classList.remove('open'); return; }
+    // Restore narrative/details, hide terminal
+    document.getElementById('bp-narrative').style.display = '';
+    document.getElementById('bp-details').style.display = '';
+    document.getElementById('bp-terminal').style.display = 'none';
     bottomPanel.classList.add('open');
 
     if (selectionState.type === 'flow') {
@@ -489,6 +502,27 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 
   // ENV TOGGLE
   document.querySelectorAll('.env-btn').forEach(function(btn) { btn.addEventListener('click', function() { document.querySelectorAll('.env-btn').forEach(function(b) { b.classList.remove('active'); }); btn.classList.add('active'); document.body.dataset.env = btn.dataset.env; }); });
+
+  // TERMINAL TOGGLE
+  document.getElementById('terminal-toggle').addEventListener('click', function() {
+    var bp = document.getElementById('bottom-panel');
+    var narrative = document.getElementById('bp-narrative');
+    var details = document.getElementById('bp-details');
+    var terminal = document.getElementById('bp-terminal');
+    if (bp.classList.contains('open') && terminal.style.display !== 'none') {
+      bp.classList.remove('open');
+      terminal.style.display = 'none';
+      narrative.style.display = '';
+      details.style.display = '';
+    } else {
+      narrative.style.display = 'none';
+      details.style.display = 'none';
+      terminal.style.display = 'flex';
+      document.getElementById('bp-title').textContent = 'Terminal';
+      document.getElementById('bp-type-badge').style.display = 'none';
+      bp.classList.add('open');
+    }
+  });
 
   // HIGHLIGHT DRAWER EXPAND/COLLAPSE
   var hlBar = document.getElementById('highlight-bar'), hlExpand = document.getElementById('highlight-expand'), hlCollapse = document.getElementById('highlight-collapse');
