@@ -108,13 +108,13 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
       <p id="ctx-desc"></p>
       <div id="ctx-exports"></div>
     </div>
-    <div id="bp-terminal" style="display:none">
-      <div class="terminal-body">
-        <p class="terminal-welcome">Talk to this project's architecture. Ask questions, explore flows, understand decisions.</p>
-        <div class="terminal-input-area">
-          <span class="terminal-prompt">$</span>
-          <input type="text" id="terminal-input" placeholder="Coming soon..." disabled />
-        </div>
+  </div>
+  <div id="bp-terminal" style="display:none">
+    <div class="terminal-body">
+      <p class="terminal-welcome">Talk to this project's architecture. Ask questions, explore flows, understand decisions.</p>
+      <div class="terminal-input-area">
+        <span class="terminal-prompt">$</span>
+        <input type="text" id="terminal-input" placeholder="Coming soon..." disabled />
       </div>
     </div>
   </div>
@@ -342,9 +342,8 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
 
   function updateDrawer() {
     if (!selectionState.type) { bottomPanel.classList.remove('open'); return; }
-    // Restore narrative/details, hide terminal
-    document.getElementById('bp-narrative').style.display = '';
-    document.getElementById('bp-details').style.display = '';
+    // Restore narrative/details split, hide terminal
+    document.getElementById('bottom-panel-body').style.display = '';
     document.getElementById('bp-terminal').style.display = 'none';
     bottomPanel.classList.add('open');
 
@@ -506,17 +505,14 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   // TERMINAL TOGGLE
   document.getElementById('terminal-toggle').addEventListener('click', function() {
     var bp = document.getElementById('bottom-panel');
-    var narrative = document.getElementById('bp-narrative');
-    var details = document.getElementById('bp-details');
+    var body = document.getElementById('bottom-panel-body');
     var terminal = document.getElementById('bp-terminal');
     if (bp.classList.contains('open') && terminal.style.display !== 'none') {
       bp.classList.remove('open');
       terminal.style.display = 'none';
-      narrative.style.display = '';
-      details.style.display = '';
+      body.style.display = '';
     } else {
-      narrative.style.display = 'none';
-      details.style.display = 'none';
+      body.style.display = 'none';
       terminal.style.display = 'flex';
       document.getElementById('bp-title').textContent = 'Terminal';
       document.getElementById('bp-type-badge').style.display = 'none';
@@ -837,7 +833,8 @@ body.sidebar-collapsed #info-badge { left: 24px; }
 #terminal-toggle { width: 48px; height: 48px; border: 1px solid rgba(232,143,60,0.35); border-radius: 12px; background: rgba(13,17,23,0.9); color: rgba(232,143,60,0.8); cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); box-shadow: 0 0 20px rgba(232,143,60,0.12), 0 0 40px rgba(232,143,60,0.06); }
 #terminal-toggle:hover { background: rgba(13,17,23,0.95); border-color: rgba(232,143,60,0.5); color: #e88f3c; }
 .terminal-prompt { color: #4ade80; margin-right: 8px; font-weight: 600; }
-.terminal-body { padding: 16px; }
+#bp-terminal { flex: 1; overflow-y: auto; }
+.terminal-body { padding: 24px; height: 100%; display: flex; flex-direction: column; }
 .terminal-welcome { color: #666; font-size: 13px; line-height: 1.6; margin: 0 0 16px 0; }
 .terminal-input-area { display: flex; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px 12px; }
 #terminal-input { flex: 1; background: none; border: none; color: #e0e0e0; font-family: inherit; font-size: 13px; outline: none; }
