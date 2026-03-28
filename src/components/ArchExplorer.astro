@@ -303,32 +303,54 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
     });
   }
 
-  function buildHighlightBar() {
+  function buildHighlightBar(tab) {
     var html = '';
-    if (DATA_FLOWS.length > 0) {
-      html += '<div class="hl-group-label">Flows</div>';
-      DATA_FLOWS.forEach(function(f, i) {
-        var color = flowColors[i % flowColors.length];
-        html += '<button class="hl-item hl-flow" data-sel-type="flow" data-sel-id="' + f.id + '" style="--hl-color:' + color + '"><span class="hl-dot" style="background:' + color + '"></span>' + escapeHtml(f.name) + '</button>';
-      });
+    tab = tab || currentTab;
+    // Primary highlights for this tab
+    if (tab === 'structure' || tab === 'flows') {
+      if (DATA_FLOWS.length > 0) {
+        html += '<div class="hl-group-label">Flows</div>';
+        DATA_FLOWS.forEach(function(f, i) {
+          var color = flowColors[i % flowColors.length];
+          html += '<button class="hl-item hl-flow" data-sel-type="flow" data-sel-id="' + f.id + '" style="--hl-color:' + color + '"><span class="hl-dot" style="background:' + color + '"></span>' + escapeHtml(f.name) + '</button>';
+        });
+      }
     }
-    if (FAILURE_MODES.length > 0) {
-      html += '<div class="hl-group-label">Failures</div>';
-      FAILURE_MODES.forEach(function(fm) {
-        var color = fm.severity === 'critical' ? '#e74c3c' : fm.severity === 'high' ? '#e67e22' : '#f39c12';
-        html += '<button class="hl-item hl-failure" data-sel-type="failure" data-sel-id="' + fm.id + '" style="--hl-color:' + color + '"><span class="hl-square" style="background:' + color + '"></span>' + escapeHtml(fm.name || fm.trigger || fm.id) + '</button>';
-      });
+    if (tab === 'data') {
+      if (STATE_DATA.stores && STATE_DATA.stores.length > 0) {
+        html += '<div class="hl-group-label">State Stores</div>';
+        STATE_DATA.stores.forEach(function(st) {
+          html += '<button class="hl-item hl-state" data-sel-type="state" data-sel-id="' + st.id + '" style="--hl-color:#f59e0b"><span class="hl-diamond" style="background:#f59e0b"></span>' + escapeHtml(st.name || st.id) + '</button>';
+        });
+      }
     }
-    if (STATE_DATA.stores && STATE_DATA.stores.length > 0) {
-      html += '<div class="hl-group-label">State</div>';
-      STATE_DATA.stores.forEach(function(st) {
-        html += '<button class="hl-item hl-state" data-sel-type="state" data-sel-id="' + st.id + '" style="--hl-color:#f59e0b"><span class="hl-diamond" style="background:#f59e0b"></span>' + escapeHtml(st.name || st.id) + '</button>';
-      });
+    if (tab === 'failure') {
+      if (FAILURE_MODES.length > 0) {
+        html += '<div class="hl-group-label">Failure Scenarios</div>';
+        FAILURE_MODES.forEach(function(fm) {
+          var color = fm.severity === 'critical' ? '#e74c3c' : fm.severity === 'high' ? '#e67e22' : '#f39c12';
+          html += '<button class="hl-item hl-failure" data-sel-type="failure" data-sel-id="' + fm.id + '" style="--hl-color:' + color + '"><span class="hl-square" style="background:' + color + '"></span>' + escapeHtml(fm.name || fm.trigger || fm.id) + '</button>';
+        });
+      }
     }
+    // Secondary highlights (collapsed, other tabs)
+    var secondary = [];
+    if (tab !== 'structure' && tab !== 'flows' && DATA_FLOWS.length > 0) secondary.push({ label: 'Flows', items: DATA_FLOWS, type: 'flow', shape: 'dot' });
+    if (tab !== 'data' && STATE_DATA.stores && STATE_DATA.stores.length > 0) secondary.push({ label: 'State', items: STATE_DATA.stores, type: 'state', shape: 'diamond' });
+    if (tab !== 'failure' && FAILURE_MODES.length > 0) secondary.push({ label: 'Failures', items: FAILURE_MODES, type: 'failure', shape: 'square' });
+    secondary.forEach(function(group) {
+      html += '<div class="hl-group-label secondary">' + group.label + '</div>';
+      group.items.forEach(function(item, i) {
+        var color = group.type === 'flow' ? flowColors[i % flowColors.length] : group.type === 'failure' ? (item.severity === 'critical' ? '#e74c3c' : item.severity === 'high' ? '#e67e22' : '#f39c12') : '#f59e0b';
+        var shape = group.shape === 'dot' ? 'hl-dot' : group.shape === 'square' ? 'hl-square' : 'hl-diamond';
+        html += '<button class="hl-item hl-secondary" data-sel-type="' + group.type + '" data-sel-id="' + (item.id) + '" style="--hl-color:' + color + '"><span class="' + shape + '" style="background:' + color + '"></span>' + escapeHtml(item.name || item.trigger || item.id) + '</button>';
+      });
+    });
     highlightList.innerHTML = html;
     highlightList.querySelectorAll('.hl-item').forEach(function(el) {
       el.addEventListener('click', function() { setSelection(el.dataset.selType, el.dataset.selId); });
     });
+    updateHighlightBar();
   }
 
   function parseNarrativeToHtml(text) {
@@ -539,8 +561,8 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   // PANEL TOGGLES
   (function() { var ct = document.getElementById('controls-toggle'), cp = document.getElementById('controls-panel'), ht = document.getElementById('help-toggle'), hp = document.getElementById('help-panel'); ct.addEventListener('click', function(e) { e.stopPropagation(); cp.classList.toggle('controls-hidden'); hp.classList.add('help-hidden'); }); ht.addEventListener('click', function(e) { e.stopPropagation(); hp.classList.toggle('help-hidden'); cp.classList.add('controls-hidden'); }); document.addEventListener('click', function(e) { if (!cp.contains(e.target) && e.target !== ct) cp.classList.add('controls-hidden'); if (!hp.contains(e.target) && e.target !== ht) hp.classList.add('help-hidden'); }); })();
 
-  // HIGHLIGHT BAR INIT (replaces old sidebar)
-  function buildSidebarForTab(tab) { /* highlight bar doesn't change per tab */ }
+  // HIGHLIGHT BAR REBUILDS PER TAB
+  function buildSidebarForTab(tab) { buildHighlightBar(tab); }
 
   function renderSidebarForContext() { var html = ''; if (sidebarContext.type === 'overview') html = buildOverviewSidebar(); else if (sidebarContext.type === 'flow') html = buildFlowNarrativeSidebar(sidebarContext.flowId); else if (sidebarContext.type === 'node') html = buildNodeDetailSidebar(sidebarContext.nodeId); else if (sidebarContext.type === 'tab-data') html = buildDataNarrativeSidebar(); else if (sidebarContext.type === 'tab-resilience') html = buildResilienceNarrativeSidebar(); sidebarContent.innerHTML = html; bindSidebarClicks(); bindNodeRefClicks(); }
 
@@ -627,7 +649,7 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
   buildHighlightBar(); rebuildStructureGraph(false); updateBreadcrumb(null); tabInitialized.structure = true;
   cyStructure.ready(function() { setTimeout(function() { cyStructure.fit(undefined, 100); cyStructure.panBy({ x: 0, y: 50 }); }, 300); });
 
-  // FLOWS TAB
+  // FLOWS TAB — diagram only, narrative in bottom drawer via highlights
   function initFlows() {
     mermaid.initialize({ startOnLoad: false, theme: 'dark', themeVariables: { primaryColor: '#2a2a5e', primaryBorderColor: '#7b68ee', primaryTextColor: '#ddd', lineColor: '#7b68ee', secondaryColor: 'rgba(123,104,238,0.08)', tertiaryColor: 'rgba(123,104,238,0.05)', noteBkgColor: 'rgba(123,104,238,0.12)', noteBorderColor: 'rgba(123,104,238,0.3)', noteTextColor: '#bbb', actorBkg: '#2a2a5e', actorBorder: '#7b68ee', actorTextColor: '#ddd', actorLineColor: 'rgba(123,104,238,0.3)', signalColor: '#ccc', signalTextColor: '#ccc', sequenceNumberColor: '#1a1a2e', fontFamily: 'Inter, sans-serif' }, sequence: { actorMargin: 60, width: 180, height: 50, boxMargin: 10, boxTextMargin: 5, noteMargin: 10, messageMargin: 40, mirrorActors: false, useMaxWidth: true, showSequenceNumbers: true } });
     var container = document.getElementById('flows-container');
@@ -635,32 +657,31 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
     DATA_FLOWS.forEach(function(flow, idx) {
       var section = document.createElement('div');
       section.className = 'flow-section';
-      var pathHtml = flow.path.length > 0 ? '<div class="flow-path">Path: ' + flow.path.map(function(p) { return '<span>' + escapeHtml(p) + '</span>'; }).join(' &rarr; ') + '</div>' : '';
-      var narrativeHtml = flow.narrative ? '<div class="flow-narrative">' + parseNarrative(flow.narrative) + '</div>' : '';
-      var stepsHtml = '';
-      if (flow.steps && flow.steps.length > 0) {
-        stepsHtml = '<div class="flow-steps-table"><table><thead><tr><th>#</th><th>Component</th><th>Action</th><th>Data</th></tr></thead><tbody>';
-        flow.steps.forEach(function(step, i) { stepsHtml += '<tr><td>' + (i + 1) + '</td><td class="step-comp">' + escapeHtml(step.component || '') + '</td><td>' + escapeHtml(step.action || '') + '</td><td>' + escapeHtml(step.data || '') + '</td></tr>'; });
-        stepsHtml += '</tbody></table></div>';
-      }
+      section.dataset.flowId = flow.id;
       var mermaidHtml = flow.mermaid ? '<div class="flow-diagram"><div class="mermaid" id="mermaid-' + idx + '">' + flow.mermaid + '</div></div>' : '';
-      section.innerHTML = '<div class="flow-header" data-flow-idx="' + idx + '"><h3><span class="flow-number">' + flow.number + '</span>' + escapeHtml(flow.name) + '</h3><span class="flow-toggle open">&#9660;</span></div><div class="flow-desc">' + escapeHtml(flow.description) + '</div>' + pathHtml + narrativeHtml + stepsHtml + mermaidHtml;
+      if (!mermaidHtml && flow.steps && flow.steps.length > 0) {
+        // Auto-generate mermaid from steps
+        var lines = ['sequenceDiagram', '  autonumber'];
+        flow.steps.forEach(function(step) {
+          var from = step.component.replace(/-/g, ' ');
+          var to = (step.to || '').replace(/-/g, ' ');
+          if (to) lines.push('  ' + from + '->>' + to + ': ' + (step.action || ''));
+        });
+        mermaidHtml = '<div class="flow-diagram"><div class="mermaid" id="mermaid-' + idx + '">' + lines.join('\n') + '</div></div>';
+      }
+      section.innerHTML = '<div class="flow-header" data-flow-id="' + flow.id + '"><h3><span class="flow-number">' + flow.number + '</span>' + escapeHtml(flow.name) + '</h3></div>' + mermaidHtml;
       container.appendChild(section);
     });
-    DATA_FLOWS.forEach(function(flow, idx) { if (!flow.mermaid) return; var el = document.getElementById('mermaid-' + idx); if (!el) return; mermaid.render('mermaid-svg-' + idx, flow.mermaid).then(function(result) { el.innerHTML = result.svg; }).catch(function(err) { el.innerHTML = '<pre style="color:#e74c3c;font-size:12px;">Diagram error: ' + escapeHtml(err.message || String(err)) + '</pre>'; }); });
+    // Render mermaid diagrams
+    DATA_FLOWS.forEach(function(flow, idx) {
+      var el = document.getElementById('mermaid-' + idx);
+      if (!el || !el.textContent.trim()) return;
+      mermaid.render('mermaid-svg-' + idx, el.textContent.trim()).then(function(result) { el.innerHTML = result.svg; }).catch(function(err) { el.innerHTML = '<pre style="color:#e74c3c;font-size:12px;">Diagram error: ' + escapeHtml(err.message || String(err)) + '</pre>'; });
+    });
+    // Click flow header → select it (opens narrative in drawer)
     container.addEventListener('click', function(e) {
       var header = e.target.closest('.flow-header');
-      if (!header) return;
-      var section = header.parentElement;
-      var toggle = header.querySelector('.flow-toggle');
-      var collapsibles = section.querySelectorAll('.flow-desc, .flow-path, .flow-narrative, .flow-steps-table, .flow-diagram');
-      if (toggle.classList.contains('open')) {
-        collapsibles.forEach(function(el) { el.style.display = 'none'; });
-        toggle.classList.remove('open');
-      } else {
-        collapsibles.forEach(function(el) { el.style.display = ''; });
-        toggle.classList.add('open');
-      }
+      if (header) setSelection('flow', header.dataset.flowId);
     });
   }
 
@@ -683,13 +704,34 @@ const { title, subtitle, data, repoUrl, narratives } = Astro.props;
     cyData.on('mouseover', 'node', function(e) { var node = e.target, d = node.data(); if (d.nodeType === 'purpose-group') return; var cfg = d.nodeType === 'store' ? { bg: '#e67e22' } : getTypeConfig(d.nodeType); showTooltip({ name: d.label, type: d.nodeType, description: d.description || d.scope || '', file: d.file }, cfg); node.addClass('hover-glow'); var con = node.connectedEdges(), nb = node.neighborhood().add(node); con.addClass('highlighted'); cyData.elements().not(nb).not(con).not(node.ancestors()).addClass('dimmed'); });
     cyData.on('mouseout', 'node', function(e) { hideTooltip(); e.target.removeClass('hover-glow'); cyData.elements().removeClass('highlighted dimmed'); });
     cyData.on('mousemove', function(e) { if (e.originalEvent) positionTooltip(e.originalEvent); });
-    cyData.on('tap', 'node', function(e) { var d = e.target.data(); if (d.nodeType === 'purpose-group') return; var n = nodeMap[d.id.replace(/^comp-/, '')] || nodeMap[d.id.replace(/^store-/, '')]; if (n) showContextPanel(n); else showContextPanel({ name: d.label, type: d.nodeType, description: d.description || d.scope || '', file: d.file }); });
-    cyData.on('tap', function(e) { if (e.target === cyData) hideContextPanel(); });
+    cyData.on('tap', 'node', function(e) { var d = e.target.data(); if (d.nodeType === 'purpose-group') return; if (d.nodeType === 'store') { var storeId = d.id.replace(/^store-/, ''); setSelection('state', storeId); } else { var nodeId = d.id.replace(/^comp-/, ''); setSelection('node', nodeId); } });
+    cyData.on('tap', function(e) { if (e.target === cyData) setSelection(null, null); });
   }
 
-  // RESILIENCE TAB
-  function initFailureTab() { var container = document.getElementById('resilience-container'); var cd = document.createElement('div'); cd.className = 'resilience-controls'; cd.innerHTML = '<label for="failure-select">Scenario:</label><select id="failure-select"></select>'; container.appendChild(cd); var td = document.createElement('div'); td.id = 'resilience-timeline'; container.appendChild(td); var select = document.getElementById('failure-select'); FAILURE_MODES.forEach(function(fm) { var opt = document.createElement('option'); opt.value = fm.id; opt.textContent = fm.name + ' (' + fm.severity + ')'; select.appendChild(opt); }); select.addEventListener('change', function() { renderResilienceTimeline(select.value); }); if (FAILURE_MODES.length > 0) renderResilienceTimeline(FAILURE_MODES[0].id); }
-  function renderResilienceTimeline(fid) { var fm = FAILURE_MODES.find(function(f) { return f.id === fid; }); if (!fm) return; var c = document.getElementById('resilience-timeline'); var h = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;"><span class="resilience-severity ' + fm.severity + '">' + fm.severity + '</span><span style="font-size:14px;color:#ccc;font-weight:500;">' + escapeHtml(fm.name) + '</span></div>'; if (fm.narrative) { h += '<div class="resilience-narrative">' + parseNarrative(fm.narrative) + '</div>'; } h += '<div class="resilience-timeline">'; h += '<div class="timeline-section trigger"><div class="timeline-dot"></div><div class="timeline-header">Trigger</div><div class="timeline-content"><div class="timeline-text">' + escapeHtml(fm.trigger) + '</div></div></div>'; if (fm.cascade && fm.cascade.length > 0) { h += '<div class="timeline-section cascade"><div class="timeline-dot"></div><div class="timeline-header">Cascade <span style="font-weight:400;font-size:10px;letter-spacing:0;text-transform:none;color:#888;">(' + fm.cascade.length + ' component' + (fm.cascade.length > 1 ? 's' : '') + ')</span></div><div class="timeline-content">'; fm.cascade.forEach(function(step, i) { h += '<div class="cascade-step"><span class="step-number">' + (i + 1) + '</span><span class="step-component">' + escapeHtml(step.component) + '</span><span class="step-arrow">\u2192</span><span class="step-effect">' + escapeHtml(step.effect) + '</span></div>'; }); h += '</div></div>'; } h += '<div class="timeline-section impact"><div class="timeline-dot"></div><div class="timeline-header">Impact</div><div class="timeline-content"><div class="timeline-text">' + escapeHtml(fm.impact) + '</div></div></div>'; if (fm.detection && fm.detection.length > 0) { h += '<div class="timeline-section detection"><div class="timeline-dot"></div><div class="timeline-header">Detection</div><div class="timeline-content">'; fm.detection.forEach(function(s, i) { h += '<div class="signal-item"><span class="step-number">' + (i + 1) + '</span><span>' + escapeHtml(s) + '</span></div>'; }); h += '</div></div>'; } if (fm.recovery && fm.recovery.length > 0) { h += '<div class="timeline-section recovery"><div class="timeline-dot"></div><div class="timeline-header">Recovery</div><div class="timeline-content">'; fm.recovery.forEach(function(s, i) { h += '<div class="signal-item"><span class="step-number">' + (i + 1) + '</span><span>' + escapeHtml(s) + '</span></div>'; }); h += '</div></div>'; } h += '</div>'; c.innerHTML = h; }
+  // RESILIENCE TAB — timeline visualization only, narrative in bottom drawer
+  function initFailureTab() {
+    var container = document.getElementById('resilience-container');
+    container.innerHTML = '';
+    FAILURE_MODES.forEach(function(fm) {
+      var section = document.createElement('div');
+      section.className = 'resilience-card';
+      section.dataset.failureId = fm.id;
+      section.style.cursor = 'pointer';
+      var sevColor = fm.severity === 'critical' ? '#e74c3c' : fm.severity === 'high' ? '#e67e22' : '#f39c12';
+      var h = '<div class="resilience-card-header"><span class="resilience-severity ' + fm.severity + '">' + fm.severity + '</span><span class="resilience-card-name">' + escapeHtml(fm.name) + '</span></div>';
+      h += '<div class="resilience-timeline">';
+      h += '<div class="timeline-section trigger"><div class="timeline-dot"></div><div class="timeline-header">Trigger</div><div class="timeline-content"><div class="timeline-text">' + escapeHtml(fm.trigger) + '</div></div></div>';
+      if (fm.cascade && fm.cascade.length > 0) {
+        h += '<div class="timeline-section cascade"><div class="timeline-dot"></div><div class="timeline-header">Cascade</div><div class="timeline-content">';
+        fm.cascade.forEach(function(step, i) { h += '<div class="cascade-step"><span class="step-number">' + (i + 1) + '</span><span class="step-component">' + escapeHtml(step.component) + '</span><span class="step-arrow">\u2192</span><span class="step-effect">' + escapeHtml(step.effect) + '</span></div>'; });
+        h += '</div></div>';
+      }
+      h += '</div>';
+      section.innerHTML = h;
+      section.addEventListener('click', function() { setSelection('failure', fm.id); });
+      container.appendChild(section);
+    });
+  }
 
   buildSidebarForTab('structure');
   window.cyStructure = cyStructure;
@@ -963,6 +1005,13 @@ body.sidebar-collapsed #info-badge { left: 24px; }
 .hl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .hl-square { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 .hl-diamond { width: 8px; height: 8px; border-radius: 1px; transform: rotate(45deg); flex-shrink: 0; }
+.hl-group-label.secondary { color: #444; margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 12px; }
+.hl-item.hl-secondary { color: #666; font-size: 11px; }
+.hl-item.hl-secondary:hover { color: #aaa; }
+.resilience-card { padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+.resilience-card:hover { background: rgba(255,255,255,0.02); }
+.resilience-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.resilience-card-name { font-size: 14px; font-weight: 500; color: #ccc; }
 #sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
 #sidebar-title { font-size: 13px; font-weight: 600; color: #b8a9ff; text-transform: uppercase; letter-spacing: 0.08em; }
 #sidebar-toggle { width: 28px; height: 28px; border: none; border-radius: 4px; background: transparent; color: #888; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 8px; transition: all 0.15s ease; }
