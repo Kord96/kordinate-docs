@@ -1,6 +1,24 @@
 {
-  "overview": "Sous-Storefront is a server-rendered React e-commerce storefront that lets shoppers browse products by category, manage a cart, and complete a simulated checkout. Built on React Router v7 with TanStack Query for data fetching, it runs as a Node 20 Alpine Docker container serving SSR pages that hydrate into a fully interactive SPA. All product data comes from the public DummyJSON API; cart and theme preferences persist in browser localStorage via Zustand stores.",
-  "structure_narrative": "The system spans three runtime boundaries. The **server** handles SSR rendering and build-time prerendering -- route loaders prefetch data from DummyJSON, dehydrate TanStack Query caches, and ship HTML to the browser. The **browser** receives hydrated pages and takes over with client-side routing, infinite scroll pagination, cart management, and theme toggling. The **external** boundary includes the DummyJSON REST API (the sole data source) and browser-native APIs (localStorage for persistence, DOM for theme application). This is a thin-client architecture: there is no backend of its own, no database, and no authentication. The server is a rendering layer, not an application server.",
+  "overview": "Sous-Storefront is a server-rendered React e-commerce storefront where shoppers browse products by category, manage a persistent cart, and complete a simulated checkout. It runs on React Router v7 with TanStack Query for data fetching, all powered by the public DummyJSON API and persisted to browser localStorage via Zustand stores.",
+  "structure_narrative": "## Three Runtime Boundaries\n\nThe storefront spans **server**, **browser**, and **external** — three distinct runtime boundaries following the C4 Container model. There is no backend of its own, no database, and no authentication. The server is a rendering layer, not an application server.\n\n## Server\n\n**root-layout-loader**, **home-loader**, and **products-loader** run on Node 20 Alpine via react-router-serve. They prefetch data from **dummyjson**, dehydrate TanStack Query caches, and ship pre-rendered HTML to the browser. The routes `/` and `/products` are also prerendered at build time for instant cold loads.\n\n## Browser\n\nAfter hydration, the **browser** takes full control — client-side routing, infinite scroll pagination, cart management via **cart-store**, and theme toggling through **theme-store**. All UI composition flows through **app-root** down to shared components and **ui-primitives** built on Radix.\n\n## External\n\nThe **external** boundary holds **dummyjson** (the sole data source, with no SLA), **localstorage** (persistence for both Zustand stores), and the **dom** (direct classList mutation for instant theme switching). Every byte of product data originates from DummyJSON — if it goes down, the storefront goes dark.",
+  "structure_narrative_map": [
+    {
+      "text": "The storefront spans **server**, **browser**, and **external** — three distinct runtime boundaries following the C4 Container model. There is no backend of its own, no database, and no authentication. The server is a rendering layer, not an application server.",
+      "refs": ["server", "browser", "external"]
+    },
+    {
+      "text": "**root-layout-loader**, **home-loader**, and **products-loader** run on Node 20 Alpine via react-router-serve. They prefetch data from **dummyjson**, dehydrate TanStack Query caches, and ship pre-rendered HTML to the browser. The routes `/` and `/products` are also prerendered at build time for instant cold loads.",
+      "refs": ["root-layout-loader", "home-loader", "products-loader", "dummyjson", "server"]
+    },
+    {
+      "text": "After hydration, the **browser** takes full control — client-side routing, infinite scroll pagination, cart management via **cart-store**, and theme toggling through **theme-store**. All UI composition flows through **app-root** down to shared components and **ui-primitives** built on Radix.",
+      "refs": ["browser", "cart-store", "theme-store", "app-root", "ui-primitives"]
+    },
+    {
+      "text": "The **external** boundary holds **dummyjson** (the sole data source, with no SLA), **localstorage** (persistence for both Zustand stores), and the **dom** (direct classList mutation for instant theme switching). Every byte of product data originates from DummyJSON — if it goes down, the storefront goes dark.",
+      "refs": ["external", "dummyjson", "localstorage", "dom"]
+    }
+  ],
   "nodes": [
     {
       "id": "server",
@@ -23,7 +41,6 @@
       "type": "group",
       "hasChildren": true
     },
-
     {
       "id": "ssr-loaders",
       "name": "SSR Loaders",
@@ -50,7 +67,10 @@
       "parent": "ssr-loaders",
       "file": "app/routes/home/index.tsx",
       "patterns": ["ssr-hydration", "prerendering"],
-      "debt": { "severity": "high", "items": ["No timeout on DummyJSON calls blocks this loader indefinitely"] }
+      "debt": {
+        "severity": "high",
+        "items": ["No timeout on DummyJSON calls blocks this loader indefinitely"]
+      }
     },
     {
       "id": "products-loader",
@@ -60,7 +80,10 @@
       "parent": "ssr-loaders",
       "file": "app/routes/products/index.tsx",
       "patterns": ["ssr-hydration", "prerendering"],
-      "debt": { "severity": "high", "items": ["No timeout on DummyJSON calls blocks this loader indefinitely"] }
+      "debt": {
+        "severity": "high",
+        "items": ["No timeout on DummyJSON calls blocks this loader indefinitely"]
+      }
     },
     {
       "id": "api-client",
@@ -70,10 +93,17 @@
       "parent": "server",
       "file": "app/api.ts",
       "patterns": ["api-client-abstraction"],
-      "debt": { "severity": "high", "items": ["Hardcoded API URL", "No retry policy", "No timeout configured", "No circuit breaker"] },
-      "resilience": "none -- no timeout, retry, or circuit breaker configured"
+      "debt": {
+        "severity": "high",
+        "items": [
+          "Hardcoded API URL",
+          "No retry policy",
+          "No timeout configured",
+          "No circuit breaker"
+        ]
+      },
+      "resilience": "none — no timeout, retry, or circuit breaker configured"
     },
-
     {
       "id": "layout-shell",
       "name": "Layout & Navigation",
@@ -172,7 +202,6 @@
       "patterns": [],
       "debt": null
     },
-
     {
       "id": "pages",
       "name": "Pages",
@@ -229,7 +258,13 @@
       "parent": "pages",
       "file": "app/routes/checkout/index.tsx",
       "patterns": ["client-side-guard"],
-      "debt": { "severity": "high", "items": ["Simulated backend -- no real order processing", "No input validation on forms"] }
+      "debt": {
+        "severity": "high",
+        "items": [
+          "Simulated backend — no real order processing",
+          "No input validation on forms"
+        ]
+      }
     },
     {
       "id": "order-summary",
@@ -259,7 +294,10 @@
       "parent": "pages",
       "file": "app/routes/checkout/components/shipping-form.tsx",
       "patterns": [],
-      "debt": { "severity": "high", "items": ["No input validation -- HTML required attribute only, no Zod or equivalent"] }
+      "debt": {
+        "severity": "high",
+        "items": ["No input validation — HTML required attribute only, no Zod or equivalent"]
+      }
     },
     {
       "id": "payment-form",
@@ -269,7 +307,10 @@
       "parent": "pages",
       "file": "app/routes/checkout/components/payment-form.tsx",
       "patterns": [],
-      "debt": { "severity": "high", "items": ["No input validation -- HTML required attribute only, no Zod or equivalent"] }
+      "debt": {
+        "severity": "high",
+        "items": ["No input validation — HTML required attribute only, no Zod or equivalent"]
+      }
     },
     {
       "id": "success-page",
@@ -281,7 +322,6 @@
       "patterns": ["client-side-guard"],
       "debt": null
     },
-
     {
       "id": "data-layer",
       "name": "Data Layer",
@@ -308,7 +348,10 @@
       "parent": "data-layer",
       "file": "app/routes/home/hooks/category-sections-infinte-query.tsx",
       "patterns": ["infinite-scroll"],
-      "debt": { "severity": "medium", "items": ["Artificial 800ms delay harms real performance"] }
+      "debt": {
+        "severity": "medium",
+        "items": ["Artificial 800ms delay harms real performance"]
+      }
     },
     {
       "id": "products-query",
@@ -328,7 +371,10 @@
       "parent": "data-layer",
       "file": "app/hooks/cart-store.tsx",
       "patterns": ["state-management-store"],
-      "debt": { "severity": "low", "items": ["Total recomputed via reduce on every mutation instead of incremental update"] }
+      "debt": {
+        "severity": "low",
+        "items": ["Total recomputed via reduce on every mutation instead of incremental update"]
+      }
     },
     {
       "id": "theme-store",
@@ -340,7 +386,6 @@
       "patterns": ["state-management-store"],
       "debt": null
     },
-
     {
       "id": "shared-components",
       "name": "Shared Components",
@@ -389,7 +434,6 @@
       "patterns": [],
       "debt": null
     },
-
     {
       "id": "dummyjson",
       "name": "DummyJSON API",
@@ -401,7 +445,7 @@
         "GET /products?select=...&limit=N&skip=N -> { products, total, limit, skip }",
         "GET /products/category/:slug?select=...&limit=N&skip=N -> { products, total, limit, skip }"
       ],
-      "resilience": "none -- public API with no SLA, no retry, no timeout configured by client"
+      "resilience": "none — public API with no SLA, no retry, no timeout configured by client"
     },
     {
       "id": "localstorage",
@@ -417,7 +461,6 @@
       "type": "api",
       "parent": "external"
     },
-
     {
       "id": "tests",
       "name": "Tests",
@@ -452,7 +495,6 @@
     { "source": "products-loader", "target": "products-query", "label": "prefetchInfiniteQuery first page", "flowId": "flow-ssr" },
     { "source": "products-loader", "target": "api-client", "label": "query fetches via ky", "flowId": "flow-ssr" },
     { "source": "api-client", "target": "dummyjson", "label": "ky prefixUrl https://dummyjson.com", "flowId": "flow-ssr" },
-
     { "source": "nav-menu", "target": "categories-query", "label": "useCategoriesQuery() for category links", "flowId": "flow-browse" },
     { "source": "categories-query", "target": "api-client", "label": "GET /products/categories", "flowId": "flow-browse" },
     { "source": "home-page", "target": "category-sections-query", "label": "useCategorySectionsInfiniteQuery with intersection observer", "flowId": "flow-browse" },
@@ -461,7 +503,6 @@
     { "source": "products-page", "target": "products-query", "label": "useProductsInfiniteQuery with Load more button", "flowId": "flow-browse" },
     { "source": "products-query", "target": "api-client", "label": "GET /products (8 per page)", "flowId": "flow-browse" },
     { "source": "api-client", "target": "dummyjson", "label": "all product requests via ky", "flowId": "flow-browse" },
-
     { "source": "product-card", "target": "cart-store", "label": "onAddToCart triggers addItem", "flowId": "flow-cart" },
     { "source": "category-section", "target": "cart-store", "label": "reads addItem for ProductCard prop", "flowId": "flow-cart" },
     { "source": "products-page", "target": "cart-store", "label": "reads addItem for ProductCard prop", "flowId": "flow-cart" },
@@ -470,12 +511,10 @@
     { "source": "checkout-page", "target": "cart-store", "label": "clientLoader reads items (guard), clientAction calls clear()", "flowId": "flow-cart" },
     { "source": "success-page", "target": "cart-store", "label": "clientLoader reads/clears successfulOrder", "flowId": "flow-cart" },
     { "source": "cart-store", "target": "localstorage", "label": "Zustand persist, key cart-storage", "flowId": "flow-cart" },
-
     { "source": "theme-toggle", "target": "theme-store", "label": "reads theme, calls setTheme", "flowId": "flow-theme" },
     { "source": "app-root", "target": "theme-store", "label": "useEffect reads theme on mount, applies dark class", "flowId": "flow-theme" },
     { "source": "theme-store", "target": "localstorage", "label": "Zustand persist, key theme-storage", "flowId": "flow-theme" },
     { "source": "theme-store", "target": "dom", "label": "setTheme mutates classList", "flowId": "flow-theme" },
-
     { "source": "app-root", "target": "root-layout", "label": "Outlet renders for / and /products", "flowId": "flow-navigation" },
     { "source": "app-root", "target": "checkout-page", "label": "Outlet renders (outside root layout)", "flowId": "flow-navigation" },
     { "source": "app-root", "target": "success-page", "label": "Outlet renders (outside root layout)", "flowId": "flow-navigation" },
@@ -484,7 +523,6 @@
     { "source": "checkout-page", "target": "success-page", "label": "clientAction redirects to /success", "flowId": "flow-navigation" },
     { "source": "checkout-page", "target": "products-page", "label": "clientLoader redirects if cart empty", "flowId": "flow-navigation" },
     { "source": "success-page", "target": "products-page", "label": "clientLoader redirects if no successfulOrder", "flowId": "flow-navigation" },
-
     { "source": "root-layout", "target": "header", "label": "renders Header", "flowId": "flow-rendering" },
     { "source": "header", "target": "nav-menu", "label": "renders NavMenu", "flowId": "flow-rendering" },
     { "source": "header", "target": "logo", "label": "renders Logo (centered)", "flowId": "flow-rendering" },
@@ -504,17 +542,14 @@
     { "source": "nav-menu", "target": "ui-primitives", "label": "uses Sheet, Collapsible, Button", "flowId": "flow-rendering" },
     { "source": "cart-drawer", "target": "ui-primitives", "label": "uses Sheet, Button", "flowId": "flow-rendering" },
     { "source": "category-breadcrumb", "target": "ui-primitives", "label": "uses Breadcrumb primitives", "flowId": "flow-rendering" },
-
     { "source": "product-card", "target": "utils", "label": "uses cn()", "flowId": "flow-rendering" },
     { "source": "category-section", "target": "utils", "label": "uses cn()", "flowId": "flow-rendering" },
     { "source": "products-page", "target": "utils", "label": "uses fromSlugToTitle()", "flowId": "flow-rendering" },
     { "source": "ui-primitives", "target": "utils", "label": "uses cn() (all primitives)", "flowId": "flow-rendering" },
-
     { "source": "cart-store", "target": "types", "label": "imports CartItem, Product", "flowId": "flow-rendering" },
     { "source": "categories-query", "target": "types", "label": "imports Category", "flowId": "flow-rendering" },
     { "source": "products-query", "target": "types", "label": "imports Product", "flowId": "flow-rendering" },
     { "source": "product-card", "target": "types", "label": "imports Product", "flowId": "flow-rendering" },
-
     { "source": "test-products", "target": "products-page", "label": "tests product display by category", "flowId": "flow-test" },
     { "source": "test-products", "target": "cart-drawer", "label": "tests add-to-cart and cart sheet", "flowId": "flow-test" },
     { "source": "test-products", "target": "nav-menu", "label": "tests category navigation", "flowId": "flow-test" },
@@ -526,7 +561,7 @@
     {
       "id": "flow-ssr",
       "name": "SSR Prefetch & Hydration",
-      "narrative": "When a shopper first navigates to the storefront, the request hits the Node server where react-router-serve picks the matching route. The **root-layout-loader** fires first, creating a fresh QueryClient and calling prefetchQuery with **categories-query** options -- this fetches the full category list from **dummyjson** via the **api-client**. For the home page, the **home-loader** goes further: it awaits the categories, then calls prefetchInfiniteQuery on **category-sections-query** to warm the first page (4 categories, 4 products each). The **products-loader** does the same for /products, prefetching 8 products. Each loader then dehydrates the QueryClient into serialized state and passes it through useLoaderData. On the client, **app-root** wraps everything in QueryClientProvider, and each route's HydrationBoundary rehydrates the cache -- so TanStack Query hooks read from warm cache on first render, avoiding a flash of loading state. This is the core performance story: the server does the expensive API round-trips to DummyJSON, and the browser picks up where the server left off.",
+      "narrative": "**root-layout-loader** fires first, creating a fresh QueryClient and calling prefetchQuery on **categories-query** — fetching the full category list from **dummyjson** via **api-client**.\n\n**home-loader** runs next. It awaits the categories, then calls prefetchInfiniteQuery on **category-sections-query** to warm the first page — 4 categories, 4 products each. **products-loader** does the same for /products, prefetching 8 products in a single query.\n\nEach loader dehydrates its QueryClient into serialized state. On the client, **app-root** wraps everything in QueryClientProvider, and HydrationBoundary rehydrates the cache. TanStack Query hooks read from warm cache on first render — zero waterfalls, no loading flash.",
       "steps": [
         { "component": "root-layout-loader", "action": "creates QueryClient, prefetches categories", "to": "categories-query" },
         { "component": "categories-query", "action": "fetches GET /products/categories", "to": "api-client" },
@@ -536,12 +571,26 @@
         { "component": "products-loader", "action": "prefetches first page of products", "to": "products-query" },
         { "component": "products-query", "action": "fetches products list", "to": "api-client" },
         { "component": "app-root", "action": "wraps in QueryClientProvider, HydrationBoundary rehydrates cache", "to": "root-layout" }
+      ],
+      "narrative_map": [
+        {
+          "text": "**root-layout-loader** fires first, creating a fresh QueryClient and calling prefetchQuery on **categories-query** — fetching the full category list from **dummyjson** via **api-client**.",
+          "steps": [1, 2, 3]
+        },
+        {
+          "text": "**home-loader** runs next. It awaits the categories, then calls prefetchInfiniteQuery on **category-sections-query** to warm the first page — 4 categories, 4 products each. **products-loader** does the same for /products, prefetching 8 products in a single query.",
+          "steps": [4, 5, 6, 7]
+        },
+        {
+          "text": "Each loader dehydrates its QueryClient into serialized state. On the client, **app-root** wraps everything in QueryClientProvider, and HydrationBoundary rehydrates the cache. TanStack Query hooks read from warm cache on first render — zero waterfalls, no loading flash.",
+          "steps": [8]
+        }
       ]
     },
     {
       "id": "flow-browse",
       "name": "Client-Side Browsing",
-      "narrative": "Once hydrated, the shopper browses entirely client-side. On the home page, **home-page** uses an intersection observer to detect when the user scrolls near the bottom, triggering fetchNextPage on **category-sections-query** -- which pages through categories in batches of 4 via **api-client** to **dummyjson**. Each batch loads with an (unfortunate) artificial 800ms delay baked into the query function. On /products, **products-page** uses **products-query** with a Load more button for manual pagination, 8 products at a time. The **nav-menu** drawer reads **categories-query** (already warm from SSR) to list all browsable categories, and clicking one triggers a client-side route transition to /products/:category. The entire browsing experience stays within TanStack Query's cache -- re-visiting a category page finds warm data rather than re-fetching.",
+      "narrative": "Once hydrated, the shopper browses entirely client-side. **home-page** uses an intersection observer to detect when the user scrolls near the bottom, triggering fetchNextPage on **category-sections-query** — which pages through categories in batches of 4 via **api-client** to **dummyjson**. Each batch loads with an artificial 800ms delay baked into the query function.\n\nOn /products, **products-page** uses **products-query** with a Load more button for manual pagination, 8 products at a time. **nav-menu** reads **categories-query** (already warm from SSR) to list all browsable categories.\n\nClicking a category triggers a client-side route transition to /products/:category. The entire browsing experience stays within TanStack Query's cache — re-visiting a category page finds warm data rather than re-fetching.",
       "steps": [
         { "component": "home-page", "action": "intersection observer fires fetchNextPage", "to": "category-sections-query" },
         { "component": "category-sections-query", "action": "fetches next batch of categories", "to": "api-client" },
@@ -549,12 +598,26 @@
         { "component": "nav-menu", "action": "reads categories for navigation links", "to": "categories-query" },
         { "component": "products-page", "action": "Load more triggers fetchNextPage", "to": "products-query" },
         { "component": "products-query", "action": "fetches next page", "to": "api-client" }
+      ],
+      "narrative_map": [
+        {
+          "text": "Once hydrated, the shopper browses entirely client-side. **home-page** uses an intersection observer to detect when the user scrolls near the bottom, triggering fetchNextPage on **category-sections-query** — which pages through categories in batches of 4 via **api-client** to **dummyjson**. Each batch loads with an artificial 800ms delay baked into the query function.",
+          "steps": [1, 2, 3]
+        },
+        {
+          "text": "On /products, **products-page** uses **products-query** with a Load more button for manual pagination, 8 products at a time. **nav-menu** reads **categories-query** (already warm from SSR) to list all browsable categories.",
+          "steps": [4, 5, 6]
+        },
+        {
+          "text": "Clicking a category triggers a client-side route transition to /products/:category. The entire browsing experience stays within TanStack Query's cache — re-visiting a category page finds warm data rather than re-fetching.",
+          "steps": [4, 5]
+        }
       ]
     },
     {
       "id": "flow-cart",
       "name": "Cart Lifecycle",
-      "narrative": "When Sarah finds a product she likes, she clicks Add to cart on a **product-card**. The card's onAddToCart callback calls addItem on the **cart-store**, which upserts the product into the items array (incrementing quantity if already present) and recomputes the total via reduce. A sonner toast confirms the action. The **cart-drawer** in the header reactively reflects the new state -- showing the item with quantity controls. Sarah can increment, decrement, or remove items directly in the drawer. Clicking Checkout navigates to **checkout-page**, which runs a clientLoader guard: if the cart is empty, it redirects to **products-page**. The checkout two-column layout renders **order-summary** (reading cart items and computing subtotal + 20% VAT) alongside **shipping-form** and **payment-form**. When Sarah submits, the clientAction simulates order processing with a 1-second delay, then calls clear() on **cart-store**, sets the successfulOrder flag, and redirects to **success-page**. The success page's clientLoader checks that flag (redirecting away if absent), clears it, and fires a confetti animation. Throughout this entire flow, **cart-store** persists to **localstorage** via Zustand's persist middleware, so cart state survives page refreshes.",
+      "narrative": "A shopper clicks Add to cart on a **product-card**. The onAddToCart callback calls addItem on **cart-store**, which upserts the product into the items array and recomputes the total. A sonner toast confirms the action.\n\nThe **cart-drawer** in the header reactively reflects the new state — showing the item with quantity controls. **cart-item-component** handles increment, decrement, and remove. Clicking Checkout navigates to **checkout-page**, which runs a clientLoader guard: empty cart redirects to **products-page**.\n\nThe checkout two-column layout renders **order-summary** alongside **shipping-form** and **payment-form**. On submit, clientAction simulates order processing with a 1-second delay, calls clear() on **cart-store**, sets the successfulOrder flag, and redirects to **success-page**.\n\n**success-page** checks that flag via clientLoader — redirecting away if absent — then clears it and fires a confetti animation. Throughout this flow, **cart-store** persists to **localstorage** via Zustand's persist middleware, so cart state survives page refreshes.",
       "steps": [
         { "component": "product-card", "action": "onAddToCart fires addItem", "to": "cart-store" },
         { "component": "cart-store", "action": "upserts item, recomputes total", "to": "localstorage" },
@@ -563,24 +626,56 @@
         { "component": "checkout-page", "action": "clientLoader guard checks cart, clientAction simulates order", "to": "cart-store" },
         { "component": "checkout-page", "action": "redirects to success after clear", "to": "success-page" },
         { "component": "success-page", "action": "checks/clears successfulOrder flag", "to": "cart-store" }
+      ],
+      "narrative_map": [
+        {
+          "text": "A shopper clicks Add to cart on a **product-card**. The onAddToCart callback calls addItem on **cart-store**, which upserts the product into the items array and recomputes the total. A sonner toast confirms the action.",
+          "steps": [1, 2]
+        },
+        {
+          "text": "The **cart-drawer** in the header reactively reflects the new state — showing the item with quantity controls. **cart-item-component** handles increment, decrement, and remove. Clicking Checkout navigates to **checkout-page**, which runs a clientLoader guard: empty cart redirects to **products-page**.",
+          "steps": [3, 4, 5]
+        },
+        {
+          "text": "The checkout two-column layout renders **order-summary** alongside **shipping-form** and **payment-form**. On submit, clientAction simulates order processing with a 1-second delay, calls clear() on **cart-store**, sets the successfulOrder flag, and redirects to **success-page**.",
+          "steps": [5, 6]
+        },
+        {
+          "text": "**success-page** checks that flag via clientLoader — redirecting away if absent — then clears it and fires a confetti animation. Throughout this flow, **cart-store** persists to **localstorage** via Zustand's persist middleware, so cart state survives page refreshes.",
+          "steps": [7]
+        }
       ]
     },
     {
       "id": "flow-theme",
       "name": "Theme Toggle",
-      "narrative": "When the page first loads, **app-root** runs a useEffect that imperatively reads the **theme-store** (outside React's render cycle to avoid hydration mismatch) and applies the persisted dark or light class to document.documentElement. When a shopper clicks the **theme-toggle** button, it calls setTheme on **theme-store**, which does two things simultaneously: updates the Zustand state (triggering re-renders of any subscribers like the Sonner Toaster) and directly mutates the **dom** classList for instant CSS variable switching -- no React re-render needed for the visual change. The store's persist middleware writes the preference to **localstorage**, so returning visitors see their chosen theme immediately.",
+      "narrative": "On page load, **app-root** runs a useEffect that imperatively reads **theme-store** — outside React's render cycle to avoid hydration mismatch — and applies the persisted dark or light class to document.documentElement.\n\nWhen a shopper clicks **theme-toggle**, it calls setTheme on **theme-store**. The store does two things simultaneously: updates Zustand state (triggering re-renders of subscribers like the Sonner Toaster) and directly mutates the **dom** classList for instant CSS variable switching.\n\nThe persist middleware writes the preference to **localstorage**, so returning visitors see their chosen theme immediately without a flash of the wrong mode.",
       "steps": [
         { "component": "app-root", "action": "reads theme imperatively on mount", "to": "theme-store" },
         { "component": "theme-store", "action": "provides current theme", "to": "dom" },
         { "component": "theme-toggle", "action": "calls setTheme", "to": "theme-store" },
         { "component": "theme-store", "action": "persists preference", "to": "localstorage" },
         { "component": "theme-store", "action": "mutates classList directly", "to": "dom" }
+      ],
+      "narrative_map": [
+        {
+          "text": "On page load, **app-root** runs a useEffect that imperatively reads **theme-store** — outside React's render cycle to avoid hydration mismatch — and applies the persisted dark or light class to document.documentElement.",
+          "steps": [1, 2]
+        },
+        {
+          "text": "When a shopper clicks **theme-toggle**, it calls setTheme on **theme-store**. The store does two things simultaneously: updates Zustand state (triggering re-renders of subscribers like the Sonner Toaster) and directly mutates the **dom** classList for instant CSS variable switching.",
+          "steps": [3, 5]
+        },
+        {
+          "text": "The persist middleware writes the preference to **localstorage**, so returning visitors see their chosen theme immediately without a flash of the wrong mode.",
+          "steps": [4]
+        }
       ]
     },
     {
       "id": "flow-navigation",
       "name": "Route Navigation",
-      "narrative": "React Router v7 organizes the app into a nested route tree. **app-root** renders an Outlet that, for / and /products paths, resolves to **root-layout** -- which provides the shared **header** with nav, cart, and theme controls. For /checkout and /success, the Outlet bypasses **root-layout** entirely, rendering standalone pages without the header (a deliberate design choice: checkout is a focused flow). Within **root-layout**, a second Outlet renders either **home-page** (as index) or **products-page** (as child). Client-side guards on **checkout-page** and **success-page** use clientLoader to enforce state preconditions: checkout requires a non-empty cart, success requires the successfulOrder flag. Both redirect to **products-page** when their guard fails.",
+      "narrative": "React Router v7 organizes the app into a nested route tree. **app-root** renders an Outlet that, for / and /products paths, resolves to **root-layout** — which provides the shared **header** with nav, cart, and theme controls.\n\nFor /checkout and /success, the Outlet bypasses **root-layout** entirely, rendering standalone pages without the header. This is a deliberate design choice — checkout is a focused flow with no distractions.\n\nWithin **root-layout**, a second Outlet renders either **home-page** (as index) or **products-page** (as child). Client-side guards on **checkout-page** and **success-page** use clientLoader to enforce state preconditions: checkout requires a non-empty cart, success requires the successfulOrder flag. Both redirect to **products-page** when their guard fails.",
       "steps": [
         { "component": "app-root", "action": "Outlet renders matched route", "to": "root-layout" },
         { "component": "root-layout", "action": "Outlet renders home or products", "to": "home-page" },
@@ -588,17 +683,45 @@
         { "component": "checkout-page", "action": "clientAction redirects after order", "to": "success-page" },
         { "component": "checkout-page", "action": "clientLoader redirects if cart empty", "to": "products-page" },
         { "component": "success-page", "action": "clientLoader redirects if no flag", "to": "products-page" }
+      ],
+      "narrative_map": [
+        {
+          "text": "React Router v7 organizes the app into a nested route tree. **app-root** renders an Outlet that, for / and /products paths, resolves to **root-layout** — which provides the shared **header** with nav, cart, and theme controls.",
+          "steps": [1]
+        },
+        {
+          "text": "For /checkout and /success, the Outlet bypasses **root-layout** entirely, rendering standalone pages without the header. This is a deliberate design choice — checkout is a focused flow with no distractions.",
+          "steps": [4, 5, 6]
+        },
+        {
+          "text": "Within **root-layout**, a second Outlet renders either **home-page** (as index) or **products-page** (as child). Client-side guards on **checkout-page** and **success-page** use clientLoader to enforce state preconditions: checkout requires a non-empty cart, success requires the successfulOrder flag. Both redirect to **products-page** when their guard fails.",
+          "steps": [2, 3, 4, 5, 6]
+        }
       ]
     },
     {
       "id": "flow-test",
       "name": "E2E Test Coverage",
-      "narrative": "Playwright tests validate the two critical user journeys. **test-products** covers browsing: it verifies product display by category (checking breadcrumb and card anatomy), tests the add-to-cart flow (toast notification, **cart-drawer** opening, item verification), and validates category navigation via the **nav-menu** drawer. **test-checkout** covers the full purchase path: starting from **products-page**, it adds a product, opens the **cart-drawer**, navigates to **checkout-page**, fills both **shipping-form** and **payment-form**, submits the order, and verifies the **success-page** renders correctly. These 4 tests run across chromium, firefox, and webkit via GitHub Actions CI on every push.",
+      "narrative": "**test-products** covers the browsing journey: product display by category (checking breadcrumb and card anatomy), the add-to-cart flow (toast notification, **cart-drawer** opening, item verification), and category navigation via the **nav-menu** drawer.\n\n**test-checkout** covers the full purchase path. Starting from **products-page**, it adds a product, opens **cart-drawer**, navigates to **checkout-page**, fills both **shipping-form** and **payment-form**, submits the order, and verifies **success-page** renders correctly.\n\nThese 4 tests run across chromium, firefox, and webkit via GitHub Actions CI on every push to main.",
       "steps": [
         { "component": "test-products", "action": "verifies product display and cart interaction", "to": "products-page" },
         { "component": "test-products", "action": "tests nav menu category switching", "to": "nav-menu" },
         { "component": "test-checkout", "action": "runs full purchase flow", "to": "checkout-page" },
         { "component": "test-checkout", "action": "verifies success page", "to": "success-page" }
+      ],
+      "narrative_map": [
+        {
+          "text": "**test-products** covers the browsing journey: product display by category (checking breadcrumb and card anatomy), the add-to-cart flow (toast notification, **cart-drawer** opening, item verification), and category navigation via the **nav-menu** drawer.",
+          "steps": [1, 2]
+        },
+        {
+          "text": "**test-checkout** covers the full purchase path. Starting from **products-page**, it adds a product, opens **cart-drawer**, navigates to **checkout-page**, fills both **shipping-form** and **payment-form**, submits the order, and verifies **success-page** renders correctly.",
+          "steps": [3, 4]
+        },
+        {
+          "text": "These 4 tests run across chromium, firefox, and webkit via GitHub Actions CI on every push to main.",
+          "steps": [1, 2, 3, 4]
+        }
       ]
     }
   ],
@@ -606,33 +729,75 @@
     {
       "id": "state-cart",
       "name": "Cart Store",
-      "narrative": "Cart state lives in **cart-store**, a Zustand store persisted to **localstorage** under the key cart-storage. This is a deliberate trade-off: there is no server-side cart, so cart contents are device-local and ephemeral. The store holds an items array (product + quantity pairs), a computed total (recomputed via reduce on every mutation -- a minor inefficiency noted as tech debt), and a successfulOrder boolean flag that bridges the checkout-to-success transition. Five actions mutate state: addItem performs upsert (insert or increment), removeItem/incrementItem/decrementItem modify quantities, and clear resets everything. The successfulOrder flag is a coordination mechanism: **checkout-page** sets it before redirecting, and **success-page** reads and clears it as a one-time gate.",
+      "narrative": "Cart state lives in **cart-store**, a Zustand store persisted to **localstorage** under the key cart-storage. There is no server-side cart — contents are device-local and ephemeral. This is a deliberate trade-off for a demo storefront with no backend.\n\nThe store holds an items array (product + quantity pairs), a computed total (recomputed via reduce on every mutation — a minor inefficiency noted as tech debt), and a successfulOrder boolean flag that bridges the checkout-to-success transition.\n\nFive actions mutate state: addItem performs upsert, removeItem/incrementItem/decrementItem modify quantities, and clear resets everything. The successfulOrder flag is a coordination mechanism — **checkout-page** sets it before redirecting, and **success-page** reads and clears it as a one-time gate.",
       "purpose": "source-of-truth for cart contents and checkout coordination",
       "readers": ["cart-drawer", "cart-item-component", "checkout-page", "success-page", "order-summary"],
-      "writers": ["product-card", "category-section", "products-page", "cart-drawer", "cart-item-component", "checkout-page"]
+      "writers": ["product-card", "category-section", "products-page", "cart-drawer", "cart-item-component", "checkout-page"],
+      "narrative_map": [
+        {
+          "text": "Cart state lives in **cart-store**, a Zustand store persisted to **localstorage** under the key cart-storage. There is no server-side cart — contents are device-local and ephemeral. This is a deliberate trade-off for a demo storefront with no backend.",
+          "refs": ["cart-store", "localstorage"]
+        },
+        {
+          "text": "The store holds an items array (product + quantity pairs), a computed total (recomputed via reduce on every mutation — a minor inefficiency noted as tech debt), and a successfulOrder boolean flag that bridges the checkout-to-success transition.",
+          "refs": ["cart-store"]
+        },
+        {
+          "text": "Five actions mutate state: addItem performs upsert, removeItem/incrementItem/decrementItem modify quantities, and clear resets everything. The successfulOrder flag is a coordination mechanism — **checkout-page** sets it before redirecting, and **success-page** reads and clears it as a one-time gate.",
+          "refs": ["checkout-page", "success-page"]
+        }
+      ]
     },
     {
       "id": "state-theme",
       "name": "Theme Store",
-      "narrative": "Theme preference lives in **theme-store**, also Zustand-persisted to **localstorage** (key: theme-storage). The store tracks a single value: dark, light, or system. The interesting design choice is dual-write: setTheme both updates Zustand state (for React subscribers) and directly mutates **dom** classList on documentElement. This avoids a flash of wrong theme during React's render cycle. **app-root** reads the store imperatively (not via hook) on mount to apply the initial class, and the Sonner **ui-primitives** Toaster subscribes reactively for toast theming.",
+      "narrative": "Theme preference lives in **theme-store**, also Zustand-persisted to **localstorage** (key: theme-storage). The store tracks a single value: dark, light, or system.\n\nThe interesting design choice is dual-write: setTheme both updates Zustand state (for React subscribers) and directly mutates **dom** classList on documentElement. This avoids a flash of wrong theme during React's render cycle.\n\n**app-root** reads the store imperatively (not via hook) on mount to apply the initial class. The Sonner Toaster in **ui-primitives** subscribes reactively for toast theming.",
       "purpose": "source-of-truth for dark/light theme preference",
       "readers": ["app-root", "theme-toggle", "ui-primitives"],
-      "writers": ["theme-toggle"]
+      "writers": ["theme-toggle"],
+      "narrative_map": [
+        {
+          "text": "Theme preference lives in **theme-store**, also Zustand-persisted to **localstorage** (key: theme-storage). The store tracks a single value: dark, light, or system.",
+          "refs": ["theme-store", "localstorage"]
+        },
+        {
+          "text": "The interesting design choice is dual-write: setTheme both updates Zustand state (for React subscribers) and directly mutates **dom** classList on documentElement. This avoids a flash of wrong theme during React's render cycle.",
+          "refs": ["dom"]
+        },
+        {
+          "text": "**app-root** reads the store imperatively (not via hook) on mount to apply the initial class. The Sonner Toaster in **ui-primitives** subscribes reactively for toast theming.",
+          "refs": ["app-root", "ui-primitives"]
+        }
+      ]
     },
     {
       "id": "state-query-cache",
       "name": "TanStack Query Cache",
-      "narrative": "The query cache is the third state container, managed by TanStack Query rather than Zustand. **app-root** creates a fresh QueryClient per request (important for SSR -- shared clients would leak state between users). SSR loaders populate it via prefetchQuery/prefetchInfiniteQuery, and HydrationBoundary transfers that state to the client. Once hydrated, the cache governs staleness, refetching, and garbage collection. Three query families share the cache: **categories-query** (warm across most pages), **category-sections-query** (home page infinite scroll), and **products-query** (products page infinite scroll). Because the cache is in-memory and per-tab, navigating between categories reuses cached data without re-fetching -- but closing the tab loses everything.",
+      "narrative": "The query cache is the third state container, managed by TanStack Query rather than Zustand. **app-root** creates a fresh QueryClient per request — important for SSR, where a shared client would leak state between users.\n\nSSR loaders populate the cache via prefetchQuery/prefetchInfiniteQuery, and HydrationBoundary transfers that state to the client. Once hydrated, the cache governs staleness, refetching, and garbage collection.\n\nThree query families share the cache: **categories-query** (warm across most pages), **category-sections-query** (home page infinite scroll), and **products-query** (products page pagination). Because the cache is in-memory and per-tab, navigating between categories reuses cached data — but closing the tab loses everything.",
       "purpose": "server-state cache for DummyJSON API data",
       "readers": ["home-page", "products-page", "nav-menu", "category-section"],
-      "writers": ["root-layout-loader", "home-loader", "products-loader", "categories-query", "category-sections-query", "products-query"]
+      "writers": ["root-layout-loader", "home-loader", "products-loader", "categories-query", "category-sections-query", "products-query"],
+      "narrative_map": [
+        {
+          "text": "The query cache is the third state container, managed by TanStack Query rather than Zustand. **app-root** creates a fresh QueryClient per request — important for SSR, where a shared client would leak state between users.",
+          "refs": ["app-root"]
+        },
+        {
+          "text": "SSR loaders populate the cache via prefetchQuery/prefetchInfiniteQuery, and HydrationBoundary transfers that state to the client. Once hydrated, the cache governs staleness, refetching, and garbage collection.",
+          "refs": ["root-layout-loader", "home-loader", "products-loader"]
+        },
+        {
+          "text": "Three query families share the cache: **categories-query** (warm across most pages), **category-sections-query** (home page infinite scroll), and **products-query** (products page pagination). Because the cache is in-memory and per-tab, navigating between categories reuses cached data — but closing the tab loses everything.",
+          "refs": ["categories-query", "category-sections-query", "products-query"]
+        }
+      ]
     }
   ],
   "failure_modes": [
     {
       "id": "failure-dummyjson-down",
       "severity": "critical",
-      "narrative": "When the DummyJSON API goes down or starts returning 5xx errors, the entire storefront breaks. The **api-client** has no retry policy, no timeout, and no circuit breaker. On the server side, **root-layout-loader**, **home-loader**, and **products-loader** will hang indefinitely waiting for a response -- blocking SSR and making the site unresponsive. On the client side, TanStack Query's default retry (3 attempts) provides some resilience for subsequent fetches, but the initial SSR-blocking request has no such protection. There is no fallback UI: error boundaries exist in **app-root** but are generic 404/error displays, not graceful degradation. The fix requires three changes: ky timeout configuration (e.g., 5s), ky retry for transient failures, and per-route error boundaries with meaningful error states.",
+      "narrative": "DummyJSON starts returning 5xx errors. **api-client** has no retry policy, no timeout, and no circuit breaker — so requests hang indefinitely.\n\nOn the server, **root-layout-loader**, **home-loader**, and **products-loader** block waiting for a response that never comes. SSR stalls and the site becomes unresponsive. On the client, TanStack Query's default retry (3 attempts) provides some resilience for subsequent fetches, but the initial SSR-blocking request has no protection.\n\nThere is no fallback UI. Error boundaries exist in **app-root** but they show generic 404/error displays, not graceful degradation. The fix requires three changes: ky timeout (e.g., 5s), ky retry for transient failures, and per-route error boundaries with meaningful error states.",
       "cascade": [
         { "component": "api-client", "effect": "ky request hangs indefinitely (no timeout)" },
         { "component": "root-layout-loader", "effect": "SSR blocked, page never renders" },
@@ -642,45 +807,136 @@
         { "component": "home-page", "effect": "no category sections load" },
         { "component": "products-page", "effect": "no products to display" }
       ],
-      "detection": ["No health check endpoint exists", "No structured logging for request failures", "No monitoring configured"],
-      "recovery": ["Requires DummyJSON to recover -- no fallback data source", "Browser hard refresh after API recovers"]
+      "detection": [
+        "No health check endpoint exists",
+        "No structured logging for request failures",
+        "No monitoring configured"
+      ],
+      "recovery": [
+        "Requires DummyJSON to recover — no fallback data source",
+        "Browser hard refresh after API recovers"
+      ],
+      "narrative_map": [
+        {
+          "text": "DummyJSON starts returning 5xx errors. **api-client** has no retry policy, no timeout, and no circuit breaker — so requests hang indefinitely.",
+          "cascade_steps": [1],
+          "refs": ["api-client", "dummyjson"]
+        },
+        {
+          "text": "On the server, **root-layout-loader**, **home-loader**, and **products-loader** block waiting for a response that never comes. SSR stalls and the site becomes unresponsive. On the client, TanStack Query's default retry (3 attempts) provides some resilience for subsequent fetches, but the initial SSR-blocking request has no protection.",
+          "cascade_steps": [2, 3, 4, 5],
+          "refs": ["root-layout-loader", "home-loader", "products-loader", "categories-query"]
+        },
+        {
+          "text": "There is no fallback UI. Error boundaries exist in **app-root** but they show generic 404/error displays, not graceful degradation. The fix requires three changes: ky timeout (e.g., 5s), ky retry for transient failures, and per-route error boundaries with meaningful error states.",
+          "cascade_steps": [6, 7],
+          "refs": ["app-root", "home-page", "products-page"]
+        }
+      ]
     },
     {
       "id": "failure-localstorage-full",
       "severity": "medium",
-      "narrative": "If **localstorage** is full or unavailable (private browsing in some browsers, storage quota exceeded), the Zustand persist middleware in **cart-store** and **theme-store** silently fails to write. The stores still function in-memory for the session, but cart contents and theme preference are lost on page refresh. This is a graceful degradation by default -- Zustand's persist middleware catches storage errors -- but the user gets no indication that their cart won't survive a refresh.",
+      "narrative": "**localstorage** is full or unavailable — private browsing in some browsers, or storage quota exceeded. The Zustand persist middleware in **cart-store** and **theme-store** silently fails to write.\n\nThe stores still function in-memory for the current session, but cart contents and theme preference are lost on page refresh. This is graceful degradation by default — Zustand's persist middleware catches storage errors.\n\nThe user gets no indication that their cart will not survive a refresh. A toast or banner warning would prevent surprise data loss.",
       "cascade": [
         { "component": "cart-store", "effect": "cart state not persisted across refreshes" },
         { "component": "theme-store", "effect": "theme preference lost on refresh" },
         { "component": "localstorage", "effect": "write operations silently fail" }
       ],
-      "detection": ["No monitoring -- silent failure by design"],
-      "recovery": ["Clear browser storage", "Stores recover automatically when storage becomes available"]
+      "detection": [
+        "No monitoring — silent failure by design"
+      ],
+      "recovery": [
+        "Clear browser storage",
+        "Stores recover automatically when storage becomes available"
+      ],
+      "narrative_map": [
+        {
+          "text": "**localstorage** is full or unavailable — private browsing in some browsers, or storage quota exceeded. The Zustand persist middleware in **cart-store** and **theme-store** silently fails to write.",
+          "cascade_steps": [1, 2, 3],
+          "refs": ["localstorage", "cart-store", "theme-store"]
+        },
+        {
+          "text": "The stores still function in-memory for the current session, but cart contents and theme preference are lost on page refresh. This is graceful degradation by default — Zustand's persist middleware catches storage errors.",
+          "cascade_steps": [1, 2],
+          "refs": ["cart-store", "theme-store"]
+        },
+        {
+          "text": "The user gets no indication that their cart will not survive a refresh. A toast or banner warning would prevent surprise data loss.",
+          "cascade_steps": [1],
+          "refs": ["cart-store"]
+        }
+      ]
     },
     {
       "id": "failure-checkout-no-validation",
       "severity": "high",
-      "narrative": "The **shipping-form** and **payment-form** use only HTML required attributes for validation -- no schema validation via Zod or similar. The **checkout-page** clientAction trusts whatever the browser submits. In the current demo this is harmless (the backend is simulated), but it means any future real backend integration inherits unvalidated input. A malicious or buggy form submission could send malformed data that a real payment processor would reject or, worse, process incorrectly.",
+      "narrative": "**shipping-form** and **payment-form** use only HTML required attributes for validation — no schema validation via Zod or similar. **checkout-page** clientAction trusts whatever the browser submits.\n\nIn the current demo this is harmless — the backend is simulated. But any future real backend integration inherits unvalidated input.\n\nA malicious or buggy form submission could send malformed data that a real payment processor would reject or, worse, process incorrectly. Adding Zod schemas before clientAction processes the form is the minimum fix.",
       "cascade": [
         { "component": "shipping-form", "effect": "accepts any non-empty string as email, postal code, etc." },
         { "component": "payment-form", "effect": "accepts any non-empty string as card number, CVV" },
         { "component": "checkout-page", "effect": "clientAction processes unvalidated form data" }
       ],
-      "detection": ["No server-side validation exists to catch bad input"],
-      "recovery": ["Add Zod schema validation before clientAction processes the form"]
+      "detection": [
+        "No server-side validation exists to catch bad input"
+      ],
+      "recovery": [
+        "Add Zod schema validation before clientAction processes the form"
+      ],
+      "narrative_map": [
+        {
+          "text": "**shipping-form** and **payment-form** use only HTML required attributes for validation — no schema validation via Zod or similar. **checkout-page** clientAction trusts whatever the browser submits.",
+          "cascade_steps": [1, 2, 3],
+          "refs": ["shipping-form", "payment-form", "checkout-page"]
+        },
+        {
+          "text": "In the current demo this is harmless — the backend is simulated. But any future real backend integration inherits unvalidated input.",
+          "cascade_steps": [3],
+          "refs": ["checkout-page"]
+        },
+        {
+          "text": "A malicious or buggy form submission could send malformed data that a real payment processor would reject or, worse, process incorrectly. Adding Zod schemas before clientAction processes the form is the minimum fix.",
+          "cascade_steps": [1, 2, 3],
+          "refs": ["shipping-form", "payment-form", "checkout-page"]
+        }
+      ]
     },
     {
       "id": "failure-ssr-slow-response",
       "severity": "high",
-      "narrative": "DummyJSON responds slowly but does not error. The **home-loader** makes multiple sequential API calls (categories first, then 4 product fetches for the first page of category sections), and the artificial 800ms delay in **category-sections-query** compounds the problem. Without a timeout, a slow DummyJSON response (say 10s per request) means the home page SSR takes 40+ seconds. The user sees a blank page (or browser timeout) with no indication of progress. The **products-loader** is less affected (single query) but still blocks indefinitely.",
+      "narrative": "DummyJSON responds slowly but does not error. **home-loader** makes multiple sequential API calls — categories first, then 4 product fetches for the first page of category sections. The artificial 800ms delay in **category-sections-query** compounds the problem.\n\nWithout a timeout, a slow DummyJSON response (say 10s per request) means the home page SSR takes 40+ seconds. The user sees a blank page or browser timeout with no indication of progress.\n\n**products-loader** is less affected (single query) but still blocks indefinitely. The fix: set ky timeout (e.g., 5000ms), remove the artificial delay, and consider streaming SSR for progressive rendering.",
       "cascade": [
         { "component": "home-loader", "effect": "sequential fetches multiply latency" },
         { "component": "category-sections-query", "effect": "800ms artificial delay adds to real latency" },
         { "component": "products-loader", "effect": "single query but still no timeout" },
         { "component": "api-client", "effect": "no timeout configured to bound the wait" }
       ],
-      "detection": ["No request timing metrics", "No structured logging"],
-      "recovery": ["Set ky timeout (e.g., 5000ms)", "Remove artificial delay in category sections query", "Consider streaming SSR for progressive rendering"]
+      "detection": [
+        "No request timing metrics",
+        "No structured logging"
+      ],
+      "recovery": [
+        "Set ky timeout (e.g., 5000ms)",
+        "Remove artificial delay in category sections query",
+        "Consider streaming SSR for progressive rendering"
+      ],
+      "narrative_map": [
+        {
+          "text": "DummyJSON responds slowly but does not error. **home-loader** makes multiple sequential API calls — categories first, then 4 product fetches for the first page of category sections. The artificial 800ms delay in **category-sections-query** compounds the problem.",
+          "cascade_steps": [1, 2],
+          "refs": ["home-loader", "category-sections-query"]
+        },
+        {
+          "text": "Without a timeout, a slow DummyJSON response (say 10s per request) means the home page SSR takes 40+ seconds. The user sees a blank page or browser timeout with no indication of progress.",
+          "cascade_steps": [1, 4],
+          "refs": ["home-loader", "api-client"]
+        },
+        {
+          "text": "**products-loader** is less affected (single query) but still blocks indefinitely. The fix: set ky timeout (e.g., 5000ms), remove the artificial delay, and consider streaming SSR for progressive rendering.",
+          "cascade_steps": [3, 4],
+          "refs": ["products-loader", "api-client"]
+        }
+      ]
     }
   ]
 }
