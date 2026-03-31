@@ -324,7 +324,7 @@ function getTypeStyle(type: string) {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 300;
       background: var(--bg); border-top: 1px solid var(--border);
       transform: translateY(100%); transition: transform .3s ease;
-      max-height: 50vh; display: flex; flex-direction: column;
+      height: 280px; display: flex; flex-direction: column;
     }
     #drawer.open { transform: translateY(0); }
     .drawer-tabs {
@@ -349,10 +349,11 @@ function getTypeStyle(type: string) {
     .drawer-panel.active { display: block; }
 
     /* ─── Detail panel ─── */
-    .detail-name { font-weight: 700; font-size: 1rem; margin-bottom: .35rem; letter-spacing: -.01em; }
+    .detail-header { margin-bottom: .6rem; }
+    .detail-name { font-weight: 700; font-size: 1.05rem; margin-bottom: .25rem; letter-spacing: -.01em; }
     .detail-type {
       font-size: .65rem; color: var(--text-4); text-transform: uppercase;
-      letter-spacing: .08em; margin-bottom: .6rem;
+      letter-spacing: .08em;
       display: flex; gap: .4rem; flex-wrap: wrap; align-items: center;
     }
     .detail-type-badge {
@@ -881,19 +882,50 @@ function getTypeStyle(type: string) {
   function formatId(id) { return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
 
   function showNodeDetail(data, refs) {
-    const storyList = (refs[data.id] || []).map(s => '<span class="detail-link">' + formatId(s) + '</span>').join(' ');
-    const depList = (data.depends_on || []).map(d => '<span class="detail-link">' + formatId(d) + '</span>').join(' ');
-    const patterns = (data.patterns || []).map(p => '<span class="detail-type-badge">' + p + '</span>').join(' ');
+    const storyList = (refs[data.id] || []).map(s =>
+      '<a class="detail-link" href="#' + currentJourneyId + '-s1" data-story="' + s + '">' + formatId(s) + '</a>'
+    ).join(' ');
+    const depList = (data.depends_on || []).map(d =>
+      '<a class="detail-link detail-dep" data-node="' + d + '">' + formatId(d) + '</a>'
+    ).join(' ');
+    const patterns = (data.patterns || []).map(p =>
+      '<span class="detail-type-badge">' + p + '</span>'
+    ).join(' ');
+    const modules = (data.modules || []).slice(0, 3).map(m =>
+      '<code style="font-size:.7rem;color:var(--accent);display:block;padding:.1rem 0;">' + m + '</code>'
+    ).join('');
 
-    panelDetail.innerHTML =
-      '<div class="detail-name">' + (data.name || formatId(data.id)) + '</div>' +
-      '<div class="detail-type">' +
-        '<span>' + (data.type || 'component') + '</span>' +
-        (patterns ? ' ' + patterns : '') +
-      '</div>' +
-      (data.description ? '<div class="detail-desc">' + data.description + '</div>' : '') +
-      (depList ? '<div class="detail-section"><div class="detail-label">Dependencies</div><div class="detail-links">' + depList + '</div></div>' : '') +
-      (storyList ? '<div class="detail-section"><div class="detail-label">Appears in</div><div class="detail-links">' + storyList + '</div></div>' : '');
+    let html = '<div class="detail-header">';
+    html += '<div class="detail-name">' + (data.name || formatId(data.id)) + '</div>';
+    html += '<div class="detail-type"><span>' + (data.type || 'component') + '</span>' + (patterns ? ' ' + patterns : '') + '</div>';
+    html += '</div>';
+
+    if (data.description) {
+      html += '<div class="detail-desc">' + data.description + '</div>';
+    }
+
+    if (modules) {
+      html += '<div class="detail-section"><div class="detail-label">Files</div>' + modules + '</div>';
+    }
+
+    if (depList) {
+      html += '<div class="detail-section"><div class="detail-label">Dependencies</div><div class="detail-links">' + depList + '</div></div>';
+    }
+
+    if (storyList) {
+      html += '<div class="detail-section"><div class="detail-label">Appears in stories</div><div class="detail-links">' + storyList + '</div></div>';
+    }
+
+    panelDetail.innerHTML = html;
+
+    // Make dep links clickable → show that component's detail
+    panelDetail.querySelectorAll('.detail-dep').forEach(link => {
+      link.addEventListener('click', () => {
+        const nodeId = link.dataset.node;
+        const comp = allCompData[nodeId];
+        if (comp) showNodeDetail(comp, allRefs);
+      });
+    });
 
     openDrawer('detail');
   }
