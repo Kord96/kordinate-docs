@@ -17,12 +17,14 @@ hero:
       icon: external
 ---
 
-import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid, Aside } from '@astrojs/starlight/components';
+
+<Aside type="tip" title="You're viewing the dev site">
+  This is the development version with experimental features. <a href="https://docs.khaledkord.com/">Switch to production →</a>
+</Aside>
 
 <div id="projects">
 <CardGrid>
-  <LinkCard title="Kordinate" description="Coordinate specialized AI agents into a team — with kords, guards, and a recall system." href="/kordinate/" />
-  <LinkCard title="Sous Storefront" description="Modern React e-commerce storefront with SSR, TanStack Query, and Radix UI." href="/sous-storefront/" />
   <LinkCard title="Logbd" description="Log-derived knowledge graph — ingestion, graph computation, ML classification, and investigation API." href="/logbd/" />
 </CardGrid>
 </div>

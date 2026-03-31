@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 export default defineConfig({
 	devToolbar: { enabled: false },
-	image: { service: { entrypoint: 'astro/assets/services/noop' } },
+	base: '/dev',
 	server: { port: 4321, host: '0.0.0.0', allowedHosts: 'all' },
 	vite: { server: { allowedHosts: true } },
 	integrations: [
@@ -43,51 +43,9 @@ export default defineConfig({
 			],
 			sidebar: [
 				{
-					label: 'Kordinate',
-					collapsed: true,
-					items: [
-						{
-							label: 'Architecture',
-							items: [
-								{ label: 'Explorer', link: '/kordinate/' },
-							],
-						},
-						{
-							label: 'Default Team',
-							items: [
-								{ label: 'Agents', link: '/kordinate/agents/' },
-								{ label: 'Scribe', link: '/kordinate/agents/scribe/' },
-								{ label: 'Beorn', link: '/kordinate/agents/beorn/' },
-								{ label: 'Deployer', link: '/kordinate/infra/infrastructure/' },
-								{ label: 'Sauron', link: '/kordinate/infra/monitoring/' },
-							],
-						},
-						{
-							label: 'Dev',
-							items: [
-								{ label: 'Installation', link: '/kordinate/dev/installation/' },
-								{ label: 'Sessions & Branches', link: '/kordinate/dev/sessions/' },
-								{ label: 'Feature Inventory', link: '/kordinate/dev/features/' },
-							],
-						},
-					],
-				},
-				{
-					label: 'Sous Storefront',
-					items: [
-						{ label: 'Project Explorer', link: '/sous-storefront/' },
-					],
-				},
-				{
 					label: 'LogBD',
 					items: [
-						{ label: 'Project Explorer', link: '/logbd/' },
-					],
-				},
-				{
-					label: 'Bookstore APIs',
-					items: [
-						{ label: 'Project Explorer', link: '/bookstore-apis/' },
+						{ label: 'Journey', link: '/logbd/' },
 					],
 				},
 			],
