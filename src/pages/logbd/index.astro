@@ -607,7 +607,7 @@ function getTypeStyle(type: string) {
     )}
     <div class="landing-journeys">
       {journeys.map((j: any) => (
-        <a class={`landing-journey-btn ${j.id === defaultJourney.id ? 'primary' : ''}`} href={`#${j.id}-s1`} data-journey={j.id}>
+        <a class={`landing-journey-btn ${j.id === defaultJourney.id ? 'primary' : ''}`} href="#chapter0" data-journey={j.id}>
           {j.title}
         </a>
       ))}
@@ -710,15 +710,7 @@ function getTypeStyle(type: string) {
           return (
             <div class="struct">
               <div class="struct-graph" id={graphId} data-graph={graphData} data-refs={storyRefs}></div>
-              <div class="struct-legend">
-                <span class="legend-item"><span class="legend-dot" style="background:#6366f1"></span>worker</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span>service</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#22c55e"></span>api</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>store</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#64748b"></span>cli</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#a855f7"></span>scheduler</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>external</span>
-              </div>
+              <div class="struct-hint">click a node to explore</div>
             </div>
           );
         })}
@@ -931,7 +923,9 @@ function getTypeStyle(type: string) {
 
     let html = '<div class="detail-header">';
     html += '<div class="detail-name">' + (data.name || formatId(data.id)) + '</div>';
-    html += '<div class="detail-type"><span>' + (data.type || 'component') + '</span>' + (patterns ? ' ' + patterns : '') + '</div>';
+    var typeColorMap = { worker: '#6366f1', service: '#3b82f6', api: '#22c55e', store: '#f59e0b', cli: '#64748b', scheduler: '#a855f7', external: '#ef4444', broker: '#f97316' };
+    var tc = typeColorMap[data.type] || '#71717a';
+    html += '<div class="detail-type"><span style="color:' + tc + ';border:1px solid ' + tc + '33;background:' + tc + '15;padding:.15rem .5rem;border-radius:4px">' + (data.type || 'component') + '</span>' + (patterns ? ' ' + patterns : '') + '</div>';
     html += '</div>';
 
     if (data.description) {
@@ -1285,7 +1279,7 @@ function getTypeStyle(type: string) {
       if (jid !== currentJourneyId) {
         e.preventDefault();
         switchJourney(jid);
-        document.getElementById(jid + '-s1')?.scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('chapter0')?.scrollIntoView({ behavior: 'smooth' });
       }
     });
   });
