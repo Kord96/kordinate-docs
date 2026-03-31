@@ -306,41 +306,49 @@ function getTypeStyle(type: string) {
     .struct-graph:active { cursor: grabbing; }
     .struct-hint { text-align: center; font-size: .6rem; color: var(--text-4); padding: .35rem; }
 
-    /* ─── Terminal / Detail Drawer ─── */
-    #terminal {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
-      background: rgba(9,9,11,.95); backdrop-filter: blur(16px);
-      border-top: 1px solid var(--border);
-      transition: height .25s ease;
-      overflow: hidden;
+    /* ─── Floating terminal button ─── */
+    .fab {
+      position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 200;
+      width: 44px; height: 44px; border-radius: 12px; border: none;
+      background: rgba(249,115,22,.15); color: #fb923c;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      box-shadow: 0 0 16px rgba(249,115,22,.2), 0 4px 12px rgba(0,0,0,.3);
+      transition: all .2s; display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono);
     }
-    #terminal.focused { height: 160px; }
-    #terminal.focused .term-response { display: block; }
-    #terminal.expanded { height: 320px; }
-    #terminal.expanded .term-response { display: none; }
-    .term-bar { display: flex; align-items: center; padding: .5rem 1.25rem; gap: .6rem; cursor: text; }
-    .term-icon {
-      font-size: .9rem; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
-      border-radius: 6px; background: rgba(249,115,22,.12); color: #fb923c;
-      box-shadow: 0 0 8px rgba(249,115,22,.15); flex-shrink: 0;
+    .fab:hover { transform: scale(1.05); box-shadow: 0 0 24px rgba(249,115,22,.3), 0 6px 16px rgba(0,0,0,.4); }
+    .fab.hidden { display: none; }
+
+    /* ─── Bottom Drawer ─── */
+    #drawer {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 300;
+      background: var(--bg); border-top: 1px solid var(--border);
+      transform: translateY(100%); transition: transform .3s ease;
+      max-height: 50vh; display: flex; flex-direction: column;
     }
-    .term-input {
-      flex: 1; background: none; border: none; color: var(--text-2);
-      font-family: var(--font); font-size: .8rem; outline: none;
+    #drawer.open { transform: translateY(0); }
+    .drawer-tabs {
+      display: flex; border-bottom: 1px solid var(--border); padding: 0 1rem;
+      align-items: center;
     }
-    .term-input::placeholder { color: var(--text-4); }
-    .term-key { font-size: .6rem; color: var(--text-4); padding: .15rem .35rem; border: 1px solid var(--border); border-radius: 3px; }
-    .term-close {
-      display: none; font-size: .7rem; color: var(--text-4); cursor: pointer;
-      padding: .2rem .4rem; border-radius: 4px;
+    .drawer-tab {
+      padding: .5rem .75rem; font-size: .7rem; font-weight: 500;
+      color: var(--text-4); cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent; transition: all .2s;
     }
-    .term-close:hover { color: var(--text-2); background: var(--bg-raised); }
-    #terminal.expanded .term-close { display: block; }
-    #terminal.expanded .term-key { display: none; }
-    .detail-body {
-      display: none; padding: 0 1.25rem 1rem; overflow-y: auto; max-height: 270px;
+    .drawer-tab:hover { color: var(--text-2); }
+    .drawer-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .drawer-close {
+      margin-left: auto; padding: .3rem .5rem; font-size: .65rem;
+      color: var(--text-4); cursor: pointer; border: none; background: none;
+      border-radius: 4px;
     }
-    #terminal.expanded .detail-body { display: block; }
+    .drawer-close:hover { color: var(--text-2); background: var(--bg-raised); }
+    .drawer-body { flex: 1; overflow-y: auto; padding: 1rem 1.25rem; }
+    .drawer-panel { display: none; }
+    .drawer-panel.active { display: block; }
+
+    /* ─── Detail panel ─── */
     .detail-name { font-weight: 700; font-size: 1rem; margin-bottom: .35rem; letter-spacing: -.01em; }
     .detail-type {
       font-size: .65rem; color: var(--text-4); text-transform: uppercase;
@@ -364,6 +372,19 @@ function getTypeStyle(type: string) {
       border: 1px solid transparent; transition: all .15s;
     }
     .detail-link:hover { background: rgba(129,140,248,.15); border-color: var(--accent-border); }
+
+    /* ─── Terminal panel ─── */
+    .term-input-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; }
+    .term-prompt { color: #fb923c; font-family: var(--mono); font-size: .8rem; font-weight: 600; }
+    .term-field {
+      flex: 1; background: none; border: none; color: var(--text);
+      font-family: var(--font); font-size: .85rem; outline: none;
+    }
+    .term-field::placeholder { color: var(--text-4); }
+    .term-output {
+      font-size: .8rem; color: var(--text-3); line-height: 1.6;
+      font-style: italic;
+    }
 
     /* ─── Flow ─── */
     .flow { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
@@ -696,18 +717,28 @@ function getTypeStyle(type: string) {
 )} />
 <script id="refs-data" type="application/json" set:html={JSON.stringify(storyByNode)} />
 
-<!-- Terminal / Detail Drawer -->
-<div id="terminal">
-  <div class="term-bar" id="term-bar">
-    <span class="term-icon" id="term-icon">›_</span>
-    <input class="term-input" id="term-input" placeholder={`Ask about ${atlas.project || 'logBD'}...`} />
-    <span class="term-key">⌘K</span>
-    <span class="term-close" id="term-close">✕ close</span>
+<!-- Floating terminal button -->
+<button class="fab" id="fab" title="Ask about the architecture (⌘K)"><svg width="20" height="18" viewBox="0 0 20 18" fill="none"><rect x="0.5" y="0.5" width="19" height="17" rx="3" stroke="currentColor" stroke-width="1.2"/><path d="M4 12h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+
+<!-- Bottom drawer (detail + terminal tabs) -->
+<div id="drawer">
+  <div class="drawer-tabs">
+    <button class="drawer-tab active" data-panel="detail">Detail</button>
+    <button class="drawer-tab" data-panel="terminal">Terminal</button>
+    <button class="drawer-close" id="drawer-close">✕</button>
   </div>
-  <div class="term-response" id="term-response" style="display:none; padding: .5rem 1.25rem .75rem; font-size: .8rem; color: var(--text-3); max-height: 110px; overflow-y: auto;">
-    <em style="color: var(--text-4)">Ask a question about the architecture — powered by Claude Code</em>
+  <div class="drawer-body">
+    <div class="drawer-panel active" id="panel-detail">
+      <div style="color: var(--text-4); font-size: .8rem; font-style: italic;">Click a component name or graph node to see details.</div>
+    </div>
+    <div class="drawer-panel" id="panel-terminal">
+      <div class="term-input-row">
+        <span class="term-prompt">›_</span>
+        <input class="term-field" id="term-field" placeholder={`Ask about ${atlas.project || 'logBD'}...`} />
+      </div>
+      <div class="term-output" id="term-output">Powered by Claude Code — ask about architecture, components, flows, or decisions.</div>
+    </div>
   </div>
-  <div class="detail-body" id="detail-body"></div>
 </div>
 
 <script is:inline>
@@ -765,7 +796,8 @@ function getTypeStyle(type: string) {
     const secs = getVisibleSections();
     if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); secs[Math.min(cur+1, secs.length-1)]?.scrollIntoView({ behavior: 'smooth' }); }
     if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); secs[Math.max(cur-1, 0)]?.scrollIntoView({ behavior: 'smooth' }); }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); document.querySelector('.term-input')?.focus(); }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openDrawer('terminal'); }
+    if (e.key === 'Escape' && drawer.classList.contains('open')) { closeDrawer(); }
   });
 
   // ─── Cytoscape graphs ───
@@ -780,34 +812,31 @@ function getTypeStyle(type: string) {
     broker: { bg: '#2e221a', border: '#fb923c', text: '#fdba74' },
   };
 
-  const terminal = document.getElementById('terminal');
-  const detailBody = document.getElementById('detail-body');
-  const termIcon = document.getElementById('term-icon');
-  const termInput = document.getElementById('term-input');
-  const termClose = document.getElementById('term-close');
+  // ─── Drawer ───
+  const drawer = document.getElementById('drawer');
+  const fab = document.getElementById('fab');
+  const drawerClose = document.getElementById('drawer-close');
+  const drawerTabs = document.querySelectorAll('.drawer-tab');
+  const panelDetail = document.getElementById('panel-detail');
+  const panelTerminal = document.getElementById('panel-terminal');
 
-  const termBar = document.getElementById('term-bar');
+  function openDrawer(tab) {
+    drawer.classList.add('open');
+    fab.classList.add('hidden');
+    drawerTabs.forEach(t => t.classList.toggle('active', t.dataset.panel === tab));
+    panelDetail.classList.toggle('active', tab === 'detail');
+    panelTerminal.classList.toggle('active', tab === 'terminal');
+    if (tab === 'terminal') document.getElementById('term-field')?.focus();
+  }
 
-  // Click bar to focus terminal
-  termBar.addEventListener('click', () => {
-    if (!terminal.classList.contains('expanded')) {
-      terminal.classList.add('focused');
-      termInput.focus();
-    }
-  });
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    fab.classList.remove('hidden');
+  }
 
-  termInput.addEventListener('blur', () => {
-    if (!terminal.classList.contains('expanded') && !termInput.value) {
-      setTimeout(() => terminal.classList.remove('focused'), 200);
-    }
-  });
-
-  termClose.addEventListener('click', () => {
-    terminal.classList.remove('expanded', 'focused');
-    termIcon.textContent = '›_';
-    termInput.placeholder = 'Ask about ' + document.title.split(' ')[0] + '...';
-    termInput.value = '';
-  });
+  fab.addEventListener('click', () => openDrawer('terminal'));
+  drawerClose.addEventListener('click', closeDrawer);
+  drawerTabs.forEach(t => t.addEventListener('click', () => openDrawer(t.dataset.panel)));
 
   function formatId(id) { return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
 
@@ -816,7 +845,7 @@ function getTypeStyle(type: string) {
     const depList = (data.depends_on || []).map(d => '<span class="detail-link">' + formatId(d) + '</span>').join(' ');
     const patterns = (data.patterns || []).map(p => '<span class="detail-type-badge">' + p + '</span>').join(' ');
 
-    detailBody.innerHTML =
+    panelDetail.innerHTML =
       '<div class="detail-name">' + (data.name || formatId(data.id)) + '</div>' +
       '<div class="detail-type">' +
         '<span>' + (data.type || 'component') + '</span>' +
@@ -826,10 +855,7 @@ function getTypeStyle(type: string) {
       (depList ? '<div class="detail-section"><div class="detail-label">Dependencies</div><div class="detail-links">' + depList + '</div></div>' : '') +
       (storyList ? '<div class="detail-section"><div class="detail-label">Appears in</div><div class="detail-links">' + storyList + '</div></div>' : '');
 
-    terminal.classList.remove('focused');
-    terminal.classList.add('expanded');
-    termIcon.textContent = '◆';
-    termInput.placeholder = data.name || formatId(data.id);
+    openDrawer('detail');
   }
 
   function initGraph(container) {
@@ -910,8 +936,7 @@ function getTypeStyle(type: string) {
       if (evt.target === cy) {
         cy.nodes().removeClass('selected');
         cy.edges().removeClass('highlighted');
-        terminal.classList.remove('expanded');
-        termIcon.textContent = '💬';
+        closeDrawer();
       }
     });
 
