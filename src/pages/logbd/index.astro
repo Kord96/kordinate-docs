@@ -209,6 +209,33 @@ function getTypeStyle(type: string) {
       transition: all .2s; text-decoration: none;
     }
     .landing-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(129,140,248,.2); }
+    /* ─── Chapter 0 ─── */
+    .ch0 { justify-content: flex-start; padding-top: 80px; }
+    .ch0-header { margin-bottom: 1rem; }
+    .ch0-text { margin-top: 1rem; }
+    .ch0-point {
+      display: flex; gap: .6rem; align-items: flex-start;
+      padding: .4rem 0; font-size: .85rem; color: var(--text-2); line-height: 1.6;
+    }
+    .ch0-dot {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      background: var(--accent-dim); color: var(--accent);
+      font-size: .65rem; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; margin-top: .15rem;
+    }
+    .ch0-decisions {
+      margin-top: 1rem; padding: .75rem 1rem;
+      background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .ch0-decisions-label {
+      font-size: .6rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--text-4); margin-bottom: .4rem;
+    }
+    .ch0-decision {
+      font-size: .8rem; color: var(--text-3); line-height: 1.5;
+      padding: .2rem 0;
+    }
+
     .landing-overview {
       font-size: .9rem; color: var(--text-2); line-height: 1.65;
       max-width: 560px; margin: 0 auto 1rem; text-align: left;
@@ -437,15 +464,61 @@ function getTypeStyle(type: string) {
         ◆ {dm.primary} · {dm.entities?.length || 0} entities · {dm.relationships?.length || 0} relationships
       </div>
     )}
-    {overview.how_it_works && (
-      <p class="landing-how">{overview.how_it_works}</p>
-    )}
-    <div><a href={`#${defaultJourney.id}-s1`} class="landing-cta" id="start-btn">Start Journey →</a></div>
+    <div><a href={`#chapter0`} class="landing-cta" id="start-btn">Start Journey →</a></div>
     <div class="landing-stats">
       <span>{atlas.components?.length} components</span>
       <span>{atlas.flows?.length} flows</span>
       <span>{totalStories} stories</span>
       <span>~{Math.ceil(totalStories * 1.5)} min</span>
+    </div>
+  </div>
+</section>
+
+<!-- Chapter 0 — Overview with architecture graph -->
+<section class="snap" id="chapter0">
+  <div class="snap-inner ch0">
+    <div class="ch0-header">
+      <div class="story-num">Overview</div>
+      <h2 class="story-title">How it works</h2>
+    </div>
+
+    <!-- Atlas graph showing all groups -->
+    <div class="struct">
+      <div class="struct-graph" id="atlas-overview" data-graph={JSON.stringify({
+        nodes: (atlas.components || []).map((c: any) => ({
+          id: c.id, name: c.name, type: c.type,
+          description: c.description, depends_on: c.depends_on || [], patterns: c.patterns || []
+        })),
+        edges: (atlas.components || []).flatMap((c: any) =>
+          (c.depends_on || []).filter((d: string) => (atlas.components || []).some((cc: any) => cc.id === d))
+            .map((d: string) => ({ from: c.id, to: d, label: '' }))
+        )
+      })} data-refs={JSON.stringify(storyByNode)}></div>
+      <div class="struct-hint">click a node to explore</div>
+    </div>
+
+    {overview.how_it_works && (
+      <div class="ch0-text">
+        {overview.how_it_works.split(/\.\s+/).filter(Boolean).map((sentence: string, i: number) => (
+          <div class="ch0-point">
+            <span class="ch0-dot">{i + 1}</span>
+            <span>{sentence.trim()}{sentence.trim().endsWith('.') ? '' : '.'}</span>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {overview.key_decisions && overview.key_decisions.length > 0 && (
+      <div class="ch0-decisions">
+        <div class="ch0-decisions-label">Key decisions</div>
+        {overview.key_decisions.map((d: string) => (
+          <div class="ch0-decision">→ {d}</div>
+        ))}
+      </div>
+    )}
+
+    <div class="next">
+      <a href={`#${defaultJourney.id}-s1`}>Begin the journey →</a>
     </div>
   </div>
 </section>
