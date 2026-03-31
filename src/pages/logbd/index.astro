@@ -371,12 +371,8 @@ function getTypeStyle(type: string) {
     ))}
   </div>
   <div class="h-right">
-    {journeys.map((j: any) => (
-      <a class={`h-tab ${j.id === defaultJourney.id ? 'active' : ''}`} href={j.id === defaultJourney.id ? '#' : `?journey=${j.id}`}>
-        {j.title}
-      </a>
-    ))}
-    <a class="h-switch" href="https://docs.khaledkord.com/logbd/" title="Switch to production view">prod ↗</a>
+    <span class="h-tab active">{defaultJourney.title}</span>
+    <a class="h-switch" href="/dev/" title="Back to home">Home</a>
   </div>
 </header>
 
