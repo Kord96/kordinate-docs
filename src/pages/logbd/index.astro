@@ -532,17 +532,26 @@ function getTypeStyle(type: string) {
     border-bottom-style: solid !important;
   }
 
-  /* Detail panel — injected via JS, needs global */
-  .detail-header { margin-bottom: .6rem; }
-  .detail-name { font-weight: 700 !important; font-size: 1.05rem !important; margin-bottom: .25rem; letter-spacing: -.01em; }
-  .detail-type { font-size: .65rem; color: #52525b; text-transform: uppercase; letter-spacing: .08em; display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
-  .detail-type-badge { padding: .15rem .5rem; border-radius: 4px; background: rgba(129,140,248,.12); color: #818cf8; font-size: .6rem; }
-  .detail-desc { font-size: .85rem; color: #a1a1aa; line-height: 1.6; margin: .6rem 0; padding-bottom: .6rem; border-bottom: 1px solid #27272a; }
-  .detail-section { margin-bottom: .5rem; }
-  .detail-label { font-size: .6rem; font-weight: 600; color: #52525b; text-transform: uppercase; letter-spacing: .1em; margin-bottom: .3rem; }
-  .detail-links { display: flex; flex-wrap: wrap; gap: .3rem; }
-  .detail-link { font-size: .72rem; color: #818cf8; cursor: pointer; padding: .15rem .5rem; border-radius: 5px; background: rgba(129,140,248,.12); border: 1px solid transparent; transition: all .15s; text-decoration: none; }
-  .detail-link:hover { background: rgba(129,140,248,.2); border-color: rgba(129,140,248,.2); }
+  /* Drawer + detail panel — injected via JS, needs global */
+  #drawer, #drawer * { font-family: 'Inter', system-ui, sans-serif; }
+  .drawer-tab { font-family: 'Inter', system-ui, sans-serif !important; font-size: .75rem !important; }
+  .drawer-body { line-height: 1.5; }
+
+  .detail-header { margin-bottom: .75rem; }
+  .detail-name { font-weight: 700 !important; font-size: 1.1rem !important; margin-bottom: .3rem; letter-spacing: -.02em; line-height: 1.3; }
+  .detail-type { font-size: .7rem; color: #71717a; text-transform: uppercase; letter-spacing: .06em; display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-top: .15rem; }
+  .detail-type-badge { padding: .2rem .55rem; border-radius: 5px; background: rgba(129,140,248,.1); color: #818cf8; font-size: .65rem; font-weight: 500; }
+  .detail-desc { font-size: .88rem; color: #a1a1aa; line-height: 1.65; margin: .75rem 0; padding-bottom: .75rem; border-bottom: 1px solid #27272a; }
+  .detail-section { margin-bottom: .75rem; }
+  .detail-label { font-size: .65rem; font-weight: 600; color: #52525b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .35rem; }
+  .detail-links { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .detail-link { font-size: .78rem; color: #818cf8; cursor: pointer; padding: .2rem .6rem; border-radius: 6px; background: rgba(129,140,248,.08); border: 1px solid rgba(129,140,248,.15); transition: all .15s; text-decoration: none; font-weight: 500; }
+  .detail-link:hover { background: rgba(129,140,248,.18); border-color: rgba(129,140,248,.25); }
+
+  /* Terminal panel */
+  .term-prompt { font-family: 'JetBrains Mono', monospace !important; }
+  .term-field { font-family: 'Inter', system-ui, sans-serif !important; font-size: .88rem !important; }
+  .term-output { font-size: .82rem !important; line-height: 1.6 !important; }
 </style>
 </head>
 <body>
