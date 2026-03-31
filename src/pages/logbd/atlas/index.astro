@@ -119,6 +119,18 @@ function severity(s: string) {
     .dm-badge { display: inline-flex; padding: .3rem .8rem; border-radius: 99px; font-size: .75rem; background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent); margin-bottom: 1rem; }
     .dm-entities { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .5rem; }
     .dm-entity { font-size: .7rem; padding: .15rem .4rem; border-radius: 4px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-2); }
+
+    /* ─── Graph ─── */
+    #cy-container { width: 100%; height: 500px; background: #0d0d12; border: 1px solid var(--border); border-radius: var(--radius); position: relative; }
+    .graph-controls { display: flex; gap: .4rem; margin-bottom: .5rem; }
+    .graph-btn { font-size: .7rem; font-family: var(--font); padding: .3rem .6rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); color: var(--text-2); cursor: pointer; transition: all .2s; }
+    .graph-btn:hover { border-color: var(--border-hover); color: var(--text); }
+    .graph-counter { font-size: .7rem; color: var(--text-4); margin-top: .4rem; }
+    #cy-tooltip { position: absolute; z-index: 10; pointer-events: none; background: rgba(24,24,27,.95); border: 1px solid var(--border-hover); border-radius: 6px; padding: .5rem .7rem; max-width: 260px; display: none; backdrop-filter: blur(8px); }
+    #cy-tooltip .tt-name { font-size: .8rem; font-weight: 600; color: var(--text); margin-bottom: .15rem; }
+    #cy-tooltip .tt-type { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-4); margin-bottom: .25rem; }
+    #cy-tooltip .tt-desc { font-size: .72rem; color: var(--text-2); line-height: 1.4; }
+    .card-highlight { border-color: var(--accent) !important; box-shadow: 0 0 0 2px var(--accent-dim); transition: border-color .3s, box-shadow .3s; }
   </style>
 </head>
 <body>
@@ -154,8 +166,28 @@ function severity(s: string) {
     )}
   </div>
 
-  <!-- Components by group -->
+  <!-- Architecture Graph -->
   <div class="section">
+    <h2 class="section-title">Architecture Graph</h2>
+    <p class="section-sub">Interactive dependency map — click groups to expand, hover nodes for details</p>
+    <div class="graph-controls">
+      <button class="graph-btn" id="btn-expand-all">Expand All</button>
+      <button class="graph-btn" id="btn-collapse-all">Collapse All</button>
+      <button class="graph-btn" id="btn-fit">Fit View</button>
+    </div>
+    <div style="position: relative;">
+      <div id="cy-container"></div>
+      <div id="cy-tooltip">
+        <div class="tt-name"></div>
+        <div class="tt-type"></div>
+        <div class="tt-desc"></div>
+      </div>
+    </div>
+    <div class="graph-counter" id="graph-counter"></div>
+  </div>
+
+  <!-- Components by group -->
+  <div class="section" id="components-section">
     <h2 class="section-title">Components</h2>
     <p class="section-sub">{components.length} components across {groups.length} groups</p>
 
@@ -169,7 +201,7 @@ function severity(s: string) {
           </div>
           <div class="card-grid">
             {groupComps.map((c: any) => (
-              <div class="card">
+              <div class="card" id={`card-${c.id}`} data-component-id={c.id}>
                 <div class="card-name">{c.name}</div>
                 <div class="card-type">{c.type}</div>
                 <div class="card-desc">{c.description}</div>
@@ -278,5 +310,313 @@ function severity(s: string) {
   </div>
 
 </div>
+
+<script is:inline define:vars={{ groups, components, extDeps }}>
+(function() {
+  // Lazy-load Cytoscape + cose-bilkent layout from CDN
+  function loadScript(src) {
+    return new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  var TYPE_COLORS = {
+    worker: '#6366f1', service: '#3b82f6', api: '#22c55e', store: '#f59e0b',
+    cli: '#64748b', scheduler: '#a855f7', external: '#ef4444'
+  };
+
+  var totalNodes = components.length + groups.length + extDeps.length;
+  var expandedGroups = {};
+
+  function buildElements() {
+    var els = [], vis = new Set();
+
+    // Add group nodes
+    groups.forEach(function(g) {
+      var kids = components.filter(function(c) { return c.group === g.id; });
+      var expanded = !!expandedGroups[g.id];
+      var label = expanded ? g.name : g.name + '  [' + kids.length + ']';
+      vis.add(g.id);
+      els.push({ group: 'nodes', data: {
+        id: g.id, label: label, nodeType: 'group', description: g.description || '',
+        hasChildren: true, collapsed: !expanded
+      }});
+      if (expanded) {
+        kids.forEach(function(c) {
+          vis.add(c.id);
+          els.push({ group: 'nodes', data: {
+            id: c.id, label: c.name, nodeType: c.type || 'worker',
+            description: c.description || '', parent: g.id, hasChildren: false, collapsed: false
+          }});
+        });
+      }
+    });
+
+    // External dependencies as nodes (only if referenced by visible components)
+    extDeps.forEach(function(e) {
+      vis.add(e.id);
+      els.push({ group: 'nodes', data: {
+        id: e.id, label: e.name || e.id, nodeType: 'external',
+        description: e.purpose || e.technology || '', hasChildren: false, collapsed: false
+      }});
+    });
+
+    // Build edges from depends_on
+    var edgeSet = {};
+    components.forEach(function(c) {
+      if (!c.depends_on) return;
+      c.depends_on.forEach(function(dep) {
+        var src = vis.has(c.id) ? c.id : c.group;
+        var tgt = vis.has(dep) ? dep : (function() {
+          var dc = components.find(function(x) { return x.id === dep; });
+          return dc ? dc.group : dep;
+        })();
+        if (!vis.has(src) || !vis.has(tgt) || src === tgt) return;
+        var ek = src + '->' + tgt;
+        if (edgeSet[ek]) return;
+        edgeSet[ek] = true;
+        // Determine if cross-group
+        var srcGroup = c.group;
+        var tgtComp = components.find(function(x) { return x.id === dep; });
+        var tgtGroup = tgtComp ? tgtComp.group : null;
+        var crossGroup = srcGroup !== tgtGroup;
+        els.push({ group: 'edges', data: {
+          id: 'e-' + src + '-' + tgt, source: src, target: tgt,
+          label: 'depends_on', edgeStyle: crossGroup ? 'dashed' : 'solid'
+        }});
+      });
+    });
+
+    // Edges from external deps to components
+    extDeps.forEach(function(e) {
+      if (!e.components) return;
+      var targets = {};
+      e.components.forEach(function(cid) {
+        var tgt = vis.has(cid) ? cid : (function() {
+          var cc = components.find(function(x) { return x.id === cid; });
+          return cc ? cc.group : null;
+        })();
+        if (!tgt || !vis.has(tgt) || targets[tgt]) return;
+        targets[tgt] = true;
+        els.push({ group: 'edges', data: {
+          id: 'e-ext-' + e.id + '-' + tgt, source: tgt, target: e.id,
+          label: 'uses', edgeStyle: 'dashed'
+        }});
+      });
+    });
+
+    return { elements: els, visibleCount: vis.size };
+  }
+
+  function updateCounter(n) {
+    document.getElementById('graph-counter').textContent = 'Showing ' + n + ' of ' + totalNodes + ' nodes';
+  }
+
+  function runLayout(cy, animate) {
+    cy.layout({
+      name: 'cose-bilkent', quality: 'proof', nodeDimensionsIncludeLabels: true,
+      idealEdgeLength: 160, nodeRepulsion: 15000, edgeElasticity: 0.4,
+      nestingFactor: 0.12, gravity: 0.2, numIter: 2500, tile: true,
+      tilingPaddingVertical: 16, tilingPaddingHorizontal: 16,
+      animate: animate ? 'end' : false, animationDuration: animate ? 400 : 0,
+      fit: true, padding: 60
+    }).run();
+  }
+
+  function rebuildGraph(cy, animate) {
+    var result = buildElements();
+    cy.elements().remove();
+    cy.add(result.elements);
+    updateCounter(result.visibleCount);
+    runLayout(cy, animate);
+  }
+
+  function initGraph() {
+    var cy = cytoscape({
+      container: document.getElementById('cy-container'),
+      elements: [],
+      minZoom: 0.2, maxZoom: 4, wheelSensitivity: 0.3,
+      style: [
+        // Group nodes — collapsed
+        { selector: 'node[nodeType="group"][?collapsed]', style: {
+          'shape': 'roundrectangle',
+          'width': function(e) { return Math.max(180, 140 + e.data('label').length * 3); },
+          'height': 56,
+          'background-color': 'rgba(129,140,248,0.08)',
+          'border-width': 2, 'border-style': 'dashed',
+          'border-color': 'rgba(129,140,248,0.35)',
+          'label': 'data(label)', 'color': '#ccc',
+          'font-size': '13px', 'font-weight': '600',
+          'text-halign': 'center', 'text-valign': 'center',
+          'text-wrap': 'wrap', 'text-max-width': '220px',
+          'font-family': 'Inter, sans-serif', 'overlay-opacity': 0
+        }},
+        // Group nodes — expanded
+        { selector: 'node[nodeType="group"][!collapsed]', style: {
+          'shape': 'roundrectangle',
+          'background-color': 'rgba(42,42,78,0.5)', 'background-opacity': 1,
+          'border-width': 1.5, 'border-style': 'dashed',
+          'border-color': 'rgba(255,255,255,0.08)',
+          'label': 'data(label)', 'color': '#666',
+          'font-size': '12px', 'font-weight': '600',
+          'text-halign': 'center', 'text-valign': 'top', 'text-margin-y': -6,
+          'padding': '28px', 'compound-sizing-wrt-labels': 'include',
+          'text-wrap': 'wrap', 'text-max-width': '220px',
+          'font-family': 'Inter, sans-serif'
+        }},
+        // Component nodes (leaf nodes by type color)
+        { selector: 'node[nodeType!="group"][nodeType!="external"]', style: {
+          'shape': 'roundrectangle',
+          'width': function(e) { return Math.max(140, 100 + e.data('label').length * 3.5); },
+          'height': 44,
+          'background-color': function(e) { return TYPE_COLORS[e.data('nodeType')] || '#6366f1'; },
+          'border-width': 0,
+          'label': 'data(label)',
+          'color': '#fff',
+          'font-size': '11px', 'font-weight': '500',
+          'text-halign': 'center', 'text-valign': 'center',
+          'text-wrap': 'wrap', 'text-max-width': '130px',
+          'font-family': 'Inter, sans-serif', 'overlay-opacity': 0
+        }},
+        // External dependency nodes
+        { selector: 'node[nodeType="external"]', style: {
+          'shape': 'roundrectangle',
+          'width': function(e) { return Math.max(120, 80 + e.data('label').length * 4); },
+          'height': 40,
+          'background-color': '#ef4444',
+          'border-width': 0,
+          'label': 'data(label)',
+          'color': '#fff',
+          'font-size': '10px', 'font-weight': '500',
+          'text-halign': 'center', 'text-valign': 'center',
+          'font-family': 'Inter, sans-serif', 'overlay-opacity': 0
+        }},
+        // Solid edges (within group)
+        { selector: 'edge[edgeStyle="solid"]', style: {
+          'width': 1.5, 'line-color': 'rgba(129,140,248,0.45)',
+          'target-arrow-color': 'rgba(129,140,248,0.45)',
+          'target-arrow-shape': 'triangle', 'arrow-scale': 0.8,
+          'curve-style': 'bezier',
+          'label': 'data(label)', 'font-size': '9px',
+          'font-family': 'Inter, sans-serif',
+          'color': 'rgba(255,255,255,0.3)', 'text-rotation': 'autorotate',
+          'text-margin-y': -10,
+          'text-background-color': '#0d0d12', 'text-background-opacity': 0.85,
+          'text-background-padding': '3px', 'text-background-shape': 'roundrectangle'
+        }},
+        // Dashed edges (cross-group)
+        { selector: 'edge[edgeStyle="dashed"]', style: {
+          'width': 1.5, 'line-style': 'dashed', 'line-dash-pattern': [6, 4],
+          'line-color': 'rgba(129,140,248,0.3)',
+          'target-arrow-color': 'rgba(129,140,248,0.3)',
+          'target-arrow-shape': 'triangle', 'arrow-scale': 0.8,
+          'curve-style': 'bezier',
+          'label': 'data(label)', 'font-size': '9px',
+          'font-family': 'Inter, sans-serif',
+          'color': 'rgba(255,255,255,0.25)', 'text-rotation': 'autorotate',
+          'text-margin-y': -10,
+          'text-background-color': '#0d0d12', 'text-background-opacity': 0.85,
+          'text-background-padding': '3px', 'text-background-shape': 'roundrectangle'
+        }},
+        // Interaction states
+        { selector: 'node.hover-glow', style: { 'overlay-color': '#818cf8', 'overlay-opacity': 0.15, 'overlay-padding': 8 } },
+        { selector: 'edge.highlighted', style: {
+          'line-color': 'rgba(129,140,248,0.7)', 'target-arrow-color': 'rgba(129,140,248,0.7)',
+          'color': 'rgba(255,255,255,0.7)', 'width': 2.5, 'z-index': 999
+        }},
+        { selector: 'node.dimmed', style: { 'opacity': 0.15 } },
+        { selector: 'edge.dimmed', style: { 'opacity': 0.06 } }
+      ]
+    });
+
+    rebuildGraph(cy, false);
+
+    // Tooltip references
+    var tooltip = document.getElementById('cy-tooltip');
+    var ttName = tooltip.querySelector('.tt-name');
+    var ttType = tooltip.querySelector('.tt-type');
+    var ttDesc = tooltip.querySelector('.tt-desc');
+
+    // Hover: highlight connected, dim rest, show tooltip
+    cy.on('mouseover', 'node', function(e) {
+      var node = e.target;
+      node.addClass('hover-glow');
+      // Dim everything
+      cy.elements().addClass('dimmed');
+      // Un-dim this node, its neighborhood
+      node.removeClass('dimmed');
+      node.connectedEdges().removeClass('dimmed').addClass('highlighted');
+      node.neighborhood('node').removeClass('dimmed');
+      // If it's a parent, un-dim children
+      if (node.isParent()) node.descendants().removeClass('dimmed');
+      // If it's a child, un-dim parent
+      if (node.isChild()) node.parent().removeClass('dimmed');
+
+      // Tooltip
+      ttName.textContent = node.data('label');
+      ttType.textContent = node.data('nodeType');
+      ttDesc.textContent = node.data('description') || '';
+      tooltip.style.display = 'block';
+      var pos = node.renderedPosition();
+      var container = document.getElementById('cy-container').getBoundingClientRect();
+      tooltip.style.left = Math.min(pos.x + 12, container.width - 270) + 'px';
+      tooltip.style.top = Math.min(pos.y + 12, container.height - 80) + 'px';
+    });
+
+    cy.on('mouseout', 'node', function() {
+      cy.elements().removeClass('dimmed highlighted hover-glow');
+      tooltip.style.display = 'none';
+    });
+
+    // Click: expand/collapse groups, scroll to component card
+    cy.on('tap', 'node', function(e) {
+      var node = e.target;
+      var id = node.data('id');
+      var isGroup = node.data('nodeType') === 'group';
+
+      if (isGroup) {
+        if (expandedGroups[id]) {
+          delete expandedGroups[id];
+        } else {
+          expandedGroups[id] = true;
+        }
+        rebuildGraph(cy, true);
+        return;
+      }
+
+      // Component node: scroll to its card
+      var card = document.getElementById('card-' + id);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('card-highlight');
+        setTimeout(function() { card.classList.remove('card-highlight'); }, 2000);
+      }
+    });
+
+    // Controls
+    document.getElementById('btn-expand-all').addEventListener('click', function() {
+      groups.forEach(function(g) { expandedGroups[g.id] = true; });
+      rebuildGraph(cy, false);
+    });
+    document.getElementById('btn-collapse-all').addEventListener('click', function() {
+      expandedGroups = {};
+      rebuildGraph(cy, true);
+    });
+    document.getElementById('btn-fit').addEventListener('click', function() {
+      cy.fit(undefined, 60);
+    });
+  }
+
+  // Load CDN scripts then init
+  loadScript('https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js')
+    .then(function() { return loadScript('https://unpkg.com/cytoscape-cose-bilkent@4.1.0/cytoscape-cose-bilkent.js'); })
+    .then(function() {
+      if (typeof cytoscapeCoseBilkent !== 'undefined') cytoscape.use(cytoscapeCoseBilkent);
+      initGraph();
+    });
+})();
+</script>
 </body>
 </html>
