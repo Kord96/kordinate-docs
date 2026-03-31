@@ -246,6 +246,20 @@ function getTypeStyle(type: string) {
       padding: .75rem 1rem; background: var(--bg-raised);
       border: 1px solid var(--border); border-radius: var(--radius);
     }
+    .landing-journeys {
+      display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .landing-journey-btn {
+      padding: .6rem 1.4rem; border-radius: 8px; font-size: .85rem; font-weight: 500;
+      text-decoration: none; transition: all .2s; cursor: pointer;
+      border: 1px solid var(--border); color: var(--text-3);
+    }
+    .landing-journey-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .landing-journey-btn.primary {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+    .landing-journey-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(129,140,248,.2); }
     .landing-stats {
       margin-top: 1.5rem; display: flex; gap: 1.5rem; justify-content: center;
       font-size: .75rem; color: var(--text-4);
@@ -464,7 +478,13 @@ function getTypeStyle(type: string) {
         ◆ {dm.primary} · {dm.entities?.length || 0} entities · {dm.relationships?.length || 0} relationships
       </div>
     )}
-    <div><a href={`#chapter0`} class="landing-cta" id="start-btn">Start Journey →</a></div>
+    <div class="landing-journeys">
+      {journeys.map((j: any) => (
+        <a class={`landing-journey-btn ${j.id === defaultJourney.id ? 'primary' : ''}`} href={`#${j.id}-s1`} data-journey={j.id}>
+          {j.title}
+        </a>
+      ))}
+    </div>
     <div class="landing-stats">
       <span>{atlas.components?.length} components</span>
       <span>{atlas.flows?.length} flows</span>
@@ -866,9 +886,10 @@ function getTypeStyle(type: string) {
 
   document.querySelectorAll('.struct-graph').forEach(g => graphObserver.observe(g));
 
-  // ─── Journey switching via select dropdown ───
-  jbSelect.addEventListener('change', () => {
-    currentJourneyId = jbSelect.value;
+  // ─── Journey switching ───
+  function switchJourney(jid) {
+    currentJourneyId = jid;
+    jbSelect.value = jid;
 
     // Show/hide story sections
     document.querySelectorAll('.journey-section').forEach(s => {
@@ -888,6 +909,20 @@ function getTypeStyle(type: string) {
     // Init any graphs that are now visible
     document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"] .struct-graph`).forEach(g => {
       if (!g._cy) graphObserver.observe(g);
+    });
+  }
+
+  jbSelect.addEventListener('change', () => switchJourney(jbSelect.value));
+
+  // Landing journey buttons
+  document.querySelectorAll('.landing-journey-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const jid = btn.dataset.journey;
+      if (jid !== currentJourneyId) {
+        e.preventDefault();
+        switchJourney(jid);
+        document.getElementById(jid + '-s1')?.scrollIntoView({ behavior: 'smooth' });
+      }
     });
   });
 
