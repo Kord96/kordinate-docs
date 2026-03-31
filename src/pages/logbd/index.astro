@@ -314,9 +314,16 @@ function getTypeStyle(type: string) {
       transition: height .25s ease;
       overflow: hidden;
     }
+    #terminal.focused { height: 160px; }
+    #terminal.focused .term-response { display: block; }
     #terminal.expanded { height: 320px; }
-    .term-bar { display: flex; align-items: center; padding: .5rem 1.25rem; gap: .6rem; }
-    .term-icon { color: var(--accent); font-size: .85rem; }
+    #terminal.expanded .term-response { display: none; }
+    .term-bar { display: flex; align-items: center; padding: .5rem 1.25rem; gap: .6rem; cursor: text; }
+    .term-icon {
+      font-size: .9rem; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+      border-radius: 6px; background: rgba(249,115,22,.12); color: #fb923c;
+      box-shadow: 0 0 8px rgba(249,115,22,.15); flex-shrink: 0;
+    }
     .term-input {
       flex: 1; background: none; border: none; color: var(--text-2);
       font-family: var(--font); font-size: .8rem; outline: none;
@@ -691,11 +698,14 @@ function getTypeStyle(type: string) {
 
 <!-- Terminal / Detail Drawer -->
 <div id="terminal">
-  <div class="term-bar">
-    <span class="term-icon" id="term-icon">💬</span>
+  <div class="term-bar" id="term-bar">
+    <span class="term-icon" id="term-icon">›_</span>
     <input class="term-input" id="term-input" placeholder={`Ask about ${atlas.project || 'logBD'}...`} />
     <span class="term-key">⌘K</span>
     <span class="term-close" id="term-close">✕ close</span>
+  </div>
+  <div class="term-response" id="term-response" style="display:none; padding: .5rem 1.25rem .75rem; font-size: .8rem; color: var(--text-3); max-height: 110px; overflow-y: auto;">
+    <em style="color: var(--text-4)">Ask a question about the architecture — powered by Claude Code</em>
   </div>
   <div class="detail-body" id="detail-body"></div>
 </div>
@@ -776,10 +786,27 @@ function getTypeStyle(type: string) {
   const termInput = document.getElementById('term-input');
   const termClose = document.getElementById('term-close');
 
+  const termBar = document.getElementById('term-bar');
+
+  // Click bar to focus terminal
+  termBar.addEventListener('click', () => {
+    if (!terminal.classList.contains('expanded')) {
+      terminal.classList.add('focused');
+      termInput.focus();
+    }
+  });
+
+  termInput.addEventListener('blur', () => {
+    if (!terminal.classList.contains('expanded') && !termInput.value) {
+      setTimeout(() => terminal.classList.remove('focused'), 200);
+    }
+  });
+
   termClose.addEventListener('click', () => {
-    terminal.classList.remove('expanded');
-    termIcon.textContent = '💬';
+    terminal.classList.remove('expanded', 'focused');
+    termIcon.textContent = '›_';
     termInput.placeholder = 'Ask about ' + document.title.split(' ')[0] + '...';
+    termInput.value = '';
   });
 
   function formatId(id) { return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
@@ -799,6 +826,7 @@ function getTypeStyle(type: string) {
       (depList ? '<div class="detail-section"><div class="detail-label">Dependencies</div><div class="detail-links">' + depList + '</div></div>' : '') +
       (storyList ? '<div class="detail-section"><div class="detail-label">Appears in</div><div class="detail-links">' + storyList + '</div></div>' : '');
 
+    terminal.classList.remove('focused');
     terminal.classList.add('expanded');
     termIcon.textContent = '◆';
     termInput.placeholder = data.name || formatId(data.id);
