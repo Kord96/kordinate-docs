@@ -49,6 +49,10 @@ const purpose = atlas.purpose || '';
 const dm = atlas.domain_model || {};
 const totalStories = stories.length;
 
+// Load overview (chapter 0) from scribe
+let overview: any = {};
+try { overview = JSON.parse(fs.readFileSync(`${dir}/overview.json`, 'utf-8')); } catch {};
+
 // Manifest lookup
 const manifestMap: Record<string, any> = {};
 for (const s of (manifest.stories || [])) manifestMap[s.storyId] = s;
@@ -117,52 +121,69 @@ function getTypeStyle(type: string) {
     html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
     body { font-family: var(--font); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
 
-    /* ─── Progress ─── */
-    #progress { position: fixed; top: 0; left: 0; height: 2px; background: var(--accent); z-index: 999; transition: width .4s ease; }
-
-    /* ─── Header ─── */
+    /* ─── Header (minimal) ─── */
     header {
       position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      padding: 0 1.5rem; height: 48px;
+      padding: 0 1.5rem; height: 40px;
       display: flex; align-items: center; justify-content: space-between;
-      background: rgba(9,9,11,0.8); backdrop-filter: blur(16px) saturate(180%);
+      background: rgba(9,9,11,0.85); backdrop-filter: blur(16px) saturate(180%);
       border-bottom: 1px solid var(--border);
     }
     .h-left { display: flex; align-items: center; gap: .5rem; }
-    .h-logo { font-weight: 700; font-size: .9rem; letter-spacing: -.02em; }
+    .h-logo { font-weight: 700; font-size: .85rem; letter-spacing: -.02em; }
     .h-env {
-      font-size: .55rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
-      padding: .15rem .4rem; border-radius: 3px;
+      font-size: .5rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+      padding: .1rem .35rem; border-radius: 3px;
       background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.2);
     }
-    .h-sep { color: var(--text-4); font-size: .7rem; }
-    .h-journey { font-size: .75rem; color: var(--text-3); }
-    .h-dots { display: flex; gap: 5px; }
-    .h-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--border); cursor: pointer; transition: all .3s;
+    .h-home {
+      font-size: .7rem; color: var(--text-4); text-decoration: none;
+      padding: .2rem .5rem; border: 1px solid var(--border); border-radius: 4px;
+      transition: all .2s;
     }
-    .h-dot.active { background: var(--accent); box-shadow: 0 0 6px var(--accent-dim); }
-    .h-dot.done { background: var(--text-4); }
-    .h-right { display: flex; gap: .5rem; align-items: center; }
-    .h-tab {
-      font-size: .7rem; padding: .25rem .6rem; border-radius: 4px;
-      color: var(--text-3); cursor: pointer; border: 1px solid transparent;
-      transition: all .2s; text-decoration: none;
+    .h-home:hover { color: var(--text-2); border-color: var(--border-hover); }
+
+    /* ─── Journey bar (below header, sticky) ─── */
+    .journey-bar {
+      position: fixed; top: 40px; left: 0; right: 0; z-index: 99;
+      background: rgba(9,9,11,0.8); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+      opacity: 0; transform: translateY(-100%);
+      transition: all .3s ease;
     }
-    .h-tab:hover { color: var(--text-2); border-color: var(--border); }
-    .h-tab.active { color: var(--accent); border-color: var(--accent-border); background: var(--accent-dim); }
-    .h-switch {
-      font-size: .65rem; padding: .2rem .5rem; border-radius: 4px;
-      color: var(--text-4); text-decoration: none; border: 1px solid var(--border);
-      transition: all .2s; margin-left: .25rem;
+    .journey-bar.visible { opacity: 1; transform: translateY(0); }
+    .jb-top {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 32px;
     }
-    .h-switch:hover { color: var(--text-2); border-color: var(--border-hover); }
+    .jb-left { display: flex; align-items: center; gap: .75rem; }
+    .jb-select {
+      font-size: .75rem; font-weight: 500; color: var(--accent);
+      background: var(--accent-dim); border: 1px solid var(--accent-border);
+      padding: .2rem .6rem; border-radius: 5px; cursor: pointer;
+      outline: none; -webkit-appearance: none; appearance: none;
+    }
+    .jb-select option { background: var(--bg); color: var(--text); }
+    .jb-pos {
+      font-size: .7rem; color: var(--text-3);
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .jb-num { color: var(--accent); font-weight: 600; }
+    .jb-title { color: var(--text-2); font-weight: 500; }
+    .jb-progress {
+      height: 2px; background: var(--border); border-radius: 1px;
+      overflow: hidden;
+    }
+    .jb-fill {
+      height: 100%; background: var(--accent); border-radius: 1px;
+      transition: width .4s ease; width: 0%;
+    }
 
     /* ─── Sections ─── */
     .snap { min-height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; }
     .snap-inner {
-      max-width: 680px; margin: 0 auto; padding: 80px 1.5rem 120px;
+      max-width: 680px; margin: 0 auto; padding: 90px 1.5rem 120px;
       min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
     }
 
@@ -188,8 +209,18 @@ function getTypeStyle(type: string) {
       transition: all .2s; text-decoration: none;
     }
     .landing-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(129,140,248,.2); }
+    .landing-overview {
+      font-size: .9rem; color: var(--text-2); line-height: 1.65;
+      max-width: 560px; margin: 0 auto 1rem; text-align: left;
+    }
+    .landing-how {
+      font-size: .85rem; color: var(--text-3); line-height: 1.6;
+      max-width: 560px; margin: 0 auto 2rem; text-align: left;
+      padding: .75rem 1rem; background: var(--bg-raised);
+      border: 1px solid var(--border); border-radius: var(--radius);
+    }
     .landing-stats {
-      margin-top: 2rem; display: flex; gap: 1.5rem; justify-content: center;
+      margin-top: 1.5rem; display: flex; gap: 1.5rem; justify-content: center;
       font-size: .75rem; color: var(--text-4);
     }
     .landing-switch {
@@ -262,26 +293,29 @@ function getTypeStyle(type: string) {
       display: none; padding: 0 1.25rem 1rem; overflow-y: auto; max-height: 270px;
     }
     #terminal.expanded .detail-body { display: block; }
-    .detail-name { font-weight: 600; font-size: .9rem; margin-bottom: .2rem; }
+    .detail-name { font-weight: 700; font-size: 1rem; margin-bottom: .35rem; letter-spacing: -.01em; }
     .detail-type {
-      font-size: .6rem; color: var(--text-4); text-transform: uppercase;
-      letter-spacing: .08em; margin-bottom: .5rem;
-      display: flex; gap: .5rem; flex-wrap: wrap;
+      font-size: .65rem; color: var(--text-4); text-transform: uppercase;
+      letter-spacing: .08em; margin-bottom: .6rem;
+      display: flex; gap: .4rem; flex-wrap: wrap; align-items: center;
     }
     .detail-type-badge {
-      padding: .1rem .4rem; border-radius: 4px;
-      background: var(--accent-dim); color: var(--accent);
+      padding: .15rem .5rem; border-radius: 4px;
+      background: var(--accent-dim); color: var(--accent); font-size: .6rem;
     }
-    .detail-desc { font-size: .8rem; color: var(--text-2); line-height: 1.55; margin-bottom: .6rem; }
-    .detail-section { margin-bottom: .5rem; }
-    .detail-label { font-size: .65rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .25rem; }
-    .detail-links { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .detail-desc {
+      font-size: .85rem; color: var(--text-2); line-height: 1.6; margin-bottom: .75rem;
+      padding-bottom: .75rem; border-bottom: 1px solid var(--border);
+    }
+    .detail-section { margin-bottom: .6rem; }
+    .detail-label { font-size: .6rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .3rem; }
+    .detail-links { display: flex; flex-wrap: wrap; gap: .3rem; }
     .detail-link {
-      font-size: .75rem; color: var(--accent); cursor: pointer;
-      padding: .15rem .4rem; border-radius: 4px; background: var(--accent-dim);
-      transition: all .15s;
+      font-size: .72rem; color: var(--accent); cursor: pointer;
+      padding: .15rem .5rem; border-radius: 5px; background: var(--accent-dim);
+      border: 1px solid transparent; transition: all .15s;
     }
-    .detail-link:hover { background: rgba(129,140,248,.2); }
+    .detail-link:hover { background: rgba(129,140,248,.15); border-color: var(--accent-border); }
 
     /* ─── Flow ─── */
     .flow { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
@@ -365,29 +399,33 @@ function getTypeStyle(type: string) {
 </head>
 <body>
 
-<div id="progress" style="width:0%"></div>
-
 <header>
   <div class="h-left">
     <span class="h-logo">{atlas.project || 'logBD'}</span>
     <span class="h-env">dev</span>
-    <span class="h-sep">·</span>
-    <span class="h-journey">{defaultJourney.title}</span>
   </div>
-  <div class="h-dots" id="dots">
-    {[...Array(totalStories + 1)].map((_: any, i: number) => (
-      <div class={`h-dot ${i === 0 ? 'active' : ''}`} data-i={i}></div>
-    ))}
-  </div>
-  <div class="h-right">
-    {journeys.map((j: any) => (
-      <a class={`h-tab ${j.id === defaultJourney.id ? 'active' : ''}`} href={`#journey-${j.id}`} data-journey={j.id}>
-        {j.title}
-      </a>
-    ))}
-    <a class="h-switch" href="/dev/" title="Back to home">Home</a>
-  </div>
+  <a class="h-home" href="/dev/">Home</a>
 </header>
+
+<!-- Journey bar — appears after scrolling past landing -->
+<div class="journey-bar" id="journey-bar">
+  <div class="jb-top">
+    <div class="jb-left">
+      <select class="jb-select" id="jb-select">
+        {journeys.map((j: any) => (
+          <option value={j.id} selected={j.id === defaultJourney.id}>{j.title}</option>
+        ))}
+      </select>
+    </div>
+    <div class="jb-pos">
+      <span class="jb-num" id="jb-num">1</span>
+      <span>/</span>
+      <span id="jb-total">{totalStories}</span>
+      <span class="jb-title" id="jb-title"></span>
+    </div>
+  </div>
+  <div class="jb-progress"><div class="jb-fill" id="jb-fill"></div></div>
+</div>
 
 <!-- Landing -->
 <section class="snap" id="s0">
@@ -398,6 +436,9 @@ function getTypeStyle(type: string) {
       <div class="landing-badge">
         ◆ {dm.primary} · {dm.entities?.length || 0} entities · {dm.relationships?.length || 0} relationships
       </div>
+    )}
+    {overview.how_it_works && (
+      <p class="landing-how">{overview.how_it_works}</p>
     )}
     <div><a href={`#${defaultJourney.id}-s1`} class="landing-cta" id="start-btn">Start Journey →</a></div>
     <div class="landing-stats">
@@ -527,30 +568,58 @@ function getTypeStyle(type: string) {
 </div>
 
 <script is:inline>
-  const secs = document.querySelectorAll('.snap:not(.hidden)');
-  const dots = document.querySelectorAll('.h-dot');
-  const prog = document.getElementById('progress');
+  const journeyBar = document.getElementById('journey-bar');
+  const jbNum = document.getElementById('jb-num');
+  const jbTotal = document.getElementById('jb-total');
+  const jbTitle = document.getElementById('jb-title');
+  const jbFill = document.getElementById('jb-fill');
+  const jbSelect = document.getElementById('jb-select');
+  const landing = document.getElementById('s0');
   let cur = 0;
+  let currentJourneyId = jbSelect.value;
 
-  const obs = new IntersectionObserver(entries => {
+  function getVisibleSections() {
+    return [landing, ...document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"]`)];
+  }
+
+  // Show/hide journey bar based on scroll position
+  const landingObs = new IntersectionObserver(entries => {
     entries.forEach(e => {
-      if (e.isIntersecting) {
-        cur = [...secs].indexOf(e.target);
-        dots.forEach((d, i) => {
-          d.classList.toggle('active', i === cur);
-          d.classList.toggle('done', i < cur);
-        });
-        prog.style.width = (cur / (secs.length - 1) * 100) + '%';
-      }
+      journeyBar.classList.toggle('visible', !e.isIntersecting);
     });
-  }, { threshold: 0.5 });
-  secs.forEach(s => obs.observe(s));
+  }, { threshold: 0.3 });
+  landingObs.observe(landing);
 
-  dots.forEach(d => d.addEventListener('click', () => {
-    secs[+d.dataset.i]?.scrollIntoView({ behavior: 'smooth' });
-  }));
+  // Track current story
+  function setupObserver() {
+    const secs = getVisibleSections();
+    const storyCount = secs.length - 1; // minus landing
+    jbTotal.textContent = storyCount;
 
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          cur = secs.indexOf(e.target);
+          if (cur > 0) {
+            jbNum.textContent = cur;
+            const storyEl = e.target.querySelector('.story-title');
+            jbTitle.textContent = storyEl ? '  ' + storyEl.textContent : '';
+            jbFill.style.width = (cur / storyCount * 100) + '%';
+          } else {
+            jbFill.style.width = '0%';
+          }
+        }
+      });
+    }, { threshold: 0.5 });
+    secs.forEach(s => { if (s) obs.observe(s); });
+    return obs;
+  }
+
+  let currentObs = setupObserver();
+
+  // Keyboard navigation
   document.addEventListener('keydown', e => {
+    const secs = getVisibleSections();
     if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); secs[Math.min(cur+1, secs.length-1)]?.scrollIntoView({ behavior: 'smooth' }); }
     if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); secs[Math.max(cur-1, 0)]?.scrollIntoView({ behavior: 'smooth' }); }
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); document.querySelector('.term-input')?.focus(); }
@@ -580,24 +649,26 @@ function getTypeStyle(type: string) {
     termInput.placeholder = 'Ask about ' + document.title.split(' ')[0] + '...';
   });
 
+  function formatId(id) { return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
+
   function showNodeDetail(data, refs) {
-    const storyList = (refs[data.id] || []).map(s => '<span class="detail-link">' + s + '</span>').join('');
-    const depList = (data.depends_on || []).map(d => '<span class="detail-link">' + d + '</span>').join('');
-    const patterns = (data.patterns || []).map(p => '<span class="detail-type-badge">' + p + '</span>').join('');
+    const storyList = (refs[data.id] || []).map(s => '<span class="detail-link">' + formatId(s) + '</span>').join(' ');
+    const depList = (data.depends_on || []).map(d => '<span class="detail-link">' + formatId(d) + '</span>').join(' ');
+    const patterns = (data.patterns || []).map(p => '<span class="detail-type-badge">' + p + '</span>').join(' ');
 
     detailBody.innerHTML =
-      '<div class="detail-name">' + data.name + '</div>' +
+      '<div class="detail-name">' + (data.name || formatId(data.id)) + '</div>' +
       '<div class="detail-type">' +
         '<span>' + (data.type || 'component') + '</span>' +
         (patterns ? ' ' + patterns : '') +
       '</div>' +
       (data.description ? '<div class="detail-desc">' + data.description + '</div>' : '') +
       (depList ? '<div class="detail-section"><div class="detail-label">Dependencies</div><div class="detail-links">' + depList + '</div></div>' : '') +
-      (storyList ? '<div class="detail-section"><div class="detail-label">Referenced in stories</div><div class="detail-links">' + storyList + '</div></div>' : '');
+      (storyList ? '<div class="detail-section"><div class="detail-label">Appears in</div><div class="detail-links">' + storyList + '</div></div>' : '');
 
     terminal.classList.add('expanded');
     termIcon.textContent = '◆';
-    termInput.placeholder = data.name;
+    termInput.placeholder = data.name || formatId(data.id);
   }
 
   function initGraph(container) {
@@ -722,64 +793,28 @@ function getTypeStyle(type: string) {
 
   document.querySelectorAll('.struct-graph').forEach(g => graphObserver.observe(g));
 
-  // ─── Journey switching ───
-  const journeyTabs = document.querySelectorAll('.h-tab[data-journey]');
-  const journeyLabel = document.querySelector('.h-journey');
+  // ─── Journey switching via select dropdown ───
+  jbSelect.addEventListener('change', () => {
+    currentJourneyId = jbSelect.value;
 
-  journeyTabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
-      e.preventDefault();
-      const jid = tab.dataset.journey;
+    // Show/hide story sections
+    document.querySelectorAll('.journey-section').forEach(s => {
+      s.classList.toggle('hidden', s.dataset.journey !== currentJourneyId);
+    });
 
-      // Update active tab
-      journeyTabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
+    // Update start button
+    const startBtn = document.getElementById('start-btn');
+    if (startBtn) startBtn.href = '#' + currentJourneyId + '-s1';
 
-      // Update header label
-      if (journeyLabel) journeyLabel.textContent = tab.textContent.trim();
+    // Re-setup observer
+    currentObs = setupObserver();
 
-      // Show/hide story sections
-      document.querySelectorAll('.journey-section').forEach(s => {
-        s.classList.toggle('hidden', s.dataset.journey !== jid);
-      });
+    // Scroll to landing
+    landing.scrollIntoView({ behavior: 'smooth' });
 
-      // Update dots
-      const visibleSections = document.querySelectorAll(`.journey-section[data-journey="${jid}"]`);
-      const dotsContainer = document.getElementById('dots');
-      dotsContainer.innerHTML = '<div class="h-dot active" data-i="0"></div>';
-      visibleSections.forEach((_, i) => {
-        const dot = document.createElement('div');
-        dot.className = 'h-dot';
-        dot.dataset.i = String(i + 1);
-        dot.addEventListener('click', () => {
-          visibleSections[i]?.scrollIntoView({ behavior: 'smooth' });
-        });
-        dotsContainer.appendChild(dot);
-      });
-
-      // Re-observe for progress
-      const allSections = [document.getElementById('s0'), ...visibleSections];
-      const newObs = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            const idx = allSections.indexOf(entry.target);
-            dotsContainer.querySelectorAll('.h-dot').forEach((d, di) => {
-              d.classList.toggle('active', di === idx);
-              d.classList.toggle('done', di < idx);
-            });
-            prog.style.width = (idx / (allSections.length - 1) * 100) + '%';
-          }
-        });
-      }, { threshold: 0.5 });
-      allSections.forEach(s => { if (s) newObs.observe(s); });
-
-      // Scroll to landing
-      document.getElementById('s0')?.scrollIntoView({ behavior: 'smooth' });
-
-      // Init any graphs that are now visible
-      document.querySelectorAll(`.journey-section[data-journey="${jid}"] .struct-graph`).forEach(g => {
-        if (!g._cy) graphObserver.observe(g);
-      });
+    // Init any graphs that are now visible
+    document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"] .struct-graph`).forEach(g => {
+      if (!g._cy) graphObserver.observe(g);
     });
   });
 
