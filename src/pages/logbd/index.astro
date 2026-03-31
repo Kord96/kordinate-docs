@@ -454,24 +454,57 @@ function getTypeStyle(type: string) {
       background: var(--bg); overflow-y: auto;
     }
     .focus-overlay.open { display: block; }
+
+    /* Focus header — nav + close */
+    .focus-header {
+      position: sticky; top: 0; z-index: 501;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .5rem 1.5rem; height: 44px;
+      background: rgba(9,9,11,.9); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .focus-nav { display: flex; gap: .4rem; align-items: center; }
+    .focus-nav-btn {
+      padding: .25rem .6rem; border-radius: 5px; font-size: .7rem;
+      color: var(--text-3); border: 1px solid var(--border); background: transparent;
+      cursor: pointer; transition: all .2s; text-decoration: none;
+    }
+    .focus-nav-btn:hover { color: var(--accent); border-color: var(--accent-border); }
+    .focus-nav-btn:disabled { opacity: .3; cursor: default; }
+    .focus-pos { font-size: .75rem; color: var(--text-4); margin: 0 .5rem; }
     .focus-close {
-      position: fixed; top: 1rem; right: 1.5rem; z-index: 501;
-      padding: .3rem .7rem; border-radius: 5px; font-size: .75rem;
-      color: var(--text-3); border: 1px solid var(--border); background: rgba(9,9,11,.9);
-      backdrop-filter: blur(8px); cursor: pointer; transition: all .2s;
+      padding: .25rem .6rem; border-radius: 5px; font-size: .7rem;
+      color: var(--text-3); border: 1px solid var(--border); background: transparent;
+      cursor: pointer; transition: all .2s;
     }
     .focus-close:hover { color: var(--text); border-color: var(--text-3); }
+
+    /* Focus content — wider, two-column for graphs */
     .focus-content {
-      max-width: 900px; margin: 0 auto; padding: 3rem 2rem 4rem;
+      max-width: 1000px; margin: 0 auto; padding: 2.5rem 2.5rem 4rem;
     }
-    .focus-content .story-title { font-size: 2rem; margin-bottom: .75rem; }
-    .focus-content .anchor { margin-bottom: 1.5rem; }
-    .focus-content .summary { font-size: 1rem; line-height: 1.8; margin-bottom: 2rem; }
-    .focus-content .struct-graph { height: 400px; }
-    .focus-content .flow { padding: 1.25rem; }
-    .focus-content .flow-step { font-size: .9rem; padding: .5rem 0; }
-    .focus-content .obs { padding: .8rem 1rem; font-size: .85rem; margin-bottom: .75rem; }
-    .focus-content .rat { padding: .8rem 1rem; font-size: .85rem; margin-bottom: .75rem; }
+    .focus-content .story-num { font-size: .7rem; }
+    .focus-content .story-title { font-size: 1.8rem; margin-bottom: .75rem; }
+    .focus-content .anchor { margin-bottom: 1.5rem; font-size: .9rem; }
+    .focus-content .anchor-file { font-size: .85rem; }
+    .focus-content .anchor-desc { font-size: .82rem; }
+    .focus-content .summary { font-size: .95rem; line-height: 1.8; margin-bottom: 1.5rem; }
+    .focus-content .struct { margin-bottom: 1.5rem; }
+    .focus-content .struct-graph { height: 420px; }
+    .focus-content .flow { padding: 1.25rem; margin-bottom: 1.5rem; }
+    .focus-content .flow-head { font-size: .85rem; }
+    .focus-content .flow-step { font-size: .88rem; padding: .5rem 0; }
+    .focus-content .obs { padding: .85rem 1rem; font-size: .85rem; margin-bottom: .75rem; }
+    .focus-content .obs-text { line-height: 1.6; }
+    .focus-content .rat { padding: .85rem 1rem; font-size: .85rem; margin-bottom: .75rem; }
+
+    /* Bridge in focus mode */
+    .focus-bridge {
+      text-align: center; padding: 1.5rem 0; margin: 1rem 0;
+      font-size: .9rem; color: var(--text-3); font-style: italic;
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      max-width: 500px; margin-left: auto; margin-right: auto;
+    }
 
     /* terminal styles are above with detail drawer */
 
@@ -704,7 +737,14 @@ function getTypeStyle(type: string) {
 
 <!-- Focus overlay -->
 <div class="focus-overlay" id="focus-overlay">
-  <button class="focus-close" id="focus-close">✕ Close</button>
+  <div class="focus-header">
+    <div class="focus-nav">
+      <button class="focus-nav-btn" id="focus-prev" title="Previous story">← Prev</button>
+      <span class="focus-pos" id="focus-pos"></span>
+      <button class="focus-nav-btn" id="focus-next" title="Next story">Next →</button>
+    </div>
+    <button class="focus-close" id="focus-close">✕ Close</button>
+  </div>
   <div class="focus-content" id="focus-content"></div>
 </div>
 
@@ -983,30 +1023,56 @@ function getTypeStyle(type: string) {
   const focusOverlay = document.getElementById('focus-overlay');
   const focusContent = document.getElementById('focus-content');
   const focusClose = document.getElementById('focus-close');
+  const focusPrev = document.getElementById('focus-prev');
+  const focusNext = document.getElementById('focus-next');
+  const focusPos = document.getElementById('focus-pos');
+  let focusIndex = 0;
+  let focusSections = [];
+
+  function openFocus(sectionId) {
+    // Get visible journey sections
+    focusSections = Array.from(document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"]`));
+    const section = document.getElementById(sectionId);
+    focusIndex = focusSections.indexOf(section);
+    if (focusIndex < 0) focusIndex = 0;
+    renderFocus();
+    focusOverlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function renderFocus() {
+    const section = focusSections[focusIndex];
+    if (!section) return;
+
+    const inner = section.querySelector('.snap-inner');
+    focusContent.innerHTML = inner.innerHTML;
+
+    // Remove focus buttons from cloned content
+    focusContent.querySelectorAll('.focus-btn').forEach(b => b.remove());
+
+    // Init graphs
+    focusContent.querySelectorAll('.struct-graph').forEach(g => {
+      g.id = 'focus-' + g.id;
+      setTimeout(() => {
+        if (typeof cytoscape !== 'undefined') initGraph(g);
+      }, 200);
+    });
+
+    // Update nav
+    focusPos.textContent = (focusIndex + 1) + ' / ' + focusSections.length;
+    focusPrev.disabled = focusIndex === 0;
+    focusNext.disabled = focusIndex === focusSections.length - 1;
+
+    // Scroll to top of focus content
+    focusOverlay.scrollTop = 0;
+  }
 
   document.querySelectorAll('.focus-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const sectionId = btn.dataset.focus;
-      const section = document.getElementById(sectionId);
-      if (!section) return;
-
-      // Clone the section content into the overlay
-      const inner = section.querySelector('.snap-inner');
-      focusContent.innerHTML = inner.innerHTML;
-
-      // Init any graphs in the focus view
-      focusContent.querySelectorAll('.struct-graph').forEach(g => {
-        const newId = 'focus-' + g.id;
-        g.id = newId;
-        setTimeout(() => {
-          if (typeof cytoscape !== 'undefined') initGraph(g);
-        }, 200);
-      });
-
-      focusOverlay.classList.add('open');
-      document.body.style.overflow = 'hidden';
-    });
+    btn.addEventListener('click', () => openFocus(btn.dataset.focus));
   });
+
+  focusPrev.addEventListener('click', () => { if (focusIndex > 0) { focusIndex--; renderFocus(); } });
+  focusNext.addEventListener('click', () => { if (focusIndex < focusSections.length - 1) { focusIndex++; renderFocus(); } });
 
   focusClose.addEventListener('click', () => {
     focusOverlay.classList.remove('open');
@@ -1015,9 +1081,10 @@ function getTypeStyle(type: string) {
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && focusOverlay.classList.contains('open')) {
-      focusClose.click();
-    }
+    if (!focusOverlay.classList.contains('open')) return;
+    if (e.key === 'Escape') focusClose.click();
+    if (e.key === 'ArrowLeft' || e.key === 'h') focusPrev.click();
+    if (e.key === 'ArrowRight' || e.key === 'l') focusNext.click();
   });
 
   // ─── Journey switching ───
