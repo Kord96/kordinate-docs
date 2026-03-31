@@ -5,15 +5,15 @@
   --sl-font: 'Inter';
   --sl-font-mono: 'JetBrains Mono';
 
-  /* Dark mode — zinc gray scale + indigo accent */
+  /* Dark mode — zinc gray scale + indigo accent (matches logbd #09090b base) */
   --sl-color-white: #fafafa;
   --sl-color-gray-1: #d4d4d8;
   --sl-color-gray-2: #a1a1aa;
   --sl-color-gray-3: #71717a;
   --sl-color-gray-4: #52525b;
-  --sl-color-gray-5: #3f3f46;
-  --sl-color-gray-6: #27272a;
-  --sl-color-black: #18181b;
+  --sl-color-gray-5: #27272a;
+  --sl-color-gray-6: #18181b;
+  --sl-color-black: #09090b;
 
   --sl-color-accent-low: #1e1b4b;
   --sl-color-accent: #818cf8;
