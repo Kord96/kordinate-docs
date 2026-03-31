@@ -1,234 +1,157 @@
 {
-  "project": "logbd",
-  "generated": "2026-03-30",
   "stories": [
     {
-      "id": "ingest",
-      "title": "Ingest — NFS to Kafka",
+      "id": "ingestion-overview",
+      "title": "Log Ingestion Pipeline",
       "blocks": [
         {
           "type": "structure",
-          "id": "ingest-topology",
-          "rendering": "dagre",
-          "reason": "6 nodes (4-8 range)"
+          "id": "ingestion-topology",
+          "renderer": "grid",
+          "reason": "2 nodes — small topology fits grid"
         }
       ]
     },
     {
-      "id": "message-producer-detail",
-      "title": "Message Producer — Parallel Slot Processing",
+      "id": "ingestion-message-parsing",
+      "title": "Message Producer — NFS to Kafka",
       "blocks": [
         {
           "type": "observation",
-          "id": "obs-nfs-no-retry",
-          "rendering": "warning-card",
+          "id": "obs-nfs-no-circuit-breaker",
+          "renderer": "warning-card",
           "reason": "has recommendation"
-        },
-        {
-          "type": "rationale",
-          "id": "rat-spawn-not-fork",
-          "rendering": "decision-card"
         }
       ]
     },
     {
-      "id": "entity-extraction-detail",
-      "title": "Entity Extraction — Fan-out to 9 Entity Topics",
+      "id": "ingestion-entity-extraction",
+      "title": "Entity Extraction — Message to Graph Entities",
       "blocks": [
         {
           "type": "flow",
           "id": "extraction-fan-out",
-          "rendering": "sequence",
-          "reason": "data flow (not state or failure cascade)"
+          "renderer": "sequence",
+          "reason": "data flow, not state or failure cascade"
         },
         {
           "type": "observation",
-          "id": "obs-cluster-minhash",
-          "rendering": "compact-card",
-          "reason": "no recommendation, no code snippet"
+          "id": "obs-extraction-spf-inline",
+          "renderer": "warning-card",
+          "reason": "has recommendation"
         }
       ]
     },
     {
-      "id": "graph-store",
-      "title": "Graph Store — 27 Kafka Consumers to DuckDB",
+      "id": "graph-engine-overview",
+      "title": "Graph Engine — Storage and Computation",
       "blocks": [
         {
           "type": "structure",
-          "id": "graph-store-topology",
-          "rendering": "cose-bilkent",
-          "reason": "9 nodes (9+ range)"
+          "id": "graph-engine-topology",
+          "renderer": "dagre",
+          "reason": "4 nodes (node-consumers, edge-consumers, derived-refresh, graphdb-api) — fits dagre range"
         }
       ]
     },
     {
-      "id": "node-consumer-pattern",
-      "title": "Node Consumer Pattern — stoik Stream-to-Store",
+      "id": "graph-engine-consumers",
+      "title": "Stream-to-Store Consumers",
       "blocks": [
-        {
-          "type": "observation",
-          "id": "obs-traffic-compaction",
-          "rendering": "compact-card",
-          "reason": "no recommendation, no code snippet"
-        },
-        {
-          "type": "observation",
-          "id": "obs-known-cache-eviction",
-          "rendering": "compact-card",
-          "reason": "no recommendation, no code snippet"
-        }
-      ]
-    },
-    {
-      "id": "enrichment-flow",
-      "title": "Domain Enrichment — Redis-Mediated Async Enrichment",
-      "blocks": [
-        {
-          "type": "flow",
-          "id": "whois-enrichment-cycle",
-          "rendering": "sequence",
-          "reason": "data flow (not state or failure cascade)"
-        },
-        {
-          "type": "observation",
-          "id": "obs-redis-no-fallback",
-          "rendering": "warning-card",
-          "reason": "has recommendation"
-        }
-      ]
-    },
-    {
-      "id": "score-ingestion",
-      "title": "Score Ingestion — External Reputation and ML Signals",
-      "blocks": [
-        {
-          "type": "observation",
-          "id": "obs-topic-distinguish-by-content",
-          "rendering": "warning-card",
-          "reason": "has recommendation and code snippet"
-        }
-      ]
-    },
-    {
-      "id": "analytics",
-      "title": "Analytics — Derived Signals and ML Classification",
-      "blocks": [
-        {
-          "type": "structure",
-          "id": "analytics-topology",
-          "rendering": "cose-bilkent",
-          "reason": "9 nodes (9+ range)"
-        }
-      ]
-    },
-    {
-      "id": "derived-tier-g",
-      "title": "Tier G — Graph Algorithms on Sparse Matrices",
-      "blocks": [
-        {
-          "type": "flow",
-          "id": "tier-g-flow",
-          "rendering": "sequence",
-          "reason": "data flow (not state or failure cascade)"
-        },
-        {
-          "type": "observation",
-          "id": "obs-tier-g-memory-mgmt",
-          "rendering": "compact-card",
-          "reason": "no recommendation, no code snippet"
-        }
-      ]
-    },
-    {
-      "id": "classifier-pipeline",
-      "title": "Classifier Pipeline — LightGBM Inference to Kafka",
-      "blocks": [
-        {
-          "type": "observation",
-          "id": "obs-feature-alignment",
-          "rendering": "evidence-card",
-          "reason": "has code snippet"
-        }
-      ]
-    },
-    {
-      "id": "query-api",
-      "title": "Query API — REST and Arrow Flight SQL",
-      "blocks": [
-        {
-          "type": "structure",
-          "id": "api-topology",
-          "rendering": "dagre",
-          "reason": "7 nodes (4-8 range)"
-        }
-      ]
-    },
-    {
-      "id": "api-auth-cache",
-      "title": "API Auth and Cache — Token Auth with Tiered Entity Cache",
-      "blocks": [
-        {
-          "type": "observation",
-          "id": "obs-user-identity-trust",
-          "rendering": "warning-card",
-          "reason": "has recommendation"
-        },
-        {
-          "type": "observation",
-          "id": "obs-no-rate-limiting",
-          "rendering": "warning-card",
-          "reason": "has recommendation"
-        }
-      ]
-    },
-    {
-      "id": "api-failure-modes",
-      "title": "API Failure Modes — What Breaks When Dependencies Go Down",
-      "blocks": [
-        {
-          "type": "flow",
-          "id": "kafka-failure-cascade",
-          "rendering": "timeline",
-          "reason": "failure cascade flow"
-        },
-        {
-          "type": "observation",
-          "id": "obs-single-kafka-broker",
-          "rendering": "warning-card",
-          "reason": "has recommendation"
-        }
-      ]
-    },
-    {
-      "id": "flight-sql-detail",
-      "title": "Arrow Flight SQL — Parquet-over-MinIO for Bulk Queries",
-      "blocks": [
-        {
-          "type": "observation",
-          "id": "obs-flight-point-lookup-slow",
-          "rendering": "compact-card",
-          "reason": "no code snippet, recommendation is informational not warning"
-        },
         {
           "type": "rationale",
-          "id": "rat-two-query-paths",
-          "rendering": "decision-card"
+          "id": "rat-single-writer",
+          "renderer": "decision-card"
         }
       ]
     },
     {
-      "id": "client",
-      "title": "Client — Python SDK and CLI",
+      "id": "graph-engine-derived-tiers",
+      "title": "Tiered Derived Table Refresh",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-tier-intervals-hardcoded",
+          "renderer": "warning-card",
+          "reason": "has recommendation"
+        }
+      ]
+    },
+    {
+      "id": "graph-engine-failure-handling",
+      "title": "DuckDB Lock Contention and Recovery",
+      "blocks": [
+        {
+          "type": "flow",
+          "id": "lock-contention-recovery",
+          "renderer": "sequence",
+          "reason": "resource flow type — not state machine or failure cascade"
+        }
+      ]
+    },
+    {
+      "id": "query-layer-overview",
+      "title": "Query Layer — API, Flight SQL, CLI, and MCP",
       "blocks": [
         {
           "type": "structure",
-          "id": "client-topology",
-          "rendering": "grid",
-          "reason": "3 nodes (1-3 range)"
+          "id": "query-layer-topology",
+          "renderer": "dagre",
+          "reason": "4 nodes — fits dagre range"
         }
       ]
+    },
+    {
+      "id": "query-layer-api-auth",
+      "title": "Token Authentication and Access Control",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-flight-sql-no-auth",
+          "renderer": "warning-card",
+          "reason": "has recommendation (critical security finding)"
+        }
+      ]
+    },
+    {
+      "id": "query-layer-edgepool",
+      "title": "EdgePool — Direct DuckDB Connection Management",
+      "blocks": [
+        {
+          "type": "rationale",
+          "id": "rat-edgepool-vs-flight",
+          "renderer": "decision-card"
+        }
+      ]
+    },
+    {
+      "id": "classification-overview",
+      "title": "ML Classification Pipeline",
+      "blocks": [
+        {
+          "type": "structure",
+          "id": "classification-topology",
+          "renderer": "grid",
+          "reason": "3 nodes — fits grid range"
+        }
+      ]
+    },
+    {
+      "id": "classification-scheduler-lifecycle",
+      "title": "Scheduler Job Lifecycle and Subprocess Isolation",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-classifier-no-retry",
+          "renderer": "warning-card",
+          "reason": "has recommendation"
+        }
+      ]
+    },
+    {
+      "id": "classification-score-ingestion",
+      "title": "Score Ingestion and Storage",
+      "blocks": []
     }
-  ],
-  "block_count": 24,
-  "story_count": 15
+  ]
 }

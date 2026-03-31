@@ -1,25 +1,50 @@
 {
-  "fortimail": ["ingest"],
-  "message-producer": ["ingest", "message-producer-detail", "api-failure-modes"],
-  "entity-extraction": ["ingest", "entity-extraction-detail", "api-failure-modes"],
-  "metadata-archiver": ["ingest"],
-  "kafka-broker": ["ingest", "graph-store", "analytics", "api-failure-modes"],
-  "nfs-rawlog": ["ingest"],
-  "node-consumers": ["graph-store", "node-consumer-pattern", "enrichment-flow", "api-failure-modes"],
-  "edge-consumers": ["graph-store"],
-  "score-consumer": ["graph-store", "score-ingestion"],
-  "enrichment-services": ["graph-store", "enrichment-flow"],
-  "duckdb-node-store": ["graph-store", "analytics", "query-api", "enrichment-flow", "node-consumer-pattern"],
-  "duckdb-edge-store": ["graph-store", "analytics", "entity-extraction-detail"],
-  "duckdb-score-store": ["graph-store", "analytics", "score-ingestion"],
-  "duckdb-derived-store": ["analytics", "query-api", "derived-tier-g"],
-  "redis-cache": ["graph-store", "enrichment-flow"],
-  "minio-parquet": ["graph-store", "analytics", "query-api", "node-consumer-pattern", "derived-tier-g"],
-  "derived-refresh": ["analytics", "derived-tier-g"],
-  "classifier-scheduler": ["analytics", "classifier-pipeline"],
-  "flight-sql": ["analytics", "query-api", "flight-sql-detail", "classifier-pipeline"],
-  "graphdb-api": ["query-api", "api-auth-cache", "api-failure-modes"],
-  "graph-client": ["query-api", "client"],
-  "analyst": ["client"],
-  "whois-rdap": ["enrichment-flow"]
+  "message-producer": [
+    "ingestion-overview",
+    "ingestion-message-parsing"
+  ],
+  "entity-extraction": [
+    "ingestion-overview",
+    "ingestion-entity-extraction"
+  ],
+  "node-consumers": [
+    "graph-engine-overview",
+    "graph-engine-consumers",
+    "graph-engine-failure-handling"
+  ],
+  "edge-consumers": [
+    "graph-engine-overview",
+    "graph-engine-consumers",
+    "graph-engine-failure-handling"
+  ],
+  "derived-refresh": [
+    "graph-engine-overview",
+    "graph-engine-derived-tiers",
+    "graph-engine-failure-handling"
+  ],
+  "graphdb-api": [
+    "query-layer-overview",
+    "query-layer-api-auth",
+    "query-layer-edgepool"
+  ],
+  "flight-sql": [
+    "query-layer-overview",
+    "query-layer-edgepool",
+    "classification-overview",
+    "classification-scheduler-lifecycle"
+  ],
+  "graph-client": [
+    "query-layer-overview"
+  ],
+  "mcp-server": [
+    "query-layer-overview"
+  ],
+  "classifier-scheduler": [
+    "classification-overview",
+    "classification-scheduler-lifecycle"
+  ],
+  "score-consumer": [
+    "classification-overview",
+    "classification-score-ingestion"
+  ]
 }
