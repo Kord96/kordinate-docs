@@ -277,15 +277,23 @@ function severity(s: string) {
         <div class="debt-score">{debt.interpretation || ''}</div>
       </div>
     </div>
+    <div style="font-size: .65rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: .08em; margin: 1rem 0 .4rem;">Violations</div>
     {(debt.violations || []).map((v: any) => (
       <div class="violation">
-        <span class="violation-sev" style={`color: ${severity(v.severity)}`}>{v.severity}</span>
-        {v.description || v.title}
+        <div style="display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem;">
+          <span class="violation-sev" style={`color: ${severity(v.severity)}; border: 1px solid ${severity(v.severity)}33; background: ${severity(v.severity)}15; padding: .1rem .4rem; border-radius: 4px;`}>{v.severity}</span>
+          <span style="font-weight: 500; font-size: .82rem;">{v.anti_pattern || v.title || ''}</span>
+        </div>
+        {v.detail && <div style="font-size: .78rem; color: var(--text-3); line-height: 1.5;">{v.detail}</div>}
+        {v.files && v.files.length > 0 && <div style="font-size: .68rem; color: var(--accent); font-family: var(--mono); margin-top: .2rem;">{v.files.join(' · ')}</div>}
       </div>
     ))}
+    <div style="font-size: .65rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: .08em; margin: 1.25rem 0 .4rem;">Recommendations</div>
     {(debt.recommendations || []).map((r: any) => (
       <div class="violation" style="border-left: 2px solid var(--accent);">
-        → {r.title || r.description || r}
+        <div style="font-weight: 500; font-size: .82rem; margin-bottom: .2rem;">{r.title || ''}</div>
+        {r.description && <div style="font-size: .78rem; color: var(--text-3); line-height: 1.5;">{r.description}</div>}
+        {r.files && r.files.length > 0 && <div style="font-size: .68rem; color: var(--accent); font-family: var(--mono); margin-top: .2rem;">{r.files.join(' · ')}</div>}
       </div>
     ))}
   </div>
