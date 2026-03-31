@@ -1,0 +1,51 @@
+id: derived-computation
+title: "Derived Refresh: Seven Tiers of Computation"
+teaches: "How the derived service computes aggregate properties across tiers A through G."
+tags: ["derived", "tiers", "aggregation", "graph-algorithms"]
+
+anchor:
+  file: "graphdb/graph/derived/service.py"
+  line: 132
+  description: "The main refresh loop iterating entity types in round-robin with tier computation."
+
+parent: graph-engine-group
+children: []
+
+summary: |
+  **derived-refresh** runs a continuous round-robin loop refreshing up to 10K stale entities per type per cycle. Tiers A through F compute traffic aggregates, message joins, reputation lookups, multi-hop traversals, per-group aggregations, and static properties. Tier G runs every 6 hours for community detection across edge tables.
+
+  After each refresh, derived tables are exported as Parquet to MinIO for **flight-sql** access. Staleness metrics track the oldest `last_computed_at` per entity type, alerting when any exceeds 2 hours.
+
+flows:
+  - id: derived-tier-flow
+    title: "Derived Tier Computation"
+    type: "data"
+    trigger: "Continuous round-robin, Tier G every 6 hours."
+    steps:
+      - node: derived-refresh
+        action: "Queries base DuckDB for entities where last_computed_at is oldest."
+        data: "Batch of 10K entity keys."
+        technology: "DuckDB"
+      - node: derived-refresh
+        action: "Runs tiers A through F sequentially per entity."
+        data: "Computed derived columns."
+        technology: "DuckDB SQL with cross-DB ATTACH"
+        transform: "Raw entity data gains traffic stats, message counts, reputation scores, traversal results."
+      - node: derived-refresh
+        action: "Exports updated derived tables as Parquet to MinIO."
+        to: flight-sql
+        data: "Parquet files per entity type."
+        technology: "DuckDB httpfs to MinIO S3"
+
+observations:
+  - id: obs-tier-g-community
+    finding: "Tier G runs graph community detection every 6 hours, processing millions of edges to find connected components and propagate spam scores."
+    confidence: high
+    component: derived-refresh
+    evidence:
+      file: "graphdb/graph/derived/service.py"
+      lines: [251, 257]
+      snippet: "from graph.derived.tiers.tier_g import run_tier_g"
+    tags: ["graph-algorithms", "performance"]
+    detection_method: "manual"
+    grounded_in: ["graphdb/graph/derived/service.py:251"]

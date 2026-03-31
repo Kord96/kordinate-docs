@@ -1,0 +1,30 @@
+id: classifier-feedback
+title: "Score Feedback Loop: Kafka to Graph"
+teaches: "How ML scores flow back into the graph and influence derived properties."
+tags: ["ml", "scoring", "feedback", "kafka"]
+
+anchor:
+  file: "graphdb/graph/score/consumer.py"
+  line: 1
+  description: "The score consumer that ingests ML signals into the graph."
+
+parent: classification-group
+children: []
+
+summary: |
+  Scores from **classifier-infer** arrive on the `score.signal` and `score.external_source` Kafka topics. The score consumer in **node-consumers** upserts them into a per-entity DuckDB file with source, timestamp, and score value. **derived-refresh** tier C reads these scores during reputation lookups, folding ML signals into the entity's aggregate verdict.
+
+  External blocklist scores (Spamhaus DBL, SBL) enter through `score.external_source`, using the same consumer. This unifies ML and rule-based classification into a single scoring pipeline.
+
+observations:
+  - id: obs-score-unification
+    finding: "ML scores and external blocklist scores share the same Kafka consumer and DuckDB storage, enabling unified verdict computation."
+    confidence: high
+    component: node-consumers
+    evidence:
+      file: "graphdb/graph/score/consumer.py"
+      lines: [1, 2]
+      snippet: "Score consumer handling score.signal and score.external_source"
+    tags: ["design-decision"]
+    detection_method: "manual"
+    grounded_in: ["graphdb/graph/score/consumer.py:1"]

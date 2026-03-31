@@ -1,0 +1,48 @@
+id: entity-fan-out
+title: "Entity Extraction: One Message to Fourteen Topics"
+teaches: "How a single parsed message becomes entities across 14 Kafka topics."
+tags: ["extraction", "fan-out", "kafka", "entities"]
+
+anchor:
+  file: "graphdb/data_source/logServer/entity_extraction/consumer.py"
+  line: 68
+  description: "ExtractionBuffer.add() extracts all entity types from one message."
+
+parent: data-source-group
+children: []
+
+summary: |
+  **entity-extraction** consumes from the 'message' topic and extracts IPs, URIs, email addresses, CKMs, and metadata. `ExtractionBuffer.add()` calls five extractor functions that route entities to typed lists. On flush, each list is published as JSON to its dedicated Kafka topic.
+
+  The same flush cycle builds `message_role` linkage rows, `emailed_with` association edges, and MinHash cluster records. SPF authorization checks run against Redis when available. Multi-worker mode uses `multiprocessing.Process` with fail-fast semantics.
+
+structures:
+  - id: extraction-fan-out
+    title: "Entity Fan-out Topology"
+    type: "data lineage"
+    nodes:
+      - id: entity-extraction
+      - id: node-consumers
+      - id: edge-consumers
+    edges:
+      - from: entity-extraction
+        to: node-consumers
+        label: "14 entity topics (JSON)"
+        type: "publishes"
+      - from: entity-extraction
+        to: edge-consumers
+        label: "edge.emailed_with, edge.cluster_member"
+        type: "publishes"
+
+observations:
+  - id: obs-worker-fail-fast
+    finding: "**entity-extraction** terminates all workers when any single worker dies, ensuring clean Kubernetes restart."
+    confidence: high
+    component: entity-extraction
+    evidence:
+      file: "graphdb/data_source/logServer/entity_extraction/consumer.py"
+      lines: [326, 341]
+      snippet: "for p in alive: p.terminate()"
+    tags: ["resilience", "lifecycle"]
+    detection_method: "manual"
+    grounded_in: ["graphdb/data_source/logServer/entity_extraction/consumer.py:326"]

@@ -1,0 +1,26 @@
+id: data-pipeline
+number: 3
+title: "Data Pipeline: End-to-End Data Flow"
+description: "Trace data from raw logs through extraction, enrichment, derived computation, and ML scoring."
+audience: ["data-engineer", "developer"]
+overview: |
+  Data enters as gzipped rawLog files from FortiMail servers, passes through parsing, entity extraction, graph construction, enrichment, derived computation, and ML scoring. Each stage transforms the data and writes to a different store. This journey follows the full transformation chain.
+stories:
+  - log-ingestion
+  - entity-fan-out
+  - consumer-architecture
+  - derived-computation
+  - ml-scoring-loop
+bridges:
+  - from: log-ingestion
+    to: entity-fan-out
+    text: "Parsed messages are in Kafka. How does one message become 14 entity types?"
+  - from: entity-fan-out
+    to: consumer-architecture
+    text: "Entity records are on Kafka topics. How does the Buffer/Store pattern persist them?"
+  - from: consumer-architecture
+    to: derived-computation
+    text: "Base entities are in DuckDB. How do seven tiers of derived computation enrich them?"
+  - from: derived-computation
+    to: ml-scoring-loop
+    text: "Derived properties are computed. How does the ML classifier use them to score entities?"

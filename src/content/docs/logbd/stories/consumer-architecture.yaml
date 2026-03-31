@@ -1,0 +1,37 @@
+id: consumer-architecture
+title: "Consumer Architecture: stoik Buffer/Store Pattern"
+teaches: "How the generic consumer loop works and how entity-specific consumers extend it."
+tags: ["stoik", "consumer", "buffer", "store", "duckdb"]
+
+anchor:
+  file: "graphdb/graph/node/base/store.py"
+  line: 26
+  description: "NodeStore extends stoik's Store with key lookup caching and traffic history recording."
+
+parent: graph-engine-group
+children: []
+
+summary: |
+  Every graph consumer follows the same stoik pattern: `consume()` reads Kafka, calls `parse_message()` to fill a `Buffer`, then calls `on_flush()` to drain into a `Store`. `NodeStore` extends stoik's `Store` with an in-memory key cache (200K entries), PyArrow batch upserts, and minute-granularity traffic history.
+
+  Lock contention on DuckDB files is handled by `_connect_with_retry()` with exponential backoff up to 60 retries. Entity-specific consumers implement custom callbacks. The domain consumer is the most complex, triggering enrichment for new domains.
+
+observations:
+  - id: obs-known-cache-eviction
+    finding: "**node-consumers** evict half the known-key cache at 200K entries. A full clear would force massive DuckDB lookups on the next flush."
+    confidence: high
+    component: node-consumers
+    evidence:
+      file: "graphdb/graph/node/base/store.py"
+      lines: [113, 124]
+      snippet: "keep = self.KNOWN_CACHE_MAX // 2"
+    tags: ["performance", "design-decision"]
+    detection_method: "manual"
+    grounded_in: ["graphdb/graph/node/base/store.py:113"]
+
+rationale:
+  - id: half-eviction
+    decision: "Evict half the key cache instead of clearing it entirely."
+    context: "A full clear forces the next flush to do a massive DB lookup for ALL keys, which takes minutes on tables with millions of rows."
+    trade_offs: "Slightly higher memory usage vs dramatically faster recovery from eviction events."
+    alternatives: ["Full clear (original approach) -- rejected because a 200K-key DB lookup on a multi-million row table causes multi-minute flush stalls."]

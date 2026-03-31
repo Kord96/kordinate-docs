@@ -1,0 +1,31 @@
+id: enrichment-pipeline
+title: "Domain Enrichment: WHOIS, CT, and UCLT"
+teaches: "How domain nodes are enriched with external data from WHOIS, certificate transparency, and UCLT."
+tags: ["enrichment", "domain", "whois", "external-api"]
+
+anchor:
+  file: "graphdb/graph/node/domain/enrichment/__main__.py"
+  line: 1
+  description: "Entry point for enrichment consumers that query external sources."
+
+parent: graph-engine-group
+children: []
+
+summary: |
+  **enrichment-service** runs three independent consumers: WHOIS (domain registration via RDAP), certificate transparency (CT log queries), and UCLT (FortiGuard URL classification). Each writes results directly to the domain DuckDB file. New domains are prioritized; stale enrichments refresh opportunistically.
+
+  Redis caches WHOIS/DNS results to avoid hammering external APIs. The enrichment backlog metric tracks active domains needing enrichment. No circuit breaker protects against slow or unresponsive registries.
+
+observations:
+  - id: obs-enrichment-no-circuit-breaker
+    finding: "**enrichment-service** has no circuit breaker on WHOIS or RDAP calls. A slow or unresponsive registry causes the consumer to block."
+    confidence: high
+    component: enrichment-service
+    evidence:
+      file: "graphdb/graph/node/domain/enrichment/whois_service.py"
+      lines: [1, 2]
+      snippet: "Whois service with direct HTTP calls"
+    tags: ["resilience", "gap"]
+    detection_method: "manual"
+    recommendation: "Add circuit breaker and timeout to WHOIS/RDAP HTTP calls."
+    grounded_in: ["graphdb/graph/node/domain/enrichment/whois_service.py:1"]

@@ -1,0 +1,34 @@
+id: query-layer-group
+title: "Query Layer: API, Flight SQL, and CLI"
+teaches: "How analysts and systems query the entity graph."
+tags: ["api", "flight-sql", "cli", "query"]
+
+anchor:
+  file: "graphdb/api/app.py"
+  line: 146
+  description: "The create_app() factory wiring FastAPI routers, auth, cache, and EdgePool."
+
+parent: null
+children: ["api-and-flight", "health-monitoring"]
+
+summary: |
+  **graphdb-api** serves 15 REST endpoints via FastAPI with token-based authentication. It queries **flight-sql** over gRPC for entity data, caching results in a tiered EntityCache warmed by EdgePool. **flight-sql** opens DuckDB in-memory connections over MinIO Parquet snapshots, creating unified entity views that join base, inline, and derived tables. **graphdb-client** provides a Click CLI and Python SDK with disk caching, Loki logging, and multiple output formats. **sentinel** monitors all 25+ pipeline processes and exports composite health metrics.
+
+structures:
+  - id: query-layer-topology
+    title: "Query Layer Components"
+    type: "component topology"
+    nodes:
+      - id: graphdb-api
+      - id: flight-sql
+      - id: graphdb-client
+      - id: sentinel
+    edges:
+      - from: graphdb-client
+        to: graphdb-api
+        label: "HTTP REST"
+        type: "calls"
+      - from: graphdb-api
+        to: flight-sql
+        label: "Arrow Flight SQL (gRPC)"
+        type: "calls"

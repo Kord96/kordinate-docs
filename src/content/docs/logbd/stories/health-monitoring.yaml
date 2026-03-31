@@ -1,0 +1,34 @@
+id: health-monitoring
+title: "Pipeline Health: Sentinel and Metrics"
+teaches: "How the sentinel monitors 25+ processes and computes composite health status."
+tags: ["monitoring", "sentinel", "prometheus", "health"]
+
+anchor:
+  file: "graphdb/monitor/sentinel.py"
+  line: 56
+  description: "PROCESSES registry mapping all pipeline components to their metrics ports and probe types."
+
+parent: query-layer-group
+children: []
+
+summary: |
+  **sentinel** maintains a registry of 25 pipeline processes, each with a metrics port and probe type. Every 30 seconds, it probes each process via HTTP GET or TCP connect. Health is computed bottom-up across five sections (ingestion, buffers, enrichment, download, storage), each aggregating per-process checks into a gauge (0=FAIL, 1=WARNING, 2=OK).
+
+  The composite `pipeline_status` takes the minimum across sections. **sentinel** runs as a background thread inside **graphdb-api** via `_health_loop()`, alongside `_stats_loop()` for dashboard statistics.
+
+flows:
+  - id: sentinel-probe-flow
+    title: "Sentinel Health Probe"
+    type: "control"
+    trigger: "30-second timer."
+    steps:
+      - node: sentinel
+        action: "Probes each registered process via HTTP or TCP."
+        condition: "Response within timeout"
+        branch: "OK if reachable, FAIL if not"
+      - node: sentinel
+        action: "Queries Kafka exporter for consumer group lag."
+        condition: "Lag below configured threshold"
+        branch: "OK / WARNING / FAIL"
+      - node: sentinel
+        action: "Sets per-process and per-section Prometheus gauges."

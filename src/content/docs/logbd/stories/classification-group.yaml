@@ -1,0 +1,38 @@
+id: classification-group
+title: "Classification: ML Spam Scoring"
+teaches: "How the ML classifier scores entities and feeds results back into the graph."
+tags: ["ml", "classification", "lightgbm", "scoring"]
+
+anchor:
+  file: "classifier/classifier/infer.py"
+  line: 86
+  description: "The infer() function loading models and running predictions."
+
+parent: null
+children: ["ml-scoring-loop", "classifier-feedback"]
+
+summary: |
+  **classifier-infer** loads trained LightGBM models per entity type, queries feature matrices from **flight-sql**, and publishes spam probability scores to the `score.signal` Kafka topic. **classifier-scheduler** runs inference, training, seeding, and release jobs on configured intervals as subprocess invocations with timeouts. Scores flow back into the graph via the score consumer, closing the feedback loop between classification and graph construction.
+
+structures:
+  - id: classification-topology
+    title: "Classification Components"
+    type: "component topology"
+    nodes:
+      - id: classifier-infer
+      - id: classifier-scheduler
+      - id: flight-sql
+      - id: node-consumers
+    edges:
+      - from: classifier-scheduler
+        to: classifier-infer
+        label: "subprocess"
+        type: "calls"
+      - from: classifier-infer
+        to: flight-sql
+        label: "FlightSQL query"
+        type: "reads"
+      - from: classifier-infer
+        to: node-consumers
+        label: "score.signal topic"
+        type: "publishes"

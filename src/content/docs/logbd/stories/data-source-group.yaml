@@ -1,0 +1,29 @@
+id: data-source-group
+title: "Data Source: NFS to Kafka"
+teaches: "How raw FortiMail logs become structured Kafka messages ready for graph construction."
+tags: ["ingestion", "nfs", "kafka", "parsing"]
+
+anchor:
+  file: "graphdb/data_source/logServer/messageProducer/service.py"
+  line: 248
+  description: "The main ingestion loop that scans NFS for slots and publishes parsed messages."
+
+parent: null
+children: ["log-ingestion", "entity-fan-out"]
+
+summary: |
+  **message-producer** polls NFS every 60 seconds for new rawLog slots, parses gz-compressed log files from FortiMail servers, and publishes structured Avro records to the Kafka 'message' topic. **entity-extraction** consumes these messages and fans out 14 entity types to dedicated Kafka topics, while simultaneously writing message-entity linkage rows and cluster records to DuckDB. **metadata-archiver** captures FortiMail device inventory alongside the main pipeline.
+
+structures:
+  - id: data-source-topology
+    title: "Data Source Pipeline"
+    type: "component topology"
+    nodes:
+      - id: message-producer
+      - id: entity-extraction
+      - id: metadata-archiver
+    edges:
+      - from: message-producer
+        to: entity-extraction
+        label: "Avro messages via Kafka"
+        type: "publishes"

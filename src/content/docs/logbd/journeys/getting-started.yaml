@@ -1,31 +1,34 @@
 id: getting-started
-title: Getting Started with logBD
-description: Trace a FortiMail log line from NFS mount through entity extraction, graph storage, derived analytics, and ML classification to a queryable API response.
-audience: [new-developer, operator]
+number: 1
+title: "Getting Started: Log to Graph to Query"
+description: "Follow a FortiMail log line from NFS mount through Kafka, DuckDB, and MinIO to a queryable graph node."
+audience: ["new-developer", "operator"]
+overview: |
+  logBD is a stream processing pipeline that turns FortiMail network logs into a queryable property graph. Raw log files arrive on an NFS mount, get parsed into Kafka messages, fan out into 14 entity types, persist to per-entity DuckDB files, compute derived properties across seven tiers, snapshot to MinIO as Parquet, and become queryable via REST API and Flight SQL. This journey follows that path end to end.
 stories:
-  - ingestion-overview
-  - ingestion-message-parsing
-  - ingestion-entity-extraction
-  - graph-engine-overview
-  - graph-engine-derived-tiers
-  - query-layer-overview
-  - classification-overview
+  - data-source-group
+  - log-ingestion
+  - entity-fan-out
+  - graph-engine-group
+  - consumer-architecture
+  - query-layer-group
+  - api-and-flight
 bridges:
-  - from: ingestion-overview
-    to: ingestion-message-parsing
-    text: "Log files become Kafka messages. But how does the producer discover and track which slots have been processed?"
-  - from: ingestion-message-parsing
-    to: ingestion-entity-extraction
-    text: "Messages are now in Kafka. But how does one message become 9 different entity types routed to 30+ topics?"
-  - from: ingestion-entity-extraction
-    to: graph-engine-overview
-    text: "Entities are fanning out to per-type topics. But who consumes them and where does the data land?"
-  - from: graph-engine-overview
-    to: graph-engine-derived-tiers
-    text: "Raw entities are stored in DuckDB. But how do 72 analytical signals get computed from base data?"
-  - from: graph-engine-derived-tiers
-    to: query-layer-overview
-    text: "Derived signals are computed. But how do analysts and agents actually query this data?"
-  - from: query-layer-overview
-    to: classification-overview
-    text: "The graph is queryable. But how does the ML classifier use these signals to produce spam verdicts?"
+  - from: data-source-group
+    to: log-ingestion
+    text: "How does the message producer discover and parse rawLog files from NFS?"
+  - from: log-ingestion
+    to: entity-fan-out
+    text: "Once messages are in Kafka, how do they become 14 distinct entity types?"
+  - from: entity-fan-out
+    to: graph-engine-group
+    text: "Entity records are now on dedicated Kafka topics. How do they become graph nodes?"
+  - from: graph-engine-group
+    to: consumer-architecture
+    text: "What pattern do all 15+ consumers share, and how does DuckDB persistence work?"
+  - from: consumer-architecture
+    to: query-layer-group
+    text: "Entities are in DuckDB. How do analysts query the graph?"
+  - from: query-layer-group
+    to: api-and-flight
+    text: "What sits between the REST API and the DuckDB files?"
