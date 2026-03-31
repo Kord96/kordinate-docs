@@ -1,3 +1,41 @@
+/* ── Theme: zinc/indigo palette to match logbd ── */
+
+:root {
+  /* Fonts */
+  --sl-font: 'Inter';
+  --sl-font-mono: 'JetBrains Mono';
+
+  /* Dark mode — zinc gray scale + indigo accent */
+  --sl-color-white: #fafafa;
+  --sl-color-gray-1: #d4d4d8;
+  --sl-color-gray-2: #a1a1aa;
+  --sl-color-gray-3: #71717a;
+  --sl-color-gray-4: #52525b;
+  --sl-color-gray-5: #3f3f46;
+  --sl-color-gray-6: #27272a;
+  --sl-color-black: #18181b;
+
+  --sl-color-accent-low: #1e1b4b;
+  --sl-color-accent: #818cf8;
+  --sl-color-accent-high: #c7d2fe;
+}
+
+:root[data-theme='light'] {
+  /* Light mode — inverted zinc scale, indigo accent adjusted for contrast */
+  --sl-color-white: #18181b;
+  --sl-color-gray-1: #27272a;
+  --sl-color-gray-2: #3f3f46;
+  --sl-color-gray-3: #52525b;
+  --sl-color-gray-4: #71717a;
+  --sl-color-gray-5: #d4d4d8;
+  --sl-color-gray-6: #f4f4f5;
+  --sl-color-black: #fafafa;
+
+  --sl-color-accent-low: #e0e7ff;
+  --sl-color-accent: #6366f1;
+  --sl-color-accent-high: #312e81;
+}
+
 /* ── Hero image — fixed size, no layout shift ── */
 [data-has-hero] .hero > img,
 [data-has-hero] .hero picture img,
