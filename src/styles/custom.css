@@ -24,8 +24,8 @@
   --sl-line-height-headings: 1.1;
 
   /* Compact header — match logbd 40px translucent header */
-  --sl-nav-height: 2.75rem;
-  --sl-nav-pad-y: 0.4rem;
+  --sl-nav-height: 2.5rem;
+  --sl-nav-pad-y: 0.3rem;
   --sl-color-bg-nav: rgba(9, 9, 11, 0.85);
 }
 
@@ -45,11 +45,18 @@
   --sl-color-accent-high: #312e81;
 }
 
-/* ── Header — translucent with backdrop blur like logbd ── */
+/* ── Header — match logbd: 40px, translucent, compact logo ── */
 header.header {
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
   border-bottom: 1px solid var(--sl-color-gray-5) !important;
+}
+
+.site-title {
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  gap: 0.5rem !important;
 }
 
 /* ── Headings — bolder to match logbd (800 vs default 600) ── */

@@ -14,6 +14,9 @@ const { project, badge, links = [], position = 'fixed' } = Astro.props;
 
 <header class:list={['site-header', position === 'sticky' && 'sticky']}>
   <div class="h-left">
+    <a class="h-home-icon" href="/dev/" title="Home">
+      <img src="/dev/logo_dark.png" alt="" />
+    </a>
     <span class="h-logo">{project}</span>
     {badge && <span class="h-env">{badge}</span>}
   </div>
@@ -21,9 +24,6 @@ const { project, badge, links = [], position = 'fixed' } = Astro.props;
     {links.map(link => (
       <a class="h-link" href={link.href}>{link.label}</a>
     ))}
-    <a class="h-link h-link-icon" href="/dev/" title="Home">
-      <img src="/dev/logo_dark.png" alt="" />
-    </a>
   </div>
 </header>
 
@@ -53,11 +53,11 @@ const { project, badge, links = [], position = 'fixed' } = Astro.props;
     transition: all .2s;
   }
   .h-link:hover { color: var(--text-2); border-color: var(--border-hover); }
-  .h-link-icon {
-    display: flex; align-items: center; padding: 0 .3rem;
+  .h-home-icon {
+    display: flex; align-items: center;
   }
-  .h-link-icon img {
-    height: 1rem; width: auto; opacity: 0.7;
+  .h-home-icon img {
+    height: 1.1rem; width: auto; opacity: 0.7;
   }
-  .h-link-icon:hover img { opacity: 1; }
+  .h-home-icon:hover img { opacity: 1; }
 </style>
