@@ -1254,6 +1254,37 @@ function getTypeStyle(type: string) {
       o.classList.toggle('hidden', o.dataset.journeyOverview !== currentJourneyId);
     });
 
+    // Highlight relevant nodes in chapter 0 graph
+    const overviewGraph = document.getElementById('atlas-overview');
+    if (overviewGraph && overviewGraph._cy) {
+      const cy = overviewGraph._cy;
+      // Collect component IDs from visible journey sections' refs
+      const relevantNodes = new Set();
+      document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"] .ref`).forEach(r => {
+        relevantNodes.add(r.dataset.id);
+      });
+      // Also from graph data
+      document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"] .struct-graph`).forEach(g => {
+        try {
+          const data = JSON.parse(g.dataset.graph);
+          data.nodes.forEach(n => relevantNodes.add(n.id));
+        } catch {}
+      });
+      // Apply dimming
+      if (relevantNodes.size > 0) {
+        cy.nodes().forEach(n => {
+          n.style('opacity', relevantNodes.has(n.data('id')) ? 1 : 0.2);
+        });
+        cy.edges().forEach(e => {
+          const srcRelevant = relevantNodes.has(e.data('source'));
+          const tgtRelevant = relevantNodes.has(e.data('target'));
+          e.style('opacity', srcRelevant && tgtRelevant ? 1 : 0.1);
+        });
+      } else {
+        cy.elements().style('opacity', 1);
+      }
+    }
+
     // Update start button
     const startBtn = document.getElementById('start-btn');
     if (startBtn) startBtn.href = '#' + currentJourneyId + '-s1';
