@@ -951,6 +951,12 @@ function getTypeStyle(type: string) {
     openDrawer('detail');
   }
 
+  // Tooltip element for graph hover
+  const graphTooltip = document.createElement('div');
+  graphTooltip.className = 'graph-tooltip';
+  graphTooltip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.15s;max-width:260px;padding:8px 12px;border-radius:8px;background:rgba(12,12,14,0.95);border:1px solid rgba(129,140,248,0.3);color:#e4e4e7;font:12px/1.5 Inter,sans-serif;backdrop-filter:blur(8px);box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+  document.body.appendChild(graphTooltip);
+
   function initGraph(container) {
     const data = JSON.parse(container.dataset.graph);
     const refs = JSON.parse(container.dataset.refs || '{}');
@@ -971,26 +977,51 @@ function getTypeStyle(type: string) {
       style: [
         { selector: 'node', style: {
           'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center',
-          'font-size': '10px', 'font-family': 'Inter, sans-serif', 'font-weight': '500',
-          'color': '#fff', 'text-wrap': 'wrap', 'text-max-width': '100px',
-          'width': 'label', 'height': 'label', 'padding': '10px',
+          'font-size': '11px', 'font-family': 'Inter, sans-serif', 'font-weight': '500',
+          'color': '#fff', 'text-wrap': 'wrap', 'text-max-width': '120px',
+          'width': 'label', 'height': 'label', 'padding': '14px 18px',
           'shape': 'roundrectangle', 'border-width': 1.5, 'border-opacity': 0.8,
+          'transition-property': 'opacity, border-width, overlay-opacity',
+          'transition-duration': '0.2s',
         }},
         { selector: 'edge', style: {
-          'width': 1.5, 'line-color': 'rgba(255,255,255,0.12)',
-          'target-arrow-color': 'rgba(255,255,255,0.12)', 'target-arrow-shape': 'triangle',
-          'curve-style': 'bezier', 'arrow-scale': 0.7,
-          'label': 'data(label)', 'font-size': '8px', 'font-family': 'Inter, sans-serif',
-          'color': 'rgba(255,255,255,0.35)',
-          'text-background-color': '#1c1c22', 'text-background-opacity': 0.9, 'text-background-padding': '2px',
+          'width': 1.5, 'line-color': 'rgba(255,255,255,0.15)',
+          'target-arrow-color': 'rgba(255,255,255,0.15)', 'target-arrow-shape': 'triangle',
+          'curve-style': 'bezier', 'arrow-scale': 0.8,
+          'label': 'data(label)', 'font-size': '9px', 'font-family': 'Inter, sans-serif',
+          'font-weight': '400',
+          'color': 'rgba(255,255,255,0.5)',
+          'text-rotation': 'autorotate',
+          'text-background-color': '#1c1c22', 'text-background-opacity': 0.92,
+          'text-background-padding': '3px', 'text-background-shape': 'roundrectangle',
+          'text-margin-y': -8,
+          'transition-property': 'opacity, width, line-color, target-arrow-color',
+          'transition-duration': '0.2s',
         }},
         { selector: 'node.selected', style: {
           'border-width': 2.5, 'border-opacity': 1,
-          'overlay-color': '#818cf8', 'overlay-padding': 6, 'overlay-opacity': 0.1,
+          'overlay-color': '#818cf8', 'overlay-padding': 8, 'overlay-opacity': 0.12,
         }},
         { selector: 'edge.highlighted', style: {
-          'width': 2.5, 'line-color': 'rgba(129,140,248,0.5)',
-          'target-arrow-color': 'rgba(129,140,248,0.5)',
+          'width': 2.5, 'line-color': 'rgba(129,140,248,0.6)',
+          'target-arrow-color': 'rgba(129,140,248,0.6)',
+          'color': 'rgba(255,255,255,0.8)',
+        }},
+        { selector: 'node.dimmed', style: {
+          'opacity': 0.25,
+        }},
+        { selector: 'edge.dimmed', style: {
+          'opacity': 0.12,
+        }},
+        { selector: 'node.hovered', style: {
+          'border-width': 2.5, 'border-opacity': 1,
+          'overlay-color': '#818cf8', 'overlay-padding': 10, 'overlay-opacity': 0.15,
+        }},
+        { selector: 'edge.hover-connected', style: {
+          'width': 3, 'line-color': 'rgba(129,140,248,0.7)',
+          'target-arrow-color': 'rgba(129,140,248,0.7)',
+          'color': 'rgba(255,255,255,0.9)',
+          'z-index': 10,
         }},
       ],
     });
@@ -1007,12 +1038,49 @@ function getTypeStyle(type: string) {
     try {
       cy.layout({
         name: layoutName,
-        ...(layoutName === 'dagre' ? { rankDir: 'LR', nodeSep: 50, rankSep: 80 } :
-            layoutName === 'cose-bilkent' ? { idealEdgeLength: 120, nodeRepulsion: 6000 } :
+        ...(layoutName === 'dagre' ? { rankDir: 'TB', nodeSep: 60, rankSep: 90, edgeSep: 20 } :
+            layoutName === 'cose-bilkent' ? { idealEdgeLength: 140, nodeRepulsion: 7000 } :
             { rows: 1, padding: 30 })
       }).run();
     } catch { cy.layout({ name: 'grid', padding: 30 }).run(); }
     cy.fit(undefined, 30);
+
+    // Hover effects — glow, highlight connected, dim others, tooltip
+    cy.on('mouseover', 'node', function(evt) {
+      const n = evt.target;
+      const connected = n.connectedEdges();
+      const neighbors = n.neighborhood().nodes();
+
+      // Dim everything first
+      cy.nodes().addClass('dimmed');
+      cy.edges().addClass('dimmed');
+
+      // Un-dim hovered node, its neighbors, and connected edges
+      n.removeClass('dimmed').addClass('hovered');
+      neighbors.removeClass('dimmed');
+      connected.removeClass('dimmed').addClass('hover-connected');
+
+      // Show tooltip
+      const desc = n.data('description') || n.data('role') || n.data('nodeType') || '';
+      if (desc) {
+        graphTooltip.innerHTML = '<strong style="color:#c4b5fd">' + n.data('label') + '</strong><br>' + desc;
+        graphTooltip.style.opacity = '1';
+      }
+    });
+
+    cy.on('mousemove', 'node', function(evt) {
+      const pos = evt.originalEvent;
+      if (pos) {
+        graphTooltip.style.left = (pos.clientX + 14) + 'px';
+        graphTooltip.style.top = (pos.clientY + 14) + 'px';
+      }
+    });
+
+    cy.on('mouseout', 'node', function() {
+      cy.nodes().removeClass('dimmed hovered');
+      cy.edges().removeClass('dimmed hover-connected');
+      graphTooltip.style.opacity = '0';
+    });
 
     // Click handler — show detail in bottom drawer
     cy.on('tap', 'node', function(evt) {
@@ -1071,6 +1139,30 @@ function getTypeStyle(type: string) {
   }, { threshold: 0.1 });
 
   document.querySelectorAll('.struct-graph').forEach(g => graphObserver.observe(g));
+
+  // Fallback: catch any visible graphs the observer missed (e.g. story 4 already in viewport)
+  setTimeout(() => {
+    if (typeof cytoscape === 'undefined') return;
+    document.querySelectorAll('.struct-graph').forEach(g => {
+      if (g._cy) return;
+      const rect = g.getBoundingClientRect();
+      if (rect.top < window.innerHeight && rect.bottom > 0) {
+        initGraph(g);
+      }
+    });
+  }, 2000);
+
+  // Also catch on scroll/navigation for dynamically revealed graphs
+  document.addEventListener('scrollend', () => {
+    if (typeof cytoscape === 'undefined') return;
+    document.querySelectorAll('.struct-graph').forEach(g => {
+      if (g._cy) return;
+      const rect = g.getBoundingClientRect();
+      if (rect.top < window.innerHeight && rect.bottom > 0) {
+        initGraph(g);
+      }
+    });
+  }, { passive: true });
 
   // ─── Focus mode ───
   const focusOverlay = document.getElementById('focus-overlay');
