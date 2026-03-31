@@ -1,0 +1,63 @@
+---
+/**
+ * Shared header — translucent bar with logo, badge, and nav links.
+ * Used by all custom project pages (logbd journey, atlas, etc.).
+ */
+interface Props {
+  project: string;
+  badge?: string;
+  links?: { label: string; href: string }[];
+  position?: 'fixed' | 'sticky';
+}
+const { project, badge, links = [], position = 'fixed' } = Astro.props;
+---
+
+<header class:list={['site-header', position === 'sticky' && 'sticky']}>
+  <div class="h-left">
+    <span class="h-logo">{project}</span>
+    {badge && <span class="h-env">{badge}</span>}
+  </div>
+  <div class="h-right">
+    {links.map(link => (
+      <a class="h-link" href={link.href}>{link.label}</a>
+    ))}
+    <a class="h-link h-link-icon" href="/dev/" title="Home">
+      <img src="/dev/logo_dark.png" alt="" />
+    </a>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 0 1.5rem; height: 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(9,9,11,0.85); backdrop-filter: blur(16px) saturate(180%);
+    border-bottom: 1px solid var(--border);
+  }
+  .site-header.sticky {
+    position: sticky;
+    height: 48px;
+  }
+  .h-left { display: flex; align-items: center; gap: .5rem; }
+  .h-logo { font-weight: 700; font-size: .85rem; letter-spacing: -.02em; }
+  .h-env {
+    font-size: .5rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+    padding: .1rem .35rem; border-radius: 3px;
+    background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.2);
+  }
+  .h-right { display: flex; gap: .4rem; align-items: center; }
+  .h-link {
+    font-size: .7rem; color: var(--text-4); text-decoration: none;
+    padding: .2rem .5rem; border: 1px solid var(--border); border-radius: 4px;
+    transition: all .2s;
+  }
+  .h-link:hover { color: var(--text-2); border-color: var(--border-hover); }
+  .h-link-icon {
+    display: flex; align-items: center; padding: 0 .3rem;
+  }
+  .h-link-icon img {
+    height: 1rem; width: auto; opacity: 0.7;
+  }
+  .h-link-icon:hover img { opacity: 1; }
+</style>
