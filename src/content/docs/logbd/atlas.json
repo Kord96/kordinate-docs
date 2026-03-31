@@ -1,0 +1,1509 @@
+{
+  "version": "4",
+  "generated": "2026-03-30",
+  "project": "logbd",
+
+  "purpose": "Kafka-to-DuckDB stream processing pipeline that ingests FortiMail network logs, builds a typed property graph of 9 entity types, computes 72 analytical signals per entity via graph algorithms and ML, and exposes the result through a REST and Arrow Flight SQL API.",
+
+  "domain_model": {
+    "primary": "property-graph",
+    "description": "A typed, directed property graph where nodes are network entities (domain, host, subnet, URI, email, text, image, cluster, template) and edges capture co-occurrence, DNS structure, SPF delegation, and URI redirect chains.",
+    "entities": ["domain", "host", "subnet", "uri_template", "email_template", "text", "image", "content_template", "cluster"],
+    "relationships": ["emailed_with (co-occurrence)", "dns_a / dns_mx / dns_ns (structural)", "spf_delegates / spf_authorizes (policy)", "landing_of / embeds_domain (content)", "cluster_member (LSH similarity)"],
+    "bounded_contexts": [
+      {
+        "id": "ingest-context",
+        "name": "Ingest",
+        "description": "Owns the raw log parsing and entity extraction boundary; 'message' here means a FortiMail SMTP event, not a generic message.",
+        "entities": ["message", "slot"],
+        "modules": ["graphdb/data_source/logServer/"],
+        "ubiquitous_language": {
+          "slot": "A time-windowed gzip file containing one batch of FortiMail SMTP events",
+          "message": "A parsed FortiMail SMTP event (sender, recipients, IPs, URIs, spam flag)"
+        }
+      },
+      {
+        "id": "graph-context",
+        "name": "Graph Store",
+        "description": "Owns node and edge lifecycle; 'entity' here is a strongly-typed graph node, not a generic domain object.",
+        "entities": ["domain", "host", "subnet", "uri_template", "email_template", "text", "image", "content_template", "cluster", "edge"],
+        "modules": ["graphdb/graph/"],
+        "ubiquitous_language": {
+          "entity": "A typed graph node identified by a canonical key (e.g. domain name, IP)",
+          "traffic_history": "Per-minute message count time series stored alongside each node",
+          "flush": "The atomic write of a NodeBuffer's accumulated records to DuckDB"
+        }
+      },
+      {
+        "id": "query-context",
+        "name": "Query API",
+        "description": "Owns the read path; 'node' here is a REST resource representing an entity with all derived signals attached.",
+        "entities": ["node", "score", "derived"],
+        "modules": ["graphdb/api/", "client/"],
+        "ubiquitous_language": {
+          "node": "A REST-level entity record combining base + derived + score columns",
+          "warm cache": "Pre-loaded in-memory snapshot of recently-active entities refreshed every 30 minutes"
+        }
+      }
+    ]
+  },
+
+  "stack": {
+    "languages": ["Python"],
+    "frameworks": [
+      {"name": "stoik", "concepts": ["stream-to-store", "producer-consumer", "worker-pool"]},
+      {"name": "FastAPI", "concepts": ["rest", "token-auth"]},
+      {"name": "Arrow Flight SQL", "concepts": ["grpc"]},
+      {"name": "LightGBM", "concepts": ["training-pipeline", "model-registry"]}
+    ],
+    "runtime": "Kubernetes (office cluster, prod namespace) — 32 pods: 27 graphdb consumers + API + Flight SQL + classifier scheduler + derived-refresh; each pod holds a single DuckDB file on a PVC"
+  },
+
+  "groups": [
+    {
+      "id": "ingest",
+      "name": "Ingest",
+      "description": "Reads rawLog files from NFS, parses FortiMail messages, and fans out 9 entity types to Kafka topics.",
+      "components": ["message-producer", "entity-extraction", "metadata-archiver"]
+    },
+    {
+      "id": "graph-store",
+      "name": "Graph Store",
+      "description": "27 long-lived Kafka consumers, each owning one DuckDB file; collectively maintain the typed property graph.",
+      "components": ["node-consumers", "edge-consumers", "score-consumer", "enrichment-services"]
+    },
+    {
+      "id": "analytics",
+      "name": "Analytics",
+      "description": "Compute derived signals and ML classifier scores on top of the raw graph.",
+      "components": ["derived-refresh", "classifier-scheduler"]
+    },
+    {
+      "id": "query-api",
+      "name": "Query API",
+      "description": "REST API, Arrow Flight SQL server, and Python client SDK exposing the graph to external consumers.",
+      "components": ["graphdb-api", "flight-sql", "graph-client"]
+    }
+  ],
+
+  "actors": [
+    {
+      "id": "fortimail",
+      "type": "data-source",
+      "description": "FortiMail email security appliances write rawLog gzip files to an NFS mount in per-day/per-slot directory structure."
+    },
+    {
+      "id": "analyst",
+      "type": "user",
+      "description": "Security analyst querying the graph via the CLI or client SDK to investigate spam campaigns."
+    },
+    {
+      "id": "classifier-cron",
+      "type": "cron",
+      "description": "Classifier scheduler that runs LightGBM inference every 30 minutes and retrains weekly."
+    }
+  ],
+
+  "components": [
+    {
+      "id": "message-producer",
+      "name": "Message Producer",
+      "description": "Scans NFS rawLog directories for unprocessed slots, parses gzip FortiMail logs in parallel using spawned worker processes, and publishes parsed messages to the 'message' Kafka topic.",
+      "type": "worker",
+      "group": "ingest",
+      "modules": [
+        "graphdb/data_source/logServer/messageProducer/__main__.py",
+        "graphdb/data_source/logServer/messageProducer/pipeline.py",
+        "graphdb/data_source/logServer/messageProducer/parser.py",
+        "graphdb/data_source/logServer/messageProducer/fetch.py"
+      ],
+      "depends_on": [],
+      "abstraction": ["data", "messaging", "concurrency"],
+      "patterns": ["producer-consumer", "worker-pool"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "entity-extraction",
+      "name": "Entity Extraction",
+      "description": "Consumes parsed messages from the 'message' topic, extracts 9 entity types via typed extractors, computes cluster membership via MinHash LSH, and routes entities to per-entity Kafka topics.",
+      "type": "worker",
+      "group": "ingest",
+      "modules": [
+        "graphdb/data_source/logServer/entity_extraction/consumer.py",
+        "graphdb/data_source/logServer/entity_extraction/extractors/",
+        "graphdb/data_source/logServer/entity_extraction/cluster.py",
+        "graphdb/utils/minhash.py"
+      ],
+      "depends_on": [],
+      "abstraction": ["data", "messaging"],
+      "patterns": ["stream-to-store", "competing-consumers"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "metadata-archiver",
+      "name": "Metadata Archiver",
+      "description": "Consumes the 'message' topic to persist per-message metadata (slot, sender, recipient counts) to message.duckdb.",
+      "type": "worker",
+      "group": "ingest",
+      "modules": [
+        "graphdb/data_source/logServer/metadata/archiver.py",
+        "graphdb/data_source/logServer/metadata/service.py",
+        "graphdb/data_source/logServer/metadata/metadata.py"
+      ],
+      "depends_on": [],
+      "abstraction": ["data", "messaging"],
+      "patterns": ["stream-to-store"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "node-consumers",
+      "name": "Node Consumers",
+      "description": "Nine Kafka consumers (domain, host, subnet, uri, email, text, image, content_template, cluster) each owning a dedicated DuckDB file; share a common NodeBuffer + NodeStore + traffic_history pattern from stoik.",
+      "type": "worker",
+      "group": "graph-store",
+      "modules": [
+        "graphdb/graph/node/base/consumer.py",
+        "graphdb/graph/node/base/buffer.py",
+        "graphdb/graph/node/base/store.py",
+        "graphdb/graph/node/domain/",
+        "graphdb/graph/node/host/",
+        "graphdb/graph/node/subnet/",
+        "graphdb/graph/node/uri/",
+        "graphdb/graph/node/email_address/",
+        "graphdb/graph/node/text/",
+        "graphdb/graph/node/image/",
+        "graphdb/graph/node/content_template/",
+        "graphdb/graph/node/cluster/"
+      ],
+      "depends_on": [],
+      "abstraction": ["data", "messaging"],
+      "patterns": ["stream-to-store", "producer-consumer", "cache-aside"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "9 (one per entity type)",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "edge-consumers",
+      "name": "Edge Consumers",
+      "description": "Three Kafka consumers (emailed_with, association, cluster_member) maintaining edge tables in separate DuckDB files; edge-ew also runs SPF resolution and message_role edge writes.",
+      "type": "worker",
+      "group": "graph-store",
+      "modules": [
+        "graphdb/graph/edge/consumer.py",
+        "graphdb/graph/edge/store.py",
+        "graphdb/graph/edge/schema.py",
+        "graphdb/graph/edge/message_role/"
+      ],
+      "depends_on": [],
+      "abstraction": ["data", "messaging"],
+      "patterns": ["stream-to-store"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "3",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "score-consumer",
+      "name": "Score Consumer",
+      "description": "Subscribes to score.external_source and score.signal topics and persists external scores (FortiGuard, Spamhaus) and ML classifier signals to separate DuckDB files.",
+      "type": "worker",
+      "group": "graph-store",
+      "modules": [
+        "graphdb/graph/score/consumer.py",
+        "graphdb/graph/score/store.py",
+        "graphdb/graph/score/schema.py"
+      ],
+      "depends_on": [],
+      "abstraction": ["data", "messaging"],
+      "patterns": ["stream-to-store"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "enrichment-services",
+      "name": "Enrichment Services",
+      "description": "Domain enrichment pollers (WHOIS/RDAP, UCLT category, Certificate Transparency, SPF resolver, URI downloader + JS renderer) that run as separate processes, read domain snapshots, and push enrichment results to Redis queues consumed by the domain node consumer.",
+      "type": "worker",
+      "group": "graph-store",
+      "modules": [
+        "graphdb/graph/node/domain/enrichment/whois_service.py",
+        "graphdb/graph/node/domain/enrichment/uclt_service.py",
+        "graphdb/graph/node/domain/enrichment/ct_service.py",
+        "graphdb/graph_support/spf_auth.py",
+        "graphdb/graph/node/uri/download/poller.py"
+      ],
+      "depends_on": [],
+      "abstraction": ["data", "integration"],
+      "patterns": ["polling-flow", "retry"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "5 (one per enrichment type)",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "derived-refresh",
+      "name": "Derived Refresh",
+      "description": "Long-running service that iterates entity types in round-robin, computing 7 tiers of derived signals (A: traffic aggregation, B-D: cross-DB joins and reputation lookups, E-F: static properties, G: graph algorithms — PageRank, label propagation, connected components — every 6 hours) and writing results to per-entity derived DuckDB files.",
+      "type": "worker",
+      "group": "analytics",
+      "modules": [
+        "graphdb/graph/derived/service.py",
+        "graphdb/graph/derived/refresh.py",
+        "graphdb/graph/derived/tiers/"
+      ],
+      "depends_on": [],
+      "abstraction": ["data"],
+      "patterns": ["scheduler", "stream-to-store"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "classifier-scheduler",
+      "name": "Classifier Scheduler",
+      "description": "Time-based scheduler that runs LightGBM inference every 30 minutes (publishing spam probability scores to Kafka), retrains the spam classifier weekly from DuckDB-exported features, and runs dataset refresh daily.",
+      "type": "scheduler",
+      "group": "analytics",
+      "modules": [
+        "classifier/scheduler/runner.py",
+        "classifier/classifier/infer.py",
+        "classifier/classifier/spam_classifier.py",
+        "classifier/classifier/weighted_sum.py"
+      ],
+      "depends_on": ["flight-sql"],
+      "abstraction": ["ml", "lifecycle"],
+      "patterns": ["scheduler", "training-pipeline", "model-registry"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "graphdb-api",
+      "name": "GraphDB REST API",
+      "description": "FastAPI server exposing 30+ REST endpoints for node lookup, neighbor traversal, path finding, subgraph extraction, search, bulk query, and metadata; backed by EdgePool (direct DuckDB connections to snapshot files) with an in-memory warm cache for hot entities.",
+      "type": "api",
+      "group": "query-api",
+      "modules": [
+        "graphdb/api/app.py",
+        "graphdb/api/auth.py",
+        "graphdb/api/edge_pool.py",
+        "graphdb/api/config.py",
+        "graphdb/api/routers/"
+      ],
+      "depends_on": ["flight-sql"],
+      "abstraction": ["api", "security"],
+      "patterns": ["rest", "token-auth", "cache-aside", "health-check", "lru-cache"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "flight-sql",
+      "name": "Arrow Flight SQL Server",
+      "description": "gRPC Arrow Flight SQL server backed by DuckDB-over-MinIO (Parquet snapshots in S3); provides bulk columnar query access to graph data for the classifier and admin tooling.",
+      "type": "api",
+      "group": "query-api",
+      "modules": [
+        "graphdb/api/flight.py",
+        "graphdb/api/views.py",
+        "graphdb/lib/dbpool.py",
+        "lib/snapshot.py"
+      ],
+      "depends_on": [],
+      "abstraction": ["api", "data"],
+      "patterns": ["grpc", "connection-pooling"],
+      "deployment": {
+        "namespace": "prod",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "vandc-61"
+      }
+    },
+    {
+      "id": "graph-client",
+      "name": "Graph Client",
+      "description": "Python SDK and CLI (pip-installable) that wraps the REST API with typed methods, a local disk cache for subgraph results, and a Loki log streaming command.",
+      "type": "cli",
+      "group": "query-api",
+      "modules": [
+        "client/client/api.py",
+        "client/client/cache.py",
+        "client/client/cli/",
+        "client/client/stream.py"
+      ],
+      "depends_on": ["graphdb-api"],
+      "abstraction": ["api"],
+      "patterns": ["cache-aside", "facade"]
+    }
+  ],
+
+  "flows": [
+    {
+      "id": "log-to-graph",
+      "type": "data",
+      "actors": ["fortimail"],
+      "name": "Log to Graph: NFS to DuckDB",
+      "description": "FortiMail rawLog files on NFS are parsed and fanned out to 9 entity-type Kafka topics, each consumed by a dedicated DuckDB writer.",
+      "trigger": "New rawLog slot appears on NFS mount at /mnt/nfs/rawLog/<day>/<slot>.gz",
+      "grounded_in": [
+        "graphdb/data_source/logServer/messageProducer/pipeline.py:49",
+        "graphdb/data_source/logServer/entity_extraction/consumer.py:1",
+        "graphdb/graph/node/base/consumer.py:21"
+      ],
+      "steps": [
+        {
+          "component": "message-producer",
+          "action": "scans NFS slot, spawns one process per rawLog file, parses gzip records",
+          "to": "entity-extraction",
+          "data": "parsed Message records (sender, recipients, IPs, URIs, CKM hashes)",
+          "technology": "confluent-kafka (JSON, 'message' topic)"
+        },
+        {
+          "component": "entity-extraction",
+          "action": "extracts 9 entity types + MinHash cluster keys, routes to entity topics",
+          "to": "node-consumers",
+          "data": "per-entity JSON records with role (sender/recipient/relay)",
+          "technology": "confluent-kafka (JSON, per-entity topics)"
+        },
+        {
+          "component": "node-consumers",
+          "action": "buffer per flush_interval, upsert with traffic history, write snapshot to MinIO",
+          "to": "node-consumers",
+          "data": "entity rows (first_seen, last_seen, traffic counters)",
+          "technology": "DuckDB file I/O + PyArrow"
+        }
+      ]
+    },
+    {
+      "id": "inference-to-score",
+      "type": "data",
+      "actors": ["classifier-cron"],
+      "name": "Inference: Feature Matrix to Kafka Scores",
+      "description": "Classifier scheduler fetches entity features via Flight SQL, runs LightGBM, and publishes signed spam scores to Kafka for the score consumer to persist.",
+      "trigger": "Classifier scheduler wakes at 30-minute boundary",
+      "grounded_in": [
+        "classifier/classifier/infer.py:86",
+        "classifier/scheduler/runner.py:30",
+        "graphdb/graph/score/consumer.py:65"
+      ],
+      "steps": [
+        {
+          "component": "classifier-scheduler",
+          "action": "queries entity feature views via Flight SQL, builds feature matrix",
+          "to": "flight-sql",
+          "data": "pandas DataFrame with 72 signal columns per entity",
+          "technology": "Arrow Flight SQL (gRPC)"
+        },
+        {
+          "component": "classifier-scheduler",
+          "action": "runs LightGBM inference, clips scores to [-1.0, 1.0]",
+          "to": "score-consumer",
+          "data": "signed spam probability scores per entity key",
+          "technology": "confluent-kafka (JSON, 'score.signal' topic)"
+        },
+        {
+          "component": "score-consumer",
+          "action": "batches signal records, persists to signal.duckdb",
+          "to": "score-consumer",
+          "data": "score rows (entity_type, entity_key, score, source, ts)",
+          "technology": "DuckDB file I/O"
+        }
+      ]
+    },
+    {
+      "id": "analyst-node-lookup",
+      "type": "data",
+      "actors": ["analyst"],
+      "name": "Node Lookup via REST API",
+      "description": "Analyst queries a graph node by type + key; API checks warm cache, falls back to direct DuckDB snapshot, and joins base + derived tables.",
+      "trigger": "GET /node/{entity_type}/{key} request from client",
+      "grounded_in": [
+        "graphdb/api/routers/nodes.py:1",
+        "graphdb/api/edge_pool.py:79",
+        "graphdb/api/config.py:85"
+      ],
+      "steps": [
+        {
+          "component": "graph-client",
+          "action": "sends authenticated GET request with Bearer token + X-Graph-User header",
+          "to": "graphdb-api",
+          "data": "entity type + key",
+          "technology": "HTTPS REST"
+        },
+        {
+          "component": "graphdb-api",
+          "action": "validates Bearer token via AuthMiddleware, checks warm cache then EdgePool",
+          "to": "graphdb-api",
+          "data": "DuckDB query result (base + derived columns)",
+          "technology": "DuckDB direct read (thread-safe per-connection lock)"
+        },
+        {
+          "component": "graphdb-api",
+          "action": "merges base + derived + score fields, returns JSON",
+          "to": "graph-client",
+          "data": "entity JSON with 72 signals, scores, neighbors",
+          "technology": "HTTP/JSON"
+        }
+      ]
+    },
+    {
+      "id": "derived-graph-algorithms",
+      "type": "data",
+      "actors": [],
+      "name": "Tier G: Graph Algorithms Refresh",
+      "description": "Every 6 hours, derived-refresh loads the full emailed_with + association graphs into scipy sparse matrices and runs PageRank, label propagation, connected components, and BFS distance.",
+      "trigger": "6-hour timer in derived-refresh service loop",
+      "grounded_in": [
+        "graphdb/graph/derived/tiers/tier_g.py:1",
+        "graphdb/graph/derived/service.py:128"
+      ],
+      "steps": [
+        {
+          "component": "derived-refresh",
+          "action": "attaches emailed_with + association + cluster_member snapshot DBs, loads COO arrays via fetchnumpy()",
+          "to": "derived-refresh",
+          "data": "sparse edge matrices (int32 COO, up to 100M+ edges)",
+          "technology": "DuckDB ATTACH + PyArrow fetchnumpy"
+        },
+        {
+          "component": "derived-refresh",
+          "action": "runs 6 algorithms (PageRank, label propagation, connected_components, community spam ratio, BFS distance, spam reachability) via scipy.sparse",
+          "to": "derived-refresh",
+          "data": "per-node algorithm outputs (numpy arrays)",
+          "technology": "DuckDB bulk INSERT via PyArrow"
+        }
+      ]
+    }
+  ],
+
+  "state": [
+    {
+      "id": "duckdb-node-store",
+      "concept": "embedded-olap",
+      "technology": "DuckDB (one file per entity type, XFS PVC)",
+      "component": "node-consumers",
+      "stores": "graph nodes: 9 entity types with first_seen, last_seen, traffic history, enrichment data",
+      "purpose": "source-of-truth",
+      "persistence": "persistent",
+      "readers": ["graphdb-api", "derived-refresh", "flight-sql"],
+      "writers": ["node-consumers"],
+      "grounded_in": ["graphdb/graph/node/base/store.py:26", "graphdb/api/edge_pool.py:34"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "none",
+        "tools": "null"
+      },
+      "concurrency": {
+        "strategy": "single-writer",
+        "mechanism": "DuckDB file-level write lock; readers use read-only ATTACH",
+        "conflicts": "derived-refresh retries with exponential backoff when write lock is held"
+      }
+    },
+    {
+      "id": "duckdb-edge-store",
+      "concept": "embedded-olap",
+      "technology": "DuckDB (emailed_with, association, cluster_member, message_role files)",
+      "component": "edge-consumers",
+      "stores": "graph edges: co-occurrence (emailed_with), structural (association), cluster membership, message-entity roles",
+      "purpose": "source-of-truth",
+      "persistence": "persistent",
+      "readers": ["graphdb-api", "derived-refresh", "flight-sql"],
+      "writers": ["edge-consumers", "entity-extraction"],
+      "grounded_in": ["graphdb/api/edge_pool.py:26"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "none",
+        "tools": "null"
+      },
+      "concurrency": {
+        "strategy": "single-writer",
+        "mechanism": "DuckDB file-level write lock; readers use read-only ATTACH",
+        "conflicts": "derived-refresh retries with exponential backoff when write lock is held"
+      }
+    },
+    {
+      "id": "duckdb-score-store",
+      "concept": "embedded-olap",
+      "technology": "DuckDB (external_score.duckdb, signal.duckdb)",
+      "component": "score-consumer",
+      "stores": "external reputation scores (FortiGuard, Spamhaus) and classifier ML signals per entity",
+      "purpose": "source-of-truth",
+      "persistence": "persistent",
+      "readers": ["graphdb-api", "derived-refresh", "classifier-scheduler"],
+      "writers": ["score-consumer"],
+      "grounded_in": ["graphdb/graph/score/consumer.py:9"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "none",
+        "tools": "null"
+      },
+      "concurrency": {
+        "strategy": "single-writer",
+        "mechanism": "DuckDB file-level write lock",
+        "conflicts": "readers use read-only ATTACH; no concurrent writes"
+      }
+    },
+    {
+      "id": "duckdb-derived-store",
+      "concept": "embedded-olap",
+      "technology": "DuckDB (one derived_{type}.duckdb per entity type)",
+      "component": "derived-refresh",
+      "stores": "72 computed signals per entity: traffic aggregations, graph centrality (PageRank), community IDs, spam propagation scores, BFS distances",
+      "purpose": "derived",
+      "persistence": "persistent",
+      "readers": ["graphdb-api", "flight-sql"],
+      "writers": ["derived-refresh"],
+      "grounded_in": ["graphdb/graph/derived/service.py:14", "graphdb/graph/derived/tiers/tier_g.py:1"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "append-only",
+        "tools": "null"
+      },
+      "concurrency": {
+        "strategy": "single-writer",
+        "mechanism": "DuckDB file-level write lock",
+        "conflicts": "API reads stale derived values while refresh is writing; no blocking"
+      }
+    },
+    {
+      "id": "minio-parquet",
+      "concept": "object-store",
+      "technology": "MinIO (S3-compatible, local cluster)",
+      "component": "flight-sql",
+      "stores": "Parquet snapshots of all DuckDB tables, refreshed after each consumer flush; Flight SQL reads exclusively from these",
+      "purpose": "derived",
+      "persistence": "persistent",
+      "readers": ["flight-sql", "classifier-scheduler"],
+      "writers": ["node-consumers", "edge-consumers", "score-consumer", "derived-refresh"],
+      "grounded_in": ["graphdb/lib/dbpool.py:11", "lib/snapshot.py:1"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "schema-on-read",
+        "tools": "null"
+      },
+      "concurrency": {
+        "strategy": "lock-free",
+        "mechanism": "S3 put-object replaces previous snapshot atomically; readers open new glob on next connection refresh",
+        "conflicts": "Readers may see a mix of old/new snapshots within one connection lifetime"
+      }
+    },
+    {
+      "id": "redis-cache",
+      "concept": "cache",
+      "technology": "Redis",
+      "component": "enrichment-services",
+      "stores": "enrichment result queues (WHOIS, UCLT, CT, SPF, download), download state deduplication, URI download pending list",
+      "purpose": "staging",
+      "persistence": "ephemeral",
+      "readers": ["node-consumers", "enrichment-services"],
+      "writers": ["enrichment-services", "entity-extraction"],
+      "grounded_in": ["graphdb/graph/node/domain/enrichment/whois_service.py:26", "graphdb/graph/node/uri/download/poller.py:7"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "none",
+        "tools": "null"
+      },
+      "concurrency": {
+        "strategy": "lock-free",
+        "mechanism": "Redis list push/pop (RPUSH / BLPOP); atomic by Redis protocol",
+        "conflicts": "No conflict — enrichment pollers are single-consumer per queue"
+      }
+    },
+    {
+      "id": "kafka-broker",
+      "concept": "message-broker",
+      "technology": "Kafka (single broker, JSON + Avro topics)",
+      "component": "entity-extraction",
+      "stores": "in-flight messages across ~20 topics: message, node.domain, node.host, node.subnet, etl.uri, node.email, node.text, node.image, node.cluster, score.signal, score.external_source, uri.download",
+      "purpose": "staging",
+      "persistence": "ephemeral",
+      "readers": ["node-consumers", "edge-consumers", "score-consumer", "metadata-archiver"],
+      "writers": ["message-producer", "entity-extraction", "classifier-scheduler", "enrichment-services"],
+      "grounded_in": ["graphdb/events/topics.py:1", "graphdb/events/kafka.py:1"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "none",
+        "tools": "null"
+      },
+      "concurrency": {
+        "strategy": "none",
+        "mechanism": "Kafka partition-level ordering; single broker, no replication",
+        "conflicts": "Broker failure loses all in-flight messages permanently"
+      }
+    }
+  ],
+
+  "events": [
+    {
+      "id": "evt-message",
+      "type": "topic",
+      "name": "message",
+      "producer": "message-producer",
+      "consumers": ["entity-extraction", "metadata-archiver"],
+      "data": "Fully-parsed FortiMail message record (slot_id, sender, recipients, IPs, URIs, CKM hashes, spam flag)"
+    },
+    {
+      "id": "evt-entity-topics",
+      "type": "topic",
+      "name": "node.domain / node.host / node.subnet / etl.uri / node.email / node.text / node.image / node.cluster / ...",
+      "producer": "entity-extraction",
+      "consumers": ["node-consumers", "edge-consumers"],
+      "data": "Per-entity records routed to dedicated per-type topics"
+    },
+    {
+      "id": "evt-score-signal",
+      "type": "topic",
+      "name": "score.signal",
+      "producer": "classifier-scheduler",
+      "consumers": ["score-consumer"],
+      "data": "ML spam probability scores (entity_type, entity_key, score float, source, threshold)"
+    },
+    {
+      "id": "evt-score-external",
+      "type": "topic",
+      "name": "score.external_source",
+      "producer": "enrichment-services",
+      "consumers": ["score-consumer"],
+      "data": "External reputation scores from FortiGuard / Spamhaus (entity_type, entity_key, score 1-9, source)"
+    }
+  ],
+
+  "external_dependencies": [
+    {
+      "id": "nfs-rawlog",
+      "name": "NFS rawLog Mount",
+      "concept": "nfs",
+      "technology": "NFS (mounted at /mnt/nfs/rawLog)",
+      "components": ["message-producer"],
+      "purpose": "Source of FortiMail log files in per-day per-slot directory structure",
+      "criticality": "critical",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "null — NFS unavailability causes slot processing to fail and log an error; no retry or backoff on mount unavailability"
+      }
+    },
+    {
+      "id": "kafka",
+      "name": "Kafka Broker",
+      "concept": "message-broker",
+      "technology": "Kafka (single broker, confluent-kafka client)",
+      "components": ["message-producer", "entity-extraction", "node-consumers", "edge-consumers", "score-consumer", "metadata-archiver", "classifier-scheduler"],
+      "purpose": "Async fan-out of messages and entity records between pipeline stages",
+      "criticality": "critical",
+      "resilience": {
+        "timeout": false,
+        "retry": true,
+        "circuit_breaker": false,
+        "fallback": "null — Kafka failure blocks all consumers; retry only for buffer-full on publish (no circuit breaker)"
+      }
+    },
+    {
+      "id": "redis",
+      "name": "Redis",
+      "concept": "cache",
+      "technology": "Redis 7",
+      "components": ["entity-extraction", "enrichment-services", "node-consumers"],
+      "purpose": "Enrichment result queues, URI download deduplication queue, SPF enrichment state",
+      "criticality": "important",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "null — Redis failure silently drops enrichment results; no retry or fallback"
+      }
+    },
+    {
+      "id": "minio",
+      "name": "MinIO Object Store",
+      "concept": "object-store",
+      "technology": "MinIO (S3-compatible, local cluster)",
+      "components": ["flight-sql", "node-consumers", "edge-consumers", "score-consumer", "derived-refresh"],
+      "purpose": "Parquet snapshot store backing Arrow Flight SQL read path",
+      "criticality": "important",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "Flight SQL falls back gracefully when no Parquet files available (logs warning)"
+      }
+    },
+    {
+      "id": "whois-rdap",
+      "name": "WHOIS / RDAP Services",
+      "concept": "http-api",
+      "technology": "RDAP (HTTP) + port-43 relay proxy for ccTLDs",
+      "components": ["enrichment-services"],
+      "purpose": "Domain registrar/creation-date enrichment for spam analysis",
+      "criticality": "optional",
+      "resilience": {
+        "timeout": true,
+        "retry": true,
+        "circuit_breaker": false,
+        "fallback": "Domain enrichment skipped for that domain; retried on next 90-day stale cycle"
+      }
+    },
+    {
+      "id": "prometheus",
+      "name": "Prometheus",
+      "concept": "http-api",
+      "technology": "Prometheus",
+      "components": ["graphdb-api"],
+      "purpose": "Health sentinel queries for pipeline health checks exposed on /health",
+      "criticality": "optional",
+      "resilience": {
+        "timeout": true,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "Health status shows degraded state when Prometheus is unreachable"
+      }
+    }
+  ],
+
+  "failure_modes": [
+    {
+      "id": "nfs-unavailable",
+      "trigger": "NFS mount at /mnt/nfs/rawLog becomes unreachable (network partition, server reboot)",
+      "cascade": [
+        {"component": "message-producer", "effect": "statvfs() throws OSError; slot processing aborts; no retry loop — producer becomes idle"}
+      ],
+      "impact": "Log ingestion halts; graph stops updating; entities age without new traffic data; downstream scoring and derived signals go stale",
+      "detection": ["pipeline_producer_slot_processing_start_unixtime gauge stuck at 0", "sentinel pipeline_ingestion_status FAIL"],
+      "recovery": ["Manual intervention: restore NFS mount; message-producer auto-resumes on next scan cycle"],
+      "severity": "critical",
+      "grounded_in": ["graphdb/data_source/logServer/messageProducer/pipeline.py:180"]
+    },
+    {
+      "id": "kafka-broker-down",
+      "trigger": "Single Kafka broker becomes unavailable (single broker, no replication)",
+      "cascade": [
+        {"component": "message-producer", "effect": "publish_batch fails; messages lost (no retry queue)"},
+        {"component": "node-consumers", "effect": "consumer poll blocks; flush never triggered; DuckDB writes stop"},
+        {"component": "classifier-scheduler", "effect": "score publishing fails silently"}
+      ],
+      "impact": "Full pipeline stall; all graph updates stop; already-persistent data survives in DuckDB but API returns increasingly stale data",
+      "detection": ["pipeline_consumed_total counters stop incrementing", "Kafka consumer lag grows (kafka_exporter)", "sentinel pipeline_process_status FAIL"],
+      "recovery": ["Restart Kafka broker; consumers auto-reconnect via confluent-kafka; messages produced while broker was down are permanently lost"],
+      "severity": "critical",
+      "grounded_in": ["graphdb/events/kafka.py:78", "graphdb/lib/consumer/loop.py:1"]
+    },
+    {
+      "id": "derived-refresh-stall",
+      "trigger": "DuckDB lock contention: a node consumer holds a write lock when derived-refresh tries to attach the snapshot",
+      "cascade": [
+        {"component": "derived-refresh", "effect": "ATTACH fails after max_retries; that entity type's batch is skipped; derived signals grow stale"},
+        {"component": "graphdb-api", "effect": "node lookups return increasingly stale derived signal values"}
+      ],
+      "impact": "72 derived signals (PageRank, spam propagation, community ID) stop updating; ML scoring accuracy degrades over hours to days",
+      "detection": ["pipeline_derived_max_staleness_seconds gauge > 7200", "refresh_skipped_db_locked log events"],
+      "recovery": ["Automatic: next cycle retries the entity type; resolved when consumer completes its flush"],
+      "severity": "medium",
+      "grounded_in": ["graphdb/graph/derived/refresh.py:17", "graphdb/graph/derived/service.py:186"]
+    },
+    {
+      "id": "minio-snapshot-stale",
+      "trigger": "MinIO becomes unreachable or snapshot refresh fails after a consumer flush",
+      "cascade": [
+        {"component": "flight-sql", "effect": "opens stale Parquet files or no files; classifier reads old feature values"},
+        {"component": "classifier-scheduler", "effect": "inference runs on stale features; scores degrade silently"}
+      ],
+      "impact": "ML classifier accuracy degrades; spam entities may be missed or over-scored; no alert unless staleness is monitored",
+      "detection": ["none — no MinIO health check in current code", "classifier score distribution drift (manual)"],
+      "recovery": ["Restore MinIO; next consumer flush triggers snapshot refresh via lib/snapshot.py"],
+      "severity": "high",
+      "grounded_in": ["graphdb/lib/dbpool.py:21", "lib/snapshot.py:1"]
+    }
+  ],
+
+  "concepts": {
+    "detected_patterns": [
+      {
+        "id": "stream-to-store",
+        "category": "data",
+        "confidence": "high",
+        "components": ["node-consumers", "edge-consumers", "score-consumer", "metadata-archiver"],
+        "evidence": {
+          "files": ["graphdb/graph/node/base/consumer.py", "graphdb/lib/consumer/loop.py"],
+          "method": "manual",
+          "note": "stoik framework implements buffer-accumulate-flush-to-DuckDB pattern; NodeBuffer + NodeStore is the central abstraction for all 12 consumers"
+        }
+      },
+      {
+        "id": "producer-consumer",
+        "category": "concurrency",
+        "confidence": "high",
+        "components": ["message-producer", "entity-extraction", "node-consumers"],
+        "evidence": {
+          "files": ["graphdb/data_source/logServer/messageProducer/pipeline.py", "graphdb/graph/node/base/consumer.py"],
+          "method": "manual",
+          "note": "Classic producer/consumer with Kafka as the shared queue; 20+ topics separate producers from consumers"
+        }
+      },
+      {
+        "id": "worker-pool",
+        "category": "concurrency",
+        "confidence": "high",
+        "components": ["message-producer"],
+        "evidence": {
+          "files": ["graphdb/data_source/logServer/messageProducer/pipeline.py:203"],
+          "method": "grep",
+          "note": "multiprocessing.Pool with spawn context; one worker per rawLog file; explicit spawn to avoid mutex inheritance"
+        }
+      },
+      {
+        "id": "rest",
+        "category": "api",
+        "confidence": "high",
+        "components": ["graphdb-api"],
+        "evidence": {
+          "files": ["graphdb/api/routers/"],
+          "method": "manual",
+          "note": "FastAPI with 30+ GET/POST endpoints across 14 routers (nodes, search, path, subgraph, bulk, ranking, export, webhooks, admin)"
+        }
+      },
+      {
+        "id": "grpc",
+        "category": "api",
+        "confidence": "high",
+        "components": ["flight-sql"],
+        "evidence": {
+          "files": ["graphdb/api/flight.py:163"],
+          "method": "manual",
+          "note": "stoik FlightSQLServer wraps Arrow Flight gRPC protocol on port 8815"
+        }
+      },
+      {
+        "id": "token-auth",
+        "category": "security",
+        "confidence": "high",
+        "components": ["graphdb-api"],
+        "evidence": {
+          "files": ["graphdb/api/auth.py:344"],
+          "method": "manual",
+          "note": "Starlette AuthMiddleware enforces Bearer token on all non-exempt paths; DuckDB-backed TokenStore with in-memory cache"
+        }
+      },
+      {
+        "id": "cache-aside",
+        "category": "storage",
+        "confidence": "high",
+        "components": ["graphdb-api", "node-consumers"],
+        "evidence": {
+          "files": ["graphdb/api/config.py:85", "graphdb/graph/node/base/store.py:77"],
+          "method": "manual",
+          "note": "EdgePool warm cache pre-loads recently-active entities (30min window); NodeStore keeps 200K-key in-memory known-key cache to skip DB lookups"
+        }
+      },
+      {
+        "id": "lru-cache",
+        "category": "storage",
+        "confidence": "high",
+        "components": ["graphdb-api"],
+        "evidence": {
+          "files": ["graphdb/api/config.py:12"],
+          "method": "manual",
+          "note": "stoik EntityCache with per-entity-type LRU limits (5K-15K entries) alongside warm tier"
+        }
+      },
+      {
+        "id": "training-pipeline",
+        "category": "ml",
+        "confidence": "high",
+        "components": ["classifier-scheduler"],
+        "evidence": {
+          "files": ["classifier/classifier/spam_classifier.py", "classifier/scheduler/runner.py:82"],
+          "method": "manual",
+          "note": "Weekly retrain pipeline: dataset export → prepare → LightGBM train with validation gate → model file replacement"
+        }
+      },
+      {
+        "id": "model-registry",
+        "category": "ml",
+        "confidence": "medium",
+        "components": ["classifier-scheduler"],
+        "evidence": {
+          "files": ["classifier/classifier/lib/model_registry.py", "graphdb/api/flight.py:96"],
+          "method": "manual",
+          "note": "Model files stored at /opt/data/logbd/models/; model_info table populated from .lgb file mtimes; candidate validation before promotion"
+        }
+      },
+      {
+        "id": "health-check",
+        "category": "distributed",
+        "confidence": "high",
+        "components": ["graphdb-api"],
+        "evidence": {
+          "files": ["graphdb/api/routers/health.py:18", "graphdb/monitor/sentinel.py:1"],
+          "method": "manual",
+          "note": "GET /health endpoint; sentinel runs as background thread querying Prometheus for per-process status flags; readiness + liveness probes in k8s manifest"
+        }
+      },
+      {
+        "id": "structured-logging",
+        "category": "observability",
+        "confidence": "high",
+        "components": ["message-producer", "entity-extraction", "node-consumers", "graphdb-api"],
+        "evidence": {
+          "files": ["graphdb/lib/log.py", "graphdb/api/auth.py:33"],
+          "method": "grep",
+          "note": "structlog used across all graphdb modules with JSON output; access_logger records per-request user/path/status/duration"
+        }
+      },
+      {
+        "id": "metrics-instrumentation",
+        "category": "observability",
+        "confidence": "high",
+        "components": ["node-consumers", "graphdb-api", "classifier-scheduler", "derived-refresh"],
+        "evidence": {
+          "files": ["graphdb/lib/metrics.py:1", "graphdb/api/auth.py:56"],
+          "method": "grep",
+          "note": "prometheus_client Counters, Gauges, Histograms defined for flush duration, entity counts, enrichment outcomes, Tier G metrics, per-user API request rates"
+        }
+      },
+      {
+        "id": "scheduler",
+        "category": "lifecycle",
+        "confidence": "high",
+        "components": ["classifier-scheduler", "derived-refresh"],
+        "evidence": {
+          "files": ["classifier/scheduler/runner.py:179", "graphdb/graph/derived/service.py:128"],
+          "method": "manual",
+          "note": "Time-aligned interval loop in classifier (30min periodic, daily dataset refresh, weekly retrain); 6-hour Tier G graph algorithm run in derived-refresh"
+        }
+      },
+      {
+        "id": "retry",
+        "category": "resilience",
+        "confidence": "medium",
+        "components": ["derived-refresh", "node-consumers", "enrichment-services"],
+        "evidence": {
+          "files": ["graphdb/graph/derived/refresh.py:17", "graphdb/graph/node/base/store.py:54"],
+          "method": "grep",
+          "note": "DuckDB lock contention retry with exponential backoff in derived-refresh and NodeStore reconnect; WHOIS/RDAP service has retry on failed domains"
+        }
+      },
+      {
+        "id": "connection-pooling",
+        "category": "infrastructure",
+        "confidence": "high",
+        "components": ["graphdb-api", "flight-sql"],
+        "evidence": {
+          "files": ["graphdb/api/edge_pool.py:79"],
+          "method": "manual",
+          "note": "EdgePool maintains long-lived read-only DuckDB connections to all snapshot files with per-connection locks; stoik FlightPool manages gRPC connections"
+        }
+      },
+      {
+        "id": "property-graph",
+        "category": "domain-model",
+        "confidence": "high",
+        "components": ["node-consumers", "edge-consumers", "derived-refresh"],
+        "evidence": {
+          "files": ["graphdb/graph/SCHEMA.md", "graphdb/graph/node/", "graphdb/graph/edge/"],
+          "method": "manual",
+          "note": "9 typed node types with 8 edge relationship types; graph algorithms (PageRank, label propagation, BFS) applied over the graph structure"
+        }
+      },
+      {
+        "id": "time-series",
+        "category": "domain-model",
+        "confidence": "high",
+        "components": ["node-consumers"],
+        "evidence": {
+          "files": ["graphdb/graph/node/base/store.py:126", "graphdb/graph_support/traffic_history/history.py"],
+          "method": "manual",
+          "note": "traffic_history_minute table stores per-minute traffic + spam counts per entity; compacted to hourly/daily over time"
+        }
+      }
+    ],
+    "detected_anti_patterns": [
+      {
+        "id": "hardcoded-config",
+        "category": "operations",
+        "confidence": "medium",
+        "components": ["enrichment-services"],
+        "evidence": {
+          "files": ["graphdb/graph/node/domain/uclt.py:20"],
+          "method": "grep",
+          "note": "UCLT_SERVER hardcoded as '173.243.138.91' — should be env var or configmap"
+        }
+      }
+    ],
+    "gaps": [
+      {
+        "id": "circuit-breaker",
+        "relevance": "graphdb-api, enrichment-services, and message-producer all make external HTTP/Kafka calls with no circuit breaker; Kafka is a single broker",
+        "recommendation": "Add pybreaker circuit breaker around Kafka publish calls and WHOIS/RDAP HTTP requests in enrichment services"
+      },
+      {
+        "id": "dead-letter",
+        "relevance": "Kafka consumers have no dead-letter queue; malformed messages are logged and discarded",
+        "recommendation": "Route deserialization failures to a dead-letter topic for offline inspection and replay"
+      },
+      {
+        "id": "distributed-tracing",
+        "relevance": "No trace IDs propagated from NFS ingest through Kafka through DuckDB write; correlation between API requests and specific data requires log scraping",
+        "recommendation": "Add OpenTelemetry spans on the slot-to-graph path; propagate slot_id as a correlation key"
+      },
+      {
+        "id": "input-validation",
+        "relevance": "REST API has FastAPI path/query validation but no Pydantic model validation on most request bodies; /admin endpoints rely on middleware auth only",
+        "recommendation": "Add Pydantic request models to bulk and admin endpoints"
+      },
+      {
+        "id": "rate-limiting",
+        "relevance": "No rate limiting on any API endpoint; a runaway client or a slow query can saturate the DuckDB connection pool",
+        "recommendation": "Add per-user rate limiting via FastAPI middleware (e.g., slowapi)"
+      }
+    ],
+    "scan_metadata": {
+      "catalog_size": {"patterns": "204", "anti_patterns": "22"},
+      "tools_used": ["grep", "manual"],
+      "categories_scanned": ["architecture", "structural", "data", "integration", "resilience", "lifecycle", "creational", "behavioral", "concurrency", "storage", "messaging", "deployment", "security", "api", "distributed", "testing", "error-handling", "infrastructure", "observability", "ml"]
+    }
+  },
+
+  "module_graph": {
+    "modules": [
+      {
+        "id": "graphdb/lib/consumer/loop.py",
+        "imports": ["stoik.stream.kafka", "stoik.loop"],
+        "imported_by": ["graphdb/graph/node/base/consumer.py", "graphdb/data_source/logServer/entity_extraction/consumer.py", "graphdb/graph/score/consumer.py"],
+        "role": "hub"
+      },
+      {
+        "id": "graphdb/lib/metrics.py",
+        "imports": ["prometheus_client"],
+        "imported_by": ["graphdb/graph/node/base/consumer.py", "graphdb/api/auth.py", "graphdb/graph/derived/service.py", "graphdb/monitor/sentinel.py"],
+        "role": "hub"
+      },
+      {
+        "id": "graphdb/db.py",
+        "imports": ["duckdb"],
+        "imported_by": ["graphdb/graph/node/base/store.py", "graphdb/api/edge_pool.py"],
+        "role": "shared"
+      },
+      {
+        "id": "graphdb/events/kafka.py",
+        "imports": ["confluent_kafka"],
+        "imported_by": ["graphdb/data_source/logServer/messageProducer/pipeline.py", "graphdb/graph/score/consumer.py"],
+        "role": "shared"
+      },
+      {
+        "id": "lib/snapshot.py",
+        "imports": ["duckdb"],
+        "imported_by": ["graphdb/lib/dbpool.py", "graphdb/graph/score/consumer.py"],
+        "role": "shared"
+      }
+    ],
+    "circular_dependencies": [],
+    "hub_modules": ["graphdb/lib/consumer/loop.py", "graphdb/lib/metrics.py"],
+    "infrastructure": [
+      {
+        "resource": "graphdb-node-message PVC",
+        "kind": "PersistentVolumeClaim",
+        "source": "prod namespace",
+        "notes": "XFS filesystem, shared by entity-extraction and metadata-archiver"
+      },
+      {
+        "resource": "graphdb-api-data PVC",
+        "kind": "PersistentVolumeClaim",
+        "source": "prod namespace",
+        "notes": "Mounted at /opt/data/graph for REST API — contains MinIO snapshots"
+      },
+      {
+        "resource": "minio-credentials Secret",
+        "kind": "Secret",
+        "source": "prod namespace",
+        "notes": "MINIO_ACCESS_KEY and MINIO_SECRET_KEY injected via secretKeyRef"
+      }
+    ],
+    "inter_service": [
+      {
+        "service": "kafka",
+        "discovered_in": "deploy/graphdb/configmap.yaml",
+        "pattern": "KAFKA_BROKER env var",
+        "value": "kafka:9092"
+      },
+      {
+        "service": "flight-sql",
+        "discovered_in": "deploy/graphdb/api/api.yaml",
+        "pattern": "GRAPH_FLIGHT_URL env var",
+        "value": "grpc://flight-sql:8815"
+      },
+      {
+        "service": "redis",
+        "discovered_in": "deploy/graphdb/api/api.yaml",
+        "pattern": "REDIS_URL env var",
+        "value": "redis://redis:6379"
+      },
+      {
+        "service": "prometheus",
+        "discovered_in": "deploy/graphdb/api/api.yaml",
+        "pattern": "PROMETHEUS_URL env var",
+        "value": "http://prometheus.monitor.svc.cluster.local:9090"
+      }
+    ],
+    "ci_cd": [],
+    "iac": [
+      {
+        "tool": "kustomize",
+        "files": ["deploy/graphdb/api/api.yaml", "deploy/graphdb/consumers/entity-extraction.yaml", "deploy/graphdb/infra/kafka.yaml"],
+        "resources": ["Deployment", "Service", "PersistentVolumeClaim", "ConfigMap", "Secret"],
+        "environment": "production"
+      }
+    ],
+    "risks": {
+      "hardcoded_endpoints": [
+        "graphdb/graph/node/domain/uclt.py:20 — UCLT_SERVER = '173.243.138.91'"
+      ],
+      "missing_resilience": [
+        {"file": "graphdb/data_source/logServer/messageProducer/pipeline.py", "service_type": "nfs", "missing": ["timeout", "retry", "circuit_breaker"]},
+        {"file": "graphdb/events/kafka.py", "service_type": "message-broker", "missing": ["circuit_breaker"]},
+        {"file": "graphdb/graph/node/domain/enrichment/whois_service.py", "service_type": "http-api", "missing": ["circuit_breaker"]}
+      ],
+      "unversioned_deps": []
+    }
+  },
+
+  "observability": {
+    "logging": {
+      "format": "json",
+      "levels_used": ["DEBUG", "INFO", "WARNING", "ERROR"],
+      "correlation_id": false,
+      "libraries": ["structlog"],
+      "grounded_in": ["graphdb/lib/log.py:1", "graphdb/api/auth.py:33"]
+    },
+    "metrics": {
+      "format": "prometheus",
+      "endpoint": "/metrics",
+      "key_metrics": [
+        "pipeline_flush_duration_seconds",
+        "pipeline_consumed_total",
+        "pipeline_process_status",
+        "pipeline_derived_max_staleness_seconds",
+        "tier_g_nodes_total",
+        "tier_g_edges_total",
+        "graphdb_api_requests_total",
+        "graphdb_api_request_duration_seconds"
+      ],
+      "grounded_in": ["graphdb/lib/metrics.py:1", "graphdb/api/routers/metrics.py:1"]
+    },
+    "tracing": {
+      "enabled": false,
+      "provider": "none",
+      "propagation": "none",
+      "grounded_in": []
+    },
+    "gaps": [
+      "No distributed trace IDs — correlation between API requests and pipeline events requires log scraping",
+      "No correlation ID propagated through slot_id from NFS ingest through Kafka through DuckDB write",
+      "No MinIO snapshot freshness metric — stale Parquet files cause silent classifier degradation"
+    ]
+  },
+
+  "security": {
+    "authentication": {
+      "methods": ["api-key"],
+      "default_deny": true,
+      "identity_provider": "custom",
+      "grounded_in": ["graphdb/api/auth.py:344", "graphdb/api/routers/admin.py:1"]
+    },
+    "authorization": {
+      "model": "none",
+      "enforcement": "middleware",
+      "grounded_in": ["graphdb/api/auth.py:250"]
+    },
+    "secrets_management": {
+      "strategy": "k8s-secrets",
+      "hardcoded_secrets": [],
+      "rotation": "manual",
+      "grounded_in": ["deploy/graphdb/api/api.yaml:1"]
+    },
+    "threat_surface": [
+      {
+        "entry_point": "/node/{type}/{key} and all /node/* routes",
+        "type": "api",
+        "authentication": "Bearer token",
+        "validation": "partial",
+        "rate_limited": false
+      },
+      {
+        "entry_point": "/admin/tokens",
+        "type": "api",
+        "authentication": "Bearer token",
+        "validation": "none",
+        "rate_limited": false
+      },
+      {
+        "entry_point": "gRPC port 8815 (Flight SQL)",
+        "type": "grpc",
+        "authentication": "none",
+        "validation": "none",
+        "rate_limited": false
+      }
+    ]
+  },
+
+  "developer_experience": {
+    "testing": {
+      "frameworks": ["pytest"],
+      "strategy": {
+        "unit": "graphdb/tests/ (if present)",
+        "integration": "none",
+        "e2e": "none"
+      },
+      "coverage": "unknown",
+      "grounded_in": []
+    },
+    "linting": [],
+    "documentation": {
+      "readme": true,
+      "adrs": null,
+      "api_docs": null,
+      "inline_coverage": "medium"
+    }
+  },
+
+  "api_surface": {
+    "style": "mixed",
+    "frameworks": [
+      {"name": "FastAPI", "version": ">=0.100"},
+      {"name": "Arrow Flight SQL (stoik)", "version": "latest"}
+    ],
+    "endpoints": [
+      {"method": "GET", "path": "/health", "handler": "health", "file": "graphdb/api/routers/health.py:18", "auth": "no", "validation": "no"},
+      {"method": "GET", "path": "/metrics", "handler": "metrics_endpoint", "file": "graphdb/api/routers/metrics.py", "auth": "no", "validation": "no"},
+      {"method": "GET", "path": "/node/{type}/{key}", "handler": "get_node", "file": "graphdb/api/routers/nodes.py", "auth": "yes", "validation": "partial"},
+      {"method": "GET", "path": "/node/{type}/{key}/neighbors", "handler": "get_neighbors", "file": "graphdb/api/routers/nodes.py", "auth": "yes", "validation": "partial"},
+      {"method": "GET", "path": "/node/{type}/{key}/content", "handler": "get_content", "file": "graphdb/api/routers/content.py", "auth": "yes", "validation": "no"},
+      {"method": "GET", "path": "/search/{type}", "handler": "search", "file": "graphdb/api/routers/search.py", "auth": "yes", "validation": "partial"},
+      {"method": "POST", "path": "/nodes/bulk", "handler": "bulk_lookup", "file": "graphdb/api/routers/bulk.py", "auth": "yes", "validation": "no"},
+      {"method": "GET", "path": "/path/{type}/{key}", "handler": "shortest_path", "file": "graphdb/api/routers/path.py", "auth": "yes", "validation": "no"},
+      {"method": "GET", "path": "/subgraph/{type}/{key}", "handler": "subgraph", "file": "graphdb/api/routers/subgraph.py", "auth": "yes", "validation": "no"},
+      {"method": "GET", "path": "/top/{type}", "handler": "top_entities", "file": "graphdb/api/routers/ranking.py", "auth": "yes", "validation": "partial"},
+      {"method": "GET", "path": "/export/{type}", "handler": "export", "file": "graphdb/api/routers/export.py", "auth": "yes", "validation": "no"},
+      {"method": "POST", "path": "/admin/tokens", "handler": "create_token", "file": "graphdb/api/routers/admin.py", "auth": "yes", "validation": "no"},
+      {"method": "GET", "path": "/metadata", "handler": "metadata", "file": "graphdb/api/routers/metadata.py", "auth": "yes", "validation": "no"},
+      {"method": "GET", "path": "/messages/{type}/{key}", "handler": "messages", "file": "graphdb/api/routers/messages.py", "auth": "yes", "validation": "no"},
+      {"method": "GET", "path": "/resolve/{type}/{key}", "handler": "resolve", "file": "graphdb/api/routers/resolve.py", "auth": "yes", "validation": "no"}
+    ],
+    "findings": {
+      "recommended": [
+        {
+          "description": "No rate limiting on any endpoint — a single slow subgraph query can exhaust the DuckDB connection pool",
+          "files": ["graphdb/api/app.py"],
+          "count": "1"
+        },
+        {
+          "description": "Bulk endpoint and admin endpoints accept free-form payloads without Pydantic request models",
+          "files": ["graphdb/api/routers/bulk.py", "graphdb/api/routers/admin.py"],
+          "count": "2"
+        }
+      ],
+      "minor": [
+        {
+          "description": "SQL string interpolation in nodes.py _escape() is manual; should use parameterized queries",
+          "files": ["graphdb/api/routers/nodes.py:64"],
+          "count": "1"
+        }
+      ]
+    },
+    "compliance": {
+      "gateway": {"status": "partial", "notes": "No reverse proxy or external gateway; API is exposed directly via NodePort 30443; TLS is optional (ssl_cert/ssl_key args)"},
+      "hexagonal": {"status": "partial", "notes": "routers/ are clean adapters; EdgePool and FlightPool are port abstractions; but API directly opens DuckDB connections rather than going through a domain service layer"},
+      "external_gateway": null
+    }
+  },
+
+  "debt": {
+    "score": 14,
+    "grade": "B",
+    "grade_capped": false,
+    "interpretation": "Good shape with targeted resilience and validation gaps; the pipeline handles 27 concurrent consumers cleanly but has no circuit breaker on Kafka or NFS and raw SQL string building in the API.",
+    "by_category": [
+      {"category": "Resilience", "points": "7", "violations": "3"},
+      {"category": "Data", "points": "3", "violations": "2"},
+      {"category": "Lifecycle", "points": "2", "violations": "1"},
+      {"category": "Structural", "points": "2", "violations": "1"}
+    ],
+    "violations": [
+      {
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "pattern": "kafka-producer",
+        "anti_pattern": "No circuit breaker on Kafka publish",
+        "components": ["message-producer", "classifier-scheduler"],
+        "files": ["graphdb/events/kafka.py", "graphdb/data_source/logServer/messageProducer/pipeline.py"],
+        "detail": "All Kafka publish calls retry once on BufferError but have no circuit breaker; a sustained broker failure fills the retry loop indefinitely.",
+        "points": "2"
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "pattern": "nfs-dependency",
+        "anti_pattern": "No retry on NFS mount failure",
+        "components": ["message-producer"],
+        "files": ["graphdb/data_source/logServer/messageProducer/pipeline.py:180"],
+        "detail": "statvfs() failure aborts the slot and returns without retry; producer goes idle until next scan.",
+        "points": "2"
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "pattern": "minio-snapshot",
+        "anti_pattern": "No health check on MinIO / Parquet snapshot freshness",
+        "components": ["flight-sql", "classifier-scheduler"],
+        "files": ["graphdb/lib/dbpool.py"],
+        "detail": "Flight SQL silently serves stale Parquet if MinIO is down; no freshness check before classifier runs inference.",
+        "points": "2"
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Data",
+        "pattern": "rest",
+        "anti_pattern": "No Pydantic request model on bulk/admin endpoints",
+        "components": ["graphdb-api"],
+        "files": ["graphdb/api/routers/bulk.py", "graphdb/api/routers/admin.py"],
+        "detail": "Bulk lookup and admin token endpoints do not validate request payload structure; type errors surface as 500 errors.",
+        "points": "2"
+      },
+      {
+        "severity": "MINOR",
+        "category": "Data",
+        "pattern": "rest",
+        "anti_pattern": "Manual SQL string interpolation in node lookup",
+        "components": ["graphdb-api"],
+        "files": ["graphdb/api/routers/nodes.py:64"],
+        "detail": "_escape() replaces single quotes manually instead of using DuckDB parameterized queries; works correctly for current inputs but is fragile.",
+        "points": "1"
+      },
+      {
+        "severity": "MINOR",
+        "category": "Lifecycle",
+        "pattern": "config-management",
+        "anti_pattern": "Hardcoded external IP for UCLT server",
+        "components": ["enrichment-services"],
+        "files": ["graphdb/graph/node/domain/uclt.py:20"],
+        "detail": "UCLT_SERVER = '173.243.138.91' should be an env var or ConfigMap entry.",
+        "points": "1"
+      },
+      {
+        "severity": "MINOR",
+        "category": "Structural",
+        "pattern": "structured-logging",
+        "anti_pattern": "print() in utility scripts and retention code",
+        "components": ["derived-refresh", "enrichment-services"],
+        "files": ["graphdb/graph/retention_utils.py", "graphdb/graph_support/asn_reputation/__main__.py"],
+        "detail": "Utility scripts and retention modules use print() instead of structlog; breaks structured log pipeline in production.",
+        "points": "1"
+      },
+      {
+        "severity": "MINOR",
+        "category": "Resilience",
+        "pattern": "redis-dependency",
+        "anti_pattern": "No fallback when Redis is unreachable for enrichment queues",
+        "components": ["enrichment-services"],
+        "files": ["graphdb/graph/node/domain/enrichment/whois_service.py"],
+        "detail": "Redis connection failure in enrichment services raises an exception that propagates and kills the enrichment cycle; no fallback or graceful degradation.",
+        "points": "1"
+      }
+    ],
+    "recommendations": [
+      {
+        "priority": "1",
+        "title": "Add circuit breaker on Kafka publish and NFS access",
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "files": ["graphdb/events/kafka.py", "graphdb/data_source/logServer/messageProducer/pipeline.py"],
+        "description": "Wrap produce() calls with pybreaker; add retry loop with exponential backoff for NFS statvfs failure. Fixes the 'silent idle' failure mode where the producer stops without alerting.",
+        "fixes": ["kafka-producer-no-circuit-breaker", "nfs-no-retry"]
+      },
+      {
+        "priority": "2",
+        "title": "Add MinIO/Parquet freshness check before classifier inference",
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "files": ["graphdb/lib/dbpool.py", "classifier/classifier/infer.py"],
+        "description": "Check Parquet file mtimes before running inference; abort if any entity type's snapshot is older than 2 hours. Prevents stale-feature scoring from silently degrading model quality.",
+        "fixes": ["minio-no-freshness-check"]
+      },
+      {
+        "priority": "3",
+        "title": "Add rate limiting and Pydantic request models to REST API",
+        "severity": "RECOMMENDED",
+        "category": "Data",
+        "files": ["graphdb/api/app.py", "graphdb/api/routers/bulk.py", "graphdb/api/routers/admin.py"],
+        "description": "Add slowapi per-user rate limiting middleware; add Pydantic BaseModel request schemas to bulk and admin endpoints. Prevents accidental API flooding and surfaces malformed payloads as 422 instead of 500.",
+        "fixes": ["no-rate-limiting", "no-pydantic-models"]
+      },
+      {
+        "priority": "4",
+        "title": "Move hardcoded UCLT IP to env var or ConfigMap",
+        "severity": "MINOR",
+        "category": "Lifecycle",
+        "files": ["graphdb/graph/node/domain/uclt.py:20"],
+        "description": "Replace UCLT_SERVER literal with os.environ.get('UCLT_SERVER', ...) and add to graphdb ConfigMap.",
+        "fixes": ["hardcoded-config"]
+      },
+      {
+        "priority": "5",
+        "title": "Replace print() with structlog in utility scripts",
+        "severity": "MINOR",
+        "category": "Structural",
+        "files": ["graphdb/graph/retention_utils.py", "graphdb/graph_support/asn_reputation/__main__.py"],
+        "description": "Replace print() calls with structlog logger.info() so retention and support scripts emit structured JSON compatible with the log pipeline.",
+        "fixes": ["print-in-production"]
+      }
+    ]
+  },
+
+  "metadata": {
+    "story_ids": [
+      "ingest", "graph-store", "analytics", "query-api",
+      "message-producer-detail", "entity-extraction-detail",
+      "node-consumer-pattern", "enrichment-flow", "score-ingestion",
+      "derived-tier-g", "classifier-pipeline",
+      "api-auth-cache", "flight-sql-detail", "api-failure-modes"
+    ],
+    "flags": {
+      "detect_only": false
+    }
+  }
+}

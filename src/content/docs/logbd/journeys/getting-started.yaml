@@ -1,0 +1,37 @@
+id: getting-started
+title: Getting Started with logBD
+description: Trace a FortiMail log line from NFS mount to queryable graph node — then see how ML scoring updates it every 30 minutes.
+audience: ["new-developer", "analyst"]
+
+stories:
+  - ingest
+  - message-producer-detail
+  - entity-extraction-detail
+  - graph-store
+  - node-consumer-pattern
+  - analytics
+  - query-api
+  - api-auth-cache
+
+bridges:
+  - from: ingest
+    to: message-producer-detail
+    text: "The ingest stage reads and parses log files in parallel. But how does it avoid deadlocks when spawning Kafka-connected workers?"
+  - from: message-producer-detail
+    to: entity-extraction-detail
+    text: "Messages are now on the 'message' Kafka topic. But how does one message become records across 9 different entity types?"
+  - from: entity-extraction-detail
+    to: graph-store
+    text: "Nine entity topics are populated. But how do 27 consumers maintain their DuckDB files without stepping on each other?"
+  - from: graph-store
+    to: node-consumer-pattern
+    text: "All consumers use the same stoik loop. But what exactly happens inside a single flush — and why does the known-key cache matter?"
+  - from: node-consumer-pattern
+    to: analytics
+    text: "Raw entities are persisted with traffic counts. But how do spam scores and graph signals get computed on top of them?"
+  - from: analytics
+    to: query-api
+    text: "Derived signals are computed every 30 minutes. But how does the REST API serve them in sub-second time?"
+  - from: query-api
+    to: api-auth-cache
+    text: "The API has two access paths. But how does auth work — and which cache tier actually gets hit for a typical node lookup?"

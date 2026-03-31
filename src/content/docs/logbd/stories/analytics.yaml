@@ -1,0 +1,57 @@
+id: analytics
+title: Analytics — Derived Signals and ML Classification
+teaches: How 72 derived signals are computed from the raw graph and how LightGBM produces spam scores every 30 minutes.
+tags: ["ml", "lightgbm", "graph-algorithms", "derived", "pagerank", "spam"]
+
+parent: null
+children: ["derived-tier-g", "classifier-pipeline"]
+
+anchor:
+  file: graphdb/graph/derived/tiers/tier_g.py
+  line: 1
+  description: This is where the full emailed_with + association graphs are loaded into scipy sparse matrices for PageRank, label propagation, and BFS.
+
+summary: |
+  **derived-refresh** iterates all entity types in round-robin, computing 7 tiers of signals: traffic aggregation (A), cross-DB message joins (B), reputation lookups (C), multi-hop traversals (D), per-group aggregations (E), static properties (F), and graph algorithms (G — every 6 hours). Tier G loads 100M+ edges into scipy sparse matrices and runs PageRank, label propagation, connected components, and BFS spam distance.
+
+  **classifier-scheduler** wakes every 30 minutes, fetches entity features from Flight SQL, runs LightGBM inference to produce signed spam scores [-1, +1], and publishes them to the score.signal Kafka topic. Weekly retraining updates the model from freshly exported DuckDB features.
+
+structures:
+  - id: analytics-topology
+    title: Analytics Component Topology
+    type: component topology
+    nodes:
+      - id: derived-refresh
+      - id: classifier-scheduler
+      - id: duckdb-node-store
+      - id: duckdb-edge-store
+      - id: duckdb-derived-store
+      - id: duckdb-score-store
+      - id: flight-sql
+      - id: kafka-broker
+      - id: minio-parquet
+    edges:
+      - from: derived-refresh
+        to: duckdb-node-store
+        label: reads base entities
+        type: reads
+      - from: derived-refresh
+        to: duckdb-edge-store
+        label: reads edge COO arrays
+        type: reads
+      - from: derived-refresh
+        to: duckdb-derived-store
+        label: writes 72 signals
+        type: writes
+      - from: derived-refresh
+        to: minio-parquet
+        label: snapshot after refresh
+        type: writes
+      - from: classifier-scheduler
+        to: flight-sql
+        label: query feature views
+        type: reads
+      - from: classifier-scheduler
+        to: kafka-broker
+        label: publish score.signal
+        type: publishes

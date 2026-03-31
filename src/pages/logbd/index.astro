@@ -1,44 +1,725 @@
 ---
-import ArchExplorer from '../../components/ArchExplorer.astro';
-import data from '../../content/docs/logbd/architecture.json';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+/**
+ * logBD Journey — Guided architecture walkthrough
+ *
+ * Auto-loads augur + scribe data from content directory.
+ * CSS scroll-snap for section focus, progressive reveal.
+ */
+import fs from 'node:fs';
+import yaml from 'js-yaml';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const narrativeDir = join(__dirname, '../../data/narratives/logbd');
+const dir = 'src/content/docs/logbd';
+const atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
+const manifest = JSON.parse(fs.readFileSync(`${dir}/manifest.json`, 'utf-8'));
+const storyByNode = JSON.parse(fs.readFileSync(`${dir}/storyByNode.json`, 'utf-8'));
 
-function mdToHtml(filename: string): string {
-  try {
-    const md = readFileSync(join(narrativeDir, filename), 'utf-8');
-    return md
-      .replace(/^### (.*?)\s*\{#([^}]+)\}/gm, '<h3 id="$2">$1</h3>')
-      .replace(/^## (.*?)\s*\{#([^}]+)\}/gm, '<h2 id="$2">$1</h2>')
-      .replace(/^# (.*?)\s*\{#([^}]+)\}/gm, '<h1 id="$2">$1</h1>')
-      .replace(/^### (.*)/gm, '<h3>$1</h3>')
-      .replace(/^## (.*)/gm, '<h2>$1</h2>')
-      .replace(/^# (.*)/gm, '<h1>$1</h1>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/^/, '<p>')
-      .replace(/$/, '</p>');
-  } catch {
-    return '';
-  }
+// Load journeys
+const journeyFiles = fs.readdirSync(`${dir}/journeys`).filter((f: string) => f.endsWith('.yaml'));
+const journeys = journeyFiles.map((f: string) => yaml.load(fs.readFileSync(`${dir}/journeys/${f}`, 'utf-8')));
+const defaultJourney = journeys.find((j: any) => j.id === 'getting-started') || journeys[0];
+
+// Load all stories into a map
+const storyMap: Record<string, any> = {};
+for (const f of fs.readdirSync(`${dir}/stories`).filter((s: string) => s.endsWith('.yaml'))) {
+  const s = yaml.load(fs.readFileSync(`${dir}/stories/${f}`, 'utf-8')) as any;
+  storyMap[s.id] = s;
 }
 
-const narratives = {
-  structure: mdToHtml('structure.md'),
-  flows: mdToHtml('flows.md'),
-  data: mdToHtml('data.md'),
-  resilience: mdToHtml('resilience.md'),
+// Order stories per journey
+const stories = (defaultJourney.stories || []).map((sid: string) => storyMap[sid]).filter(Boolean);
+
+// Build bridge lookup: to-story-id → bridge text
+const bridgeMap: Record<string, any> = {};
+for (const b of (defaultJourney.bridges || [])) {
+  if (b && typeof b === 'object') bridgeMap[b.to] = b;
+}
+
+// Component lookup
+const compMap: Record<string, any> = {};
+for (const c of (atlas.components || [])) compMap[c.id] = c;
+for (const e of (atlas.external_dependencies || [])) compMap[e.id] = e;
+
+const purpose = atlas.purpose || '';
+const dm = atlas.domain_model || {};
+const totalStories = stories.length;
+
+// Manifest lookup
+const manifestMap: Record<string, any> = {};
+for (const s of (manifest.stories || [])) manifestMap[s.storyId] = s;
+
+// Helper: parse bold refs in summary
+function parseSummary(text: string): string {
+  return text
+    .replace(/\*\*([^*]+?)\*\*/gs, (_: string, name: string) =>
+      `<span class="ref" data-id="${name.toLowerCase().replace(/\s+/g, '-')}">${name}</span>`)
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, ' ');
+}
+
+// Type colors for nodes
+const typeColors: Record<string, { bg: string; border: string; text: string }> = {
+  worker: { bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.25)', text: '#818cf8' },
+  service: { bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', text: '#60a5fa' },
+  api: { bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.25)', text: '#4ade80' },
+  store: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', text: '#fbbf24' },
+  cli: { bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.25)', text: '#94a3b8' },
+  scheduler: { bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.25)', text: '#c084fc' },
+  external: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)', text: '#f87171' },
+  broker: { bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)', text: '#fb923c' },
 };
+function getTypeStyle(type: string) {
+  return typeColors[type] || typeColors.worker;
+}
 ---
-<ArchExplorer
-  title="logbd"
-  subtitle={`${data.nodes.length} nodes · ${data.edges.length} edges · ${(data as any).data_flows?.length || 0} flows`}
-  data={data}
-  repoUrl=""
-  narratives={narratives}
-/>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{defaultJourney.title}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #09090b;
+      --bg-raised: #18181b;
+      --bg-card: #1c1c22;
+      --border: #27272a;
+      --border-hover: #3f3f46;
+      --text: #fafafa;
+      --text-2: #a1a1aa;
+      --text-3: #71717a;
+      --text-4: #52525b;
+      --accent: #818cf8;
+      --accent-dim: rgba(129,140,248,0.12);
+      --accent-border: rgba(129,140,248,0.2);
+      --warn: #fbbf24;
+      --warn-dim: rgba(251,191,36,0.08);
+      --warn-border: rgba(251,191,36,0.2);
+      --danger: #f87171;
+      --success: #4ade80;
+      --success-dim: rgba(74,222,128,0.08);
+      --info: #60a5fa;
+      --info-dim: rgba(96,165,250,0.08);
+      --info-border: rgba(96,165,250,0.2);
+      --radius: 10px;
+      --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+
+    /* ─── Progress ─── */
+    #progress { position: fixed; top: 0; left: 0; height: 2px; background: var(--accent); z-index: 999; transition: width .4s ease; }
+
+    /* ─── Header ─── */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 0 1.5rem; height: 48px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(9,9,11,0.8); backdrop-filter: blur(16px) saturate(180%);
+      border-bottom: 1px solid var(--border);
+    }
+    .h-left { display: flex; align-items: center; gap: .5rem; }
+    .h-logo { font-weight: 700; font-size: .9rem; letter-spacing: -.02em; }
+    .h-env {
+      font-size: .55rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+      padding: .15rem .4rem; border-radius: 3px;
+      background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.2);
+    }
+    .h-sep { color: var(--text-4); font-size: .7rem; }
+    .h-journey { font-size: .75rem; color: var(--text-3); }
+    .h-dots { display: flex; gap: 5px; }
+    .h-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--border); cursor: pointer; transition: all .3s;
+    }
+    .h-dot.active { background: var(--accent); box-shadow: 0 0 6px var(--accent-dim); }
+    .h-dot.done { background: var(--text-4); }
+    .h-right { display: flex; gap: .5rem; align-items: center; }
+    .h-tab {
+      font-size: .7rem; padding: .25rem .6rem; border-radius: 4px;
+      color: var(--text-3); cursor: pointer; border: 1px solid transparent;
+      transition: all .2s; text-decoration: none;
+    }
+    .h-tab:hover { color: var(--text-2); border-color: var(--border); }
+    .h-tab.active { color: var(--accent); border-color: var(--accent-border); background: var(--accent-dim); }
+    .h-switch {
+      font-size: .65rem; padding: .2rem .5rem; border-radius: 4px;
+      color: var(--text-4); text-decoration: none; border: 1px solid var(--border);
+      transition: all .2s; margin-left: .25rem;
+    }
+    .h-switch:hover { color: var(--text-2); border-color: var(--border-hover); }
+
+    /* ─── Sections ─── */
+    .snap { min-height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; }
+    .snap-inner {
+      max-width: 680px; margin: 0 auto; padding: 80px 1.5rem 120px;
+      min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
+    }
+
+    /* ─── Landing ─── */
+    .landing { text-align: center; }
+    .landing h1 {
+      font-size: 3.5rem; font-weight: 800; letter-spacing: -.04em;
+      background: linear-gradient(135deg, #fff 20%, var(--accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: .75rem;
+    }
+    .landing-sub { font-size: 1.05rem; color: var(--text-2); line-height: 1.65; max-width: 520px; margin: 0 auto 1.5rem; }
+    .landing-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .3rem .8rem; border-radius: 99px; font-size: .75rem;
+      background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent);
+      margin-bottom: 2.5rem;
+    }
+    .landing-cta {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .7rem 1.8rem; border-radius: 8px; font-size: .9rem; font-weight: 500;
+      background: var(--accent); color: #fff; border: none; cursor: pointer;
+      transition: all .2s; text-decoration: none;
+    }
+    .landing-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(129,140,248,.2); }
+    .landing-stats {
+      margin-top: 2rem; display: flex; gap: 1.5rem; justify-content: center;
+      font-size: .75rem; color: var(--text-4);
+    }
+    .landing-switch {
+      margin-top: 1.5rem;
+    }
+    .landing-switch-link {
+      font-size: .75rem; color: var(--text-4); text-decoration: none;
+      padding: .3rem .8rem; border: 1px solid var(--border); border-radius: 6px;
+      transition: all .2s;
+    }
+    .landing-switch-link:hover {
+      color: var(--text-2); border-color: var(--border-hover);
+    }
+
+    /* ─── Bridge ─── */
+    .bridge {
+      text-align: center; max-width: 440px; margin: 0 auto 2.5rem;
+      font-size: .9rem; color: var(--text-3); font-style: italic; line-height: 1.6;
+      padding: 1rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+
+    /* ─── Story chrome ─── */
+    .story-num { font-size: .65rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: .4rem; }
+    .story-title { font-size: 1.6rem; font-weight: 700; letter-spacing: -.025em; margin-bottom: .4rem; line-height: 1.2; }
+    .story-group { display: inline-block; font-size: .65rem; color: var(--text-4); padding: .15rem .5rem; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 1.25rem; }
+
+    /* ─── Anchor ─── */
+    .anchor {
+      display: flex; gap: .6rem; padding: .6rem .8rem; margin-bottom: 1.25rem;
+      background: var(--accent-dim); border: 1px solid var(--accent-border); border-radius: var(--radius);
+    }
+    .anchor-pin { flex-shrink: 0; font-size: .85rem; }
+    .anchor-file { font-family: var(--mono); font-size: .75rem; color: var(--accent); }
+    .anchor-desc { font-size: .75rem; color: var(--text-3); margin-top: .15rem; }
+
+    /* ─── Summary ─── */
+    .summary { font-size: .9rem; line-height: 1.75; color: var(--text-2); margin-bottom: 1.25rem; }
+
+    /* ─── Structure ─── */
+    .struct { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden; }
+    .struct-graph { width: 100%; height: 280px; cursor: grab; }
+    .struct-graph:active { cursor: grabbing; }
+    .struct-hint { text-align: center; font-size: .6rem; color: var(--text-4); padding: .35rem; }
+
+    /* ─── Terminal / Detail Drawer ─── */
+    #terminal {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+      background: rgba(9,9,11,.95); backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      transition: height .25s ease;
+      overflow: hidden;
+    }
+    #terminal.expanded { height: 320px; }
+    .term-bar { display: flex; align-items: center; padding: .5rem 1.25rem; gap: .6rem; }
+    .term-icon { color: var(--accent); font-size: .85rem; }
+    .term-input {
+      flex: 1; background: none; border: none; color: var(--text-2);
+      font-family: var(--font); font-size: .8rem; outline: none;
+    }
+    .term-input::placeholder { color: var(--text-4); }
+    .term-key { font-size: .6rem; color: var(--text-4); padding: .15rem .35rem; border: 1px solid var(--border); border-radius: 3px; }
+    .term-close {
+      display: none; font-size: .7rem; color: var(--text-4); cursor: pointer;
+      padding: .2rem .4rem; border-radius: 4px;
+    }
+    .term-close:hover { color: var(--text-2); background: var(--bg-raised); }
+    #terminal.expanded .term-close { display: block; }
+    #terminal.expanded .term-key { display: none; }
+    .detail-body {
+      display: none; padding: 0 1.25rem 1rem; overflow-y: auto; max-height: 270px;
+    }
+    #terminal.expanded .detail-body { display: block; }
+    .detail-name { font-weight: 600; font-size: .9rem; margin-bottom: .2rem; }
+    .detail-type {
+      font-size: .6rem; color: var(--text-4); text-transform: uppercase;
+      letter-spacing: .08em; margin-bottom: .5rem;
+      display: flex; gap: .5rem; flex-wrap: wrap;
+    }
+    .detail-type-badge {
+      padding: .1rem .4rem; border-radius: 4px;
+      background: var(--accent-dim); color: var(--accent);
+    }
+    .detail-desc { font-size: .8rem; color: var(--text-2); line-height: 1.55; margin-bottom: .6rem; }
+    .detail-section { margin-bottom: .5rem; }
+    .detail-label { font-size: .65rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .25rem; }
+    .detail-links { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .detail-link {
+      font-size: .75rem; color: var(--accent); cursor: pointer;
+      padding: .15rem .4rem; border-radius: 4px; background: var(--accent-dim);
+      transition: all .15s;
+    }
+    .detail-link:hover { background: rgba(129,140,248,.2); }
+
+    /* ─── Flow ─── */
+    .flow { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
+    .flow-head { font-size: .75rem; font-weight: 600; color: var(--text-3); margin-bottom: .75rem; }
+    .flow-step { display: flex; gap: .6rem; padding: .35rem 0; font-size: .8rem; }
+    .flow-n {
+      width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+      background: var(--accent-dim); color: var(--accent);
+      font-size: .6rem; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; margin-top: .1rem;
+    }
+    .flow-from { font-weight: 500; color: var(--accent); font-size: .78rem; }
+    .flow-arrow { color: var(--text-4); font-size: .7rem; }
+    .flow-action { color: var(--text-3); font-size: .78rem; }
+
+    /* ─── Observation ─── */
+    .obs {
+      padding: .6rem .8rem; border: 1px solid var(--border); border-radius: var(--radius);
+      margin-bottom: .6rem; font-size: .8rem;
+    }
+    .obs.gap { border-left: 2px solid var(--warn); background: var(--warn-dim); }
+    .obs.finding { border-left: 2px solid var(--info); background: var(--info-dim); }
+    .obs-text { color: var(--text); line-height: 1.5; }
+    .obs-meta { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .3rem; font-size: .7rem; color: var(--text-4); }
+    .obs-file { font-family: var(--mono); font-size: .65rem; color: var(--accent); }
+    .obs-badge {
+      padding: .05rem .35rem; border-radius: 99px; font-size: .6rem;
+      font-weight: 600; text-transform: uppercase;
+    }
+    .obs-badge.high { background: var(--success-dim); color: var(--success); }
+    .obs-badge.medium { color: var(--warn); border: 1px solid var(--warn-border); }
+    .obs-badge.low { color: var(--text-4); border: 1px solid var(--border); }
+    .obs-rec { margin-top: .3rem; color: var(--warn); font-size: .75rem; }
+
+    /* ─── Rationale ─── */
+    .rat {
+      padding: .6rem .8rem; border: 1px solid var(--border); border-left: 2px solid var(--info);
+      border-radius: var(--radius); margin-bottom: .6rem; font-size: .8rem;
+    }
+    .rat-dec { font-weight: 500; margin-bottom: .2rem; }
+    .rat-ctx { color: var(--text-3); font-size: .75rem; }
+    .rat-trade { color: var(--text-4); font-size: .75rem; margin-top: .2rem; }
+
+    /* ─── Next ─── */
+    .next { margin-top: 2rem; text-align: center; }
+    .next a {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .5rem 1.2rem; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text-3); font-size: .8rem; text-decoration: none; transition: all .2s;
+    }
+    .next a:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+    /* terminal styles are above with detail drawer */
+
+    /* ─── Responsive ─── */
+    @media (max-width: 640px) {
+      .snap-inner { padding: 64px 1rem 100px; }
+      .landing h1 { font-size: 2.2rem; }
+      .story-title { font-size: 1.3rem; }
+      header { padding: 0 1rem; }
+      .landing-stats { flex-wrap: wrap; gap: .75rem; }
+    }
+  </style>
+<style is:global>
+  /* Refs injected via set:html — not scoped by Astro */
+  .ref {
+    color: #818cf8 !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    border-bottom: 1px dotted rgba(129,140,248,0.3) !important;
+    transition: all .15s;
+  }
+  .ref:hover {
+    color: #a5b4fc !important;
+    border-bottom-style: solid !important;
+  }
+</style>
+</head>
+<body>
+
+<div id="progress" style="width:0%"></div>
+
+<header>
+  <div class="h-left">
+    <span class="h-logo">{atlas.project || 'logBD'}</span>
+    <span class="h-env">dev</span>
+    <span class="h-sep">·</span>
+    <span class="h-journey">{defaultJourney.title}</span>
+  </div>
+  <div class="h-dots" id="dots">
+    {[...Array(totalStories + 1)].map((_: any, i: number) => (
+      <div class={`h-dot ${i === 0 ? 'active' : ''}`} data-i={i}></div>
+    ))}
+  </div>
+  <div class="h-right">
+    {journeys.map((j: any) => (
+      <a class={`h-tab ${j.id === defaultJourney.id ? 'active' : ''}`} href={j.id === defaultJourney.id ? '#' : `?journey=${j.id}`}>
+        {j.title}
+      </a>
+    ))}
+    <a class="h-switch" href="https://docs.khaledkord.com/logbd/" title="Switch to production view">prod ↗</a>
+  </div>
+</header>
+
+<!-- Landing -->
+<section class="snap" id="s0">
+  <div class="snap-inner landing">
+    <h1>{atlas.project || 'logBD'}</h1>
+    <p class="landing-sub">{purpose}</p>
+    {dm.primary && (
+      <div class="landing-badge">
+        ◆ {dm.primary} · {dm.entities?.length || 0} entities · {dm.relationships?.length || 0} relationships
+      </div>
+    )}
+    <div><a href="#s1" class="landing-cta">Start Journey →</a></div>
+    <div class="landing-stats">
+      <span>{atlas.components?.length} components</span>
+      <span>{atlas.flows?.length} flows</span>
+      <span>{totalStories} stories</span>
+      <span>~{Math.ceil(totalStories * 1.5)} min</span>
+    </div>
+  </div>
+</section>
+
+<!-- Stories -->
+{stories.map((story: any, i: number) => {
+  const bridge = bridgeMap[story.id];
+  const anchor = story.anchor;
+  const html = parseSummary(story.summary || '');
+
+  return (
+    <section class="snap" id={`s${i+1}`}>
+      <div class="snap-inner">
+        {bridge && <div class="bridge">{bridge.text}</div>}
+
+        <div class="story-num">Story {i+1} of {totalStories}</div>
+        <h2 class="story-title">{story.title}</h2>
+
+        {anchor && (
+          <div class="anchor">
+            <span class="anchor-pin">📌</span>
+            <div>
+              <div class="anchor-file">{anchor.file}:{anchor.line}</div>
+              <div class="anchor-desc">{anchor.description}</div>
+            </div>
+          </div>
+        )}
+
+        <div class="summary" set:html={html} />
+
+        {(story.structures || []).map((st: any, si: number) => {
+          const graphId = `graph-${i}-${si}`;
+          const graphData = JSON.stringify({
+            nodes: (st.nodes || []).map((n: any) => {
+              const nid = typeof n === 'string' ? n : n.id;
+              const c = compMap[nid];
+              return { id: nid, name: c?.name || nid, type: c?.type || 'worker', description: c?.description || '', depends_on: c?.depends_on || [], patterns: c?.patterns || [] };
+            }),
+            edges: (st.edges || []).map((e: any) => ({ from: e.from, to: e.to, label: e.label || '' }))
+          });
+          const storyRefs = JSON.stringify(storyByNode);
+          return (
+            <div class="struct">
+              <div class="struct-graph" id={graphId} data-graph={graphData} data-refs={storyRefs}></div>
+              <div class="struct-hint">click a node to explore</div>
+            </div>
+          );
+        })}
+
+        {(story.flows || []).map((fl: any) => (
+          <div class="flow">
+            {fl.title && <div class="flow-head">{fl.title}</div>}
+            {(fl.steps || []).map((step: any, si: number) => (
+              <div class="flow-step">
+                <span class="flow-n">{si+1}</span>
+                <div>
+                  <span class="flow-from">{compMap[step.node]?.name || step.node}</span>
+                  {step.to && <span class="flow-arrow"> → {compMap[step.to]?.name || step.to}</span>}
+                  <div class="flow-action">{step.action || step.effect}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {(story.observations || []).map((obs: any) => (
+          <div class={`obs ${obs.recommendation ? 'gap' : 'finding'}`}>
+            <div class="obs-text" set:html={parseSummary(obs.finding || '')} />
+            <div class="obs-meta">
+              {obs.evidence?.file && <span class="obs-file">{obs.evidence.file}{obs.evidence.lines ? `:${obs.evidence.lines[0]}` : ''}</span>}
+              {obs.confidence && <span class={`obs-badge ${obs.confidence}`}>{obs.confidence}</span>}
+            </div>
+            {obs.recommendation && <div class="obs-rec">→ {obs.recommendation}</div>}
+          </div>
+        ))}
+
+        {(story.rationale || []).map((r: any) => (
+          <div class="rat">
+            <div class="rat-dec">ℹ {r.decision}</div>
+            {r.context && <div class="rat-ctx">{r.context}</div>}
+            {r.trade_offs && <div class="rat-trade">↔ {r.trade_offs}</div>}
+          </div>
+        ))}
+
+        <div class="next">
+          {i < totalStories - 1
+            ? <a href={`#s${i+2}`}>Next →</a>
+            : <a href="#s0">↑ Start</a>
+          }
+        </div>
+      </div>
+    </section>
+  );
+})}
+
+<!-- Hidden data for ref click lookups -->
+<script id="comp-data" type="application/json" set:html={JSON.stringify(
+  Object.fromEntries([
+    ...(atlas.components || []).map((c: any) => [c.id, { id: c.id, name: c.name, type: c.type, description: c.description, depends_on: c.depends_on || [], patterns: c.patterns || [] }]),
+    ...(atlas.external_dependencies || []).map((e: any) => [e.id, { id: e.id, name: e.name || e.id, type: 'external', description: e.description || '', depends_on: [], patterns: [] }]),
+  ])
+)} />
+<script id="refs-data" type="application/json" set:html={JSON.stringify(storyByNode)} />
+
+<!-- Terminal / Detail Drawer -->
+<div id="terminal">
+  <div class="term-bar">
+    <span class="term-icon" id="term-icon">💬</span>
+    <input class="term-input" id="term-input" placeholder={`Ask about ${atlas.project || 'logBD'}...`} />
+    <span class="term-key">⌘K</span>
+    <span class="term-close" id="term-close">✕ close</span>
+  </div>
+  <div class="detail-body" id="detail-body"></div>
+</div>
+
+<script is:inline>
+  const secs = document.querySelectorAll('.snap');
+  const dots = document.querySelectorAll('.h-dot');
+  const prog = document.getElementById('progress');
+  let cur = 0;
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        cur = [...secs].indexOf(e.target);
+        dots.forEach((d, i) => {
+          d.classList.toggle('active', i === cur);
+          d.classList.toggle('done', i < cur);
+        });
+        prog.style.width = (cur / (secs.length - 1) * 100) + '%';
+      }
+    });
+  }, { threshold: 0.5 });
+  secs.forEach(s => obs.observe(s));
+
+  dots.forEach(d => d.addEventListener('click', () => {
+    secs[+d.dataset.i]?.scrollIntoView({ behavior: 'smooth' });
+  }));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); secs[Math.min(cur+1, secs.length-1)]?.scrollIntoView({ behavior: 'smooth' }); }
+    if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); secs[Math.max(cur-1, 0)]?.scrollIntoView({ behavior: 'smooth' }); }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); document.querySelector('.term-input')?.focus(); }
+  });
+
+  // ─── Cytoscape graphs ───
+  const typeColors = {
+    worker: { bg: '#2a2a4a', border: '#818cf8', text: '#c7c7ff' },
+    service: { bg: '#1e2a4a', border: '#60a5fa', text: '#93c5fd' },
+    api: { bg: '#1a2e2a', border: '#4ade80', text: '#86efac' },
+    store: { bg: '#2e2a1a', border: '#fbbf24', text: '#fde68a' },
+    cli: { bg: '#222', border: '#94a3b8', text: '#cbd5e1' },
+    scheduler: { bg: '#2a1e3a', border: '#c084fc', text: '#d8b4fe' },
+    external: { bg: '#2e1a1a', border: '#f87171', text: '#fca5a5' },
+    broker: { bg: '#2e221a', border: '#fb923c', text: '#fdba74' },
+  };
+
+  const terminal = document.getElementById('terminal');
+  const detailBody = document.getElementById('detail-body');
+  const termIcon = document.getElementById('term-icon');
+  const termInput = document.getElementById('term-input');
+  const termClose = document.getElementById('term-close');
+
+  termClose.addEventListener('click', () => {
+    terminal.classList.remove('expanded');
+    termIcon.textContent = '💬';
+    termInput.placeholder = 'Ask about ' + document.title.split(' ')[0] + '...';
+  });
+
+  function showNodeDetail(data, refs) {
+    const storyList = (refs[data.id] || []).map(s => '<span class="detail-link">' + s + '</span>').join('');
+    const depList = (data.depends_on || []).map(d => '<span class="detail-link">' + d + '</span>').join('');
+    const patterns = (data.patterns || []).map(p => '<span class="detail-type-badge">' + p + '</span>').join('');
+
+    detailBody.innerHTML =
+      '<div class="detail-name">' + data.name + '</div>' +
+      '<div class="detail-type">' +
+        '<span>' + (data.type || 'component') + '</span>' +
+        (patterns ? ' ' + patterns : '') +
+      '</div>' +
+      (data.description ? '<div class="detail-desc">' + data.description + '</div>' : '') +
+      (depList ? '<div class="detail-section"><div class="detail-label">Dependencies</div><div class="detail-links">' + depList + '</div></div>' : '') +
+      (storyList ? '<div class="detail-section"><div class="detail-label">Referenced in stories</div><div class="detail-links">' + storyList + '</div></div>' : '');
+
+    terminal.classList.add('expanded');
+    termIcon.textContent = '◆';
+    termInput.placeholder = data.name;
+  }
+
+  function initGraph(container) {
+    const data = JSON.parse(container.dataset.graph);
+    const refs = JSON.parse(container.dataset.refs || '{}');
+
+    const elements = [];
+    data.nodes.forEach(n => {
+      elements.push({ group: 'nodes', data: { id: n.id, label: n.name, nodeType: n.type, ...n } });
+    });
+    data.edges.forEach(e => {
+      elements.push({ group: 'edges', data: { source: e.from, target: e.to, label: e.label || '' } });
+    });
+
+    container._cy = null;
+    const cy = cytoscape({
+      container: container,
+      elements: elements,
+      minZoom: 0.5, maxZoom: 2.5, wheelSensitivity: 0.3,
+      style: [
+        { selector: 'node', style: {
+          'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center',
+          'font-size': '10px', 'font-family': 'Inter, sans-serif', 'font-weight': '500',
+          'color': '#fff', 'text-wrap': 'wrap', 'text-max-width': '100px',
+          'width': 'label', 'height': 'label', 'padding': '10px',
+          'shape': 'roundrectangle', 'border-width': 1.5, 'border-opacity': 0.8,
+        }},
+        { selector: 'edge', style: {
+          'width': 1.5, 'line-color': 'rgba(255,255,255,0.12)',
+          'target-arrow-color': 'rgba(255,255,255,0.12)', 'target-arrow-shape': 'triangle',
+          'curve-style': 'bezier', 'arrow-scale': 0.7,
+          'label': 'data(label)', 'font-size': '8px', 'font-family': 'Inter, sans-serif',
+          'color': 'rgba(255,255,255,0.35)',
+          'text-background-color': '#1c1c22', 'text-background-opacity': 0.9, 'text-background-padding': '2px',
+        }},
+        { selector: 'node.selected', style: {
+          'border-width': 2.5, 'border-opacity': 1,
+          'overlay-color': '#818cf8', 'overlay-padding': 6, 'overlay-opacity': 0.1,
+        }},
+        { selector: 'edge.highlighted', style: {
+          'width': 2.5, 'line-color': 'rgba(129,140,248,0.5)',
+          'target-arrow-color': 'rgba(129,140,248,0.5)',
+        }},
+      ],
+    });
+
+    // Apply type colors
+    cy.nodes().forEach(n => {
+      const tc = typeColors[n.data('nodeType')] || typeColors.worker;
+      n.style({ 'background-color': tc.bg, 'border-color': tc.border, 'color': tc.text });
+    });
+
+    // Layout
+    const nodeCount = data.nodes.length;
+    const layoutName = nodeCount <= 3 ? 'grid' : nodeCount <= 8 ? 'dagre' : 'cose-bilkent';
+    try {
+      cy.layout({
+        name: layoutName,
+        ...(layoutName === 'dagre' ? { rankDir: 'LR', nodeSep: 50, rankSep: 80 } :
+            layoutName === 'cose-bilkent' ? { idealEdgeLength: 120, nodeRepulsion: 6000 } :
+            { rows: 1, padding: 30 })
+      }).run();
+    } catch { cy.layout({ name: 'grid', padding: 30 }).run(); }
+    cy.fit(undefined, 30);
+
+    // Click handler — show detail in bottom drawer
+    cy.on('tap', 'node', function(evt) {
+      const n = evt.target;
+      const d = n.data();
+      cy.nodes().removeClass('selected');
+      cy.edges().removeClass('highlighted');
+      n.addClass('selected');
+      n.connectedEdges().addClass('highlighted');
+      showNodeDetail(d, refs);
+    });
+
+    cy.on('tap', function(evt) {
+      if (evt.target === cy) {
+        cy.nodes().removeClass('selected');
+        cy.edges().removeClass('highlighted');
+        terminal.classList.remove('expanded');
+        termIcon.textContent = '💬';
+      }
+    });
+
+    container._cy = cy;
+  }
+
+  // Lazy-load Cytoscape when graph sections enter viewport
+  let cyLoaded = false;
+  const graphObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      graphObserver.unobserve(el);
+
+      function init() {
+        if (typeof cytoscape === 'undefined') { setTimeout(init, 150); return; }
+        initGraph(el);
+      }
+
+      if (!cyLoaded) {
+        cyLoaded = true;
+        // Load Cytoscape + dagre
+        const libs = [
+          'https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js',
+          'https://unpkg.com/dagre@0.8.5/dist/dagre.min.js',
+          'https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js',
+        ];
+        let loaded = 0;
+        libs.forEach(src => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.onload = () => { loaded++; if (loaded === libs.length) init(); };
+          document.head.appendChild(s);
+        });
+      } else {
+        init();
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.struct-graph').forEach(g => graphObserver.observe(g));
+
+  // ─── Bold ref clicks → open node detail in drawer ───
+  const allCompData = JSON.parse(document.getElementById('comp-data')?.textContent || '{}');
+  const allRefs = JSON.parse(document.getElementById('refs-data')?.textContent || '{}');
+
+  document.addEventListener('click', e => {
+    const ref = e.target.closest('.ref');
+    if (!ref) return;
+    const nodeId = ref.dataset.id;
+    const comp = allCompData[nodeId];
+    if (comp) {
+      showNodeDetail(comp, allRefs);
+    }
+  });
+</script>
+</body>
+</html>

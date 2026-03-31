@@ -1,0 +1,10 @@
+id: resilience-review
+title: Resilience Review
+description: Trace the failure modes from NFS through Kafka to the API — covering every critical dependency and its recovery path.
+audience: ["sre", "oncall"]
+
+stories:
+  - message-producer-detail
+  - api-failure-modes
+  - enrichment-flow
+  - flight-sql-detail

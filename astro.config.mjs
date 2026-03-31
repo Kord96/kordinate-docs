@@ -55,23 +55,19 @@ export default defineConfig({
 						{
 							label: 'Default Team',
 							items: [
-								{ label: 'Agents', slug: 'kordinate/agents' },
-								{ label: 'Scribe', slug: 'kordinate/agents/scribe' },
-								{ label: 'Beorn', slug: 'kordinate/agents/beorn' },
-								{ label: 'Deployer', slug: 'kordinate/infra/infrastructure' },
-								{ label: 'Sauron', slug: 'kordinate/infra/monitoring' },
+								{ label: 'Agents', link: '/kordinate/agents/' },
+								{ label: 'Scribe', link: '/kordinate/agents/scribe/' },
+								{ label: 'Beorn', link: '/kordinate/agents/beorn/' },
+								{ label: 'Deployer', link: '/kordinate/infra/infrastructure/' },
+								{ label: 'Sauron', link: '/kordinate/infra/monitoring/' },
 							],
-						},
-						{
-							label: 'Reference',
-							autogenerate: { directory: 'kordinate/reference' },
 						},
 						{
 							label: 'Dev',
 							items: [
-								{ label: 'Installation', slug: 'kordinate/dev/installation' },
-								{ label: 'Sessions & Branches', slug: 'kordinate/dev/sessions' },
-								{ label: 'Feature Inventory', slug: 'kordinate/dev/features' },
+								{ label: 'Installation', link: '/kordinate/dev/installation/' },
+								{ label: 'Sessions & Branches', link: '/kordinate/dev/sessions/' },
+								{ label: 'Feature Inventory', link: '/kordinate/dev/features/' },
 							],
 						},
 					],
@@ -80,6 +76,12 @@ export default defineConfig({
 					label: 'Sous Storefront',
 					items: [
 						{ label: 'Project Explorer', link: '/sous-storefront/' },
+					],
+				},
+				{
+					label: 'LogBD',
+					items: [
+						{ label: 'Project Explorer', link: '/logbd/' },
 					],
 				},
 				{

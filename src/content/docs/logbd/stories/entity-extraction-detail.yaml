@@ -1,0 +1,56 @@
+id: entity-extraction-detail
+title: Entity Extraction — Fan-out to 9 Entity Topics
+teaches: How a single parsed message becomes records across 9 typed entity topics with MinHash cluster membership.
+tags: ["entity-extraction", "minhash", "lsh", "fan-out", "kafka"]
+
+parent: ingest
+children: []
+
+anchor:
+  file: graphdb/data_source/logServer/entity_extraction/consumer.py
+  line: 56
+  description: This is ExtractionBuffer — the accumulator that collects entities from one message before routing them to per-type Kafka topics.
+
+summary: |
+  **entity-extraction** consumes the 'message' topic and runs typed extractors: IPs collapsed to /24 subnets, URIs fingerprinted by path+query, email addresses by local part, CKM hashes for text/image/template, and MinHash cluster keys over 5 feature sets. Each entity type routes to its own Kafka topic.
+
+  The consumer also writes message-entity linkage rows to message_role.duckdb (sender, recipient, relay roles). Redis carries enrichment results from external services to the domain consumer for WHOIS, UCLT, and CT data.
+
+flows:
+  - id: extraction-fan-out
+    title: Message to 9 Entity Topics
+    type: data
+    trigger: New message record from 'message' Kafka topic
+    steps:
+      - node: entity-extraction
+        action: consumes message, runs extractors (IP, URI, email, CKM, cluster)"
+        to: entity-extraction
+        technology: confluent-kafka consumer
+      - node: entity-extraction
+        action: routes each entity type to its dedicated topic
+        to: kafka-broker
+        technology: confluent-kafka producer (9 topics)
+      - node: entity-extraction
+        action: writes message-entity linkage to message_role.duckdb
+        to: duckdb-edge-store
+        technology: DuckDB file I/O
+
+observations:
+  - id: obs-cluster-minhash
+    finding: "**entity-extraction** uses MinHash LSH with 5 feature sets to assign messages to clusters — band hashes stored as cluster node keys, not raw signatures"
+    confidence: high
+    component: entity-extraction
+    grounded_in: ["graphdb/data_source/logServer/entity_extraction/cluster.py:1"]
+    evidence:
+      file: graphdb/data_source/logServer/entity_extraction/cluster.py
+      lines: [1, 30]
+      snippet: "from utils.minhash import cluster_keys"
+    tags: ["ml", "clustering"]
+    detection_method: manual
+    recommendation: "No action needed — MinHash band approach is appropriate for this scale"
+
+evaluation:
+  groundedness: 0.90
+  coverage: 0.85
+  claim_count: 9
+  ungrounded_claims: []

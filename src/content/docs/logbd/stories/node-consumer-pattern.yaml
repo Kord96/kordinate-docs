@@ -1,0 +1,47 @@
+id: node-consumer-pattern
+title: Node Consumer Pattern — stoik Stream-to-Store
+teaches: How all 9 node consumers share the same buffer-flush-snapshot pattern through the stoik framework.
+tags: ["stoik", "stream-to-store", "duckdb", "buffer", "traffic-history", "snapshot", "minio"]
+
+parent: graph-store
+children: []
+
+anchor:
+  file: graphdb/graph/node/base/store.py
+  line: 77
+  description: This is NodeStore.get_known_keys() — the in-memory cache that prevents redundant DuckDB lookups for already-persisted entities.
+
+summary: |
+  Each of 9 node consumers runs the same stoik loop: Kafka messages accumulate in NodeBuffer (per-minute traffic aggregation), flush at 30-second intervals or 10K messages, and persist to NodeStore (DuckDB). After each flush, NodeStore writes a Parquet snapshot to MinIO. NodeStore maintains a 200K-key in-memory cache of known entity keys, evicting 50% when full.
+
+  Traffic history compacts hourly: per-minute buckets roll up to hourly/daily. Entity-specific subclasses only implement `upsert_batch()`. DuckDB lock contention with derived-refresh is handled by `_connect_with_retry` with up to 60 attempts.
+
+observations:
+  - id: obs-traffic-compaction
+    finding: "**node-consumers** compact traffic_history_minute to coarser resolutions hourly; without compaction, traffic history tables would grow unboundedly at per-minute granularity"
+    confidence: high
+    component: node-consumers
+    grounded_in: ["graphdb/graph_support/traffic_history/history.py:1"]
+    evidence:
+      file: graphdb/graph_support/traffic_history/history.py
+      lines: [1, 40]
+    tags: ["data", "retention"]
+    detection_method: manual
+    recommendation: "No action needed; compaction interval is appropriate"
+  - id: obs-known-cache-eviction
+    finding: "**node-consumers** evict half the known-key cache when it exceeds 200K entries — a full clear would force a massive DB lookup for all keys on the next flush"
+    confidence: high
+    component: node-consumers
+    grounded_in: ["graphdb/graph/node/base/store.py:112"]
+    evidence:
+      file: graphdb/graph/node/base/store.py
+      lines: [112, 125]
+    tags: ["data", "performance"]
+    detection_method: manual
+    recommendation: "No action needed; half-eviction avoids cliff-edge; consider LRU ordering for better cache efficiency at scale"
+
+evaluation:
+  groundedness: 0.92
+  coverage: 0.90
+  claim_count: 10
+  ungrounded_claims: []

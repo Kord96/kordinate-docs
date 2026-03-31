@@ -1,0 +1,48 @@
+id: api-auth-cache
+title: API Auth and Cache — Token Auth with Tiered Entity Cache
+teaches: How Bearer token authentication and a two-tier entity cache work together to serve fast point lookups.
+tags: ["auth", "token", "cache", "warm-cache", "lru", "edge-pool", "duckdb"]
+
+parent: query-api
+children: []
+
+anchor:
+  file: graphdb/api/auth.py
+  line: 99
+  description: This is TokenStore — DuckDB-backed token registry with in-memory cache and 60-second background refresh.
+
+summary: |
+  **graphdb-api** enforces Bearer token auth via Starlette middleware on all paths except /health and /metrics. TokenStore holds a DuckDB file (api_tokens.duckdb) as source of truth with an in-memory dict refreshed every 60 seconds. Tokens activate on first use. User identity comes from the X-Graph-User header declared by the client — not server-side.
+
+  Node lookups use a two-tier cache: warm tier (entities active last 30 minutes, 8K-15K entries) refreshed every 30 seconds; LRU tier (2K-15K entries) for the tail. Cache miss falls through to EdgePool's read-only DuckDB connections with per-connection threading locks.
+
+observations:
+  - id: obs-user-identity-trust
+    finding: "**graphdb-api** trusts the client-declared X-Graph-User header for user identity without validation — any authenticated client can impersonate any username in access logs"
+    confidence: high
+    component: graphdb-api
+    grounded_in: ["graphdb/api/auth.py:383"]
+    evidence:
+      file: graphdb/api/auth.py
+      lines: [383, 386]
+      snippet: "username = request.headers.get('x-graph-user', 'anonymous')"
+    tags: ["security"]
+    detection_method: manual
+    recommendation: "Acceptable for internal tooling; document that X-Graph-User is advisory not authoritative; if audit compliance is required, derive user from the token rather than the header"
+  - id: obs-no-rate-limiting
+    finding: "**graphdb-api** has no rate limiting; a single unauthenticated /health poll or authenticated subgraph query can saturate the EdgePool without throttling"
+    confidence: high
+    component: graphdb-api
+    grounded_in: ["graphdb/api/app.py:183"]
+    evidence:
+      file: graphdb/api/app.py
+      lines: [183, 185]
+    tags: ["resilience", "api"]
+    detection_method: manual
+    recommendation: "Add slowapi per-user rate limiting; subgraph and bulk endpoints are the highest risk for runaway queries"
+
+evaluation:
+  groundedness: 0.92
+  coverage: 0.90
+  claim_count: 10
+  ungrounded_claims: []

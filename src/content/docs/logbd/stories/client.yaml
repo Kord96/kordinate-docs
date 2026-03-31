@@ -1,0 +1,33 @@
+id: client
+title: Client — Python SDK and CLI
+teaches: How analysts interact with the graph via the pip-installable client library.
+tags: ["cli", "sdk", "cache", "loki"]
+
+parent: null
+children: []
+
+anchor:
+  file: client/client/api.py
+  line: 1
+  description: This is the typed API wrapper that all CLI commands and SDK callers use.
+
+summary: |
+  **graph-client** is a pip-installable Python package providing a typed API wrapper and 15+ CLI commands. It authenticates with a Bearer token, stores config in ~/.config/graph-client/, and caches subgraph results to disk. The `stream` command connects to the Loki log endpoint for real-time log tailing. All commands use the same REST API as the **graphdb-api** server.
+
+structures:
+  - id: client-topology
+    title: Client Component Topology
+    type: component topology
+    nodes:
+      - id: graph-client
+      - id: analyst
+      - id: graphdb-api
+    edges:
+      - from: analyst
+        to: graph-client
+        label: CLI commands
+        type: calls
+      - from: graph-client
+        to: graphdb-api
+        label: HTTPS REST (Bearer token)
+        type: calls

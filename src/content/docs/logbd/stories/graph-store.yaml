@@ -1,0 +1,69 @@
+id: graph-store
+title: Graph Store — 27 Kafka Consumers to DuckDB
+teaches: How 27 long-lived Kafka consumers collectively maintain a typed property graph in per-entity DuckDB files.
+tags: ["duckdb", "kafka", "property-graph", "stream-to-store", "enrichment"]
+
+parent: null
+children: ["node-consumer-pattern", "enrichment-flow", "score-ingestion"]
+
+anchor:
+  file: graphdb/graph/node/base/consumer.py
+  line: 21
+  description: This is the generic consumer loop all 9 node consumers share — buffer, flush_interval, store, compact.
+
+summary: |
+  **node-consumers** (9), **edge-consumers** (3), and **score-consumer** each own a DuckDB file and run the same stoik loop: accumulate in NodeBuffer, flush every 30 seconds, write a Parquet snapshot to MinIO. **enrichment-services** (WHOIS, UCLT, CT, SPF, URI download) read domain snapshots, call external APIs, and push results to Redis queues for the domain consumer to drain.
+
+  The 27 consumers collectively maintain 9 node tables, 4 edge tables, and 2 score tables. No shared state exists between consumers except via Kafka topics and Redis queues.
+
+structures:
+  - id: graph-store-topology
+    title: Graph Store Component Topology
+    type: component topology
+    nodes:
+      - id: node-consumers
+      - id: edge-consumers
+      - id: score-consumer
+      - id: enrichment-services
+      - id: duckdb-node-store
+      - id: duckdb-edge-store
+      - id: duckdb-score-store
+      - id: redis-cache
+      - id: minio-parquet
+    edges:
+      - from: kafka-broker
+        to: node-consumers
+        label: entity topics
+        type: subscribes
+      - from: kafka-broker
+        to: edge-consumers
+        label: entity topics
+        type: subscribes
+      - from: kafka-broker
+        to: score-consumer
+        label: score topics
+        type: subscribes
+      - from: node-consumers
+        to: duckdb-node-store
+        label: upsert + traffic history
+        type: writes
+      - from: node-consumers
+        to: minio-parquet
+        label: Parquet snapshot after flush
+        type: writes
+      - from: edge-consumers
+        to: duckdb-edge-store
+        label: upsert edges
+        type: writes
+      - from: score-consumer
+        to: duckdb-score-store
+        label: upsert scores
+        type: writes
+      - from: enrichment-services
+        to: redis-cache
+        label: push enrichment results
+        type: writes
+      - from: node-consumers
+        to: redis-cache
+        label: drain enrichment queues
+        type: reads

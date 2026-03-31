@@ -1,0 +1,234 @@
+{
+  "project": "logbd",
+  "generated": "2026-03-30",
+  "stories": [
+    {
+      "id": "ingest",
+      "title": "Ingest — NFS to Kafka",
+      "blocks": [
+        {
+          "type": "structure",
+          "id": "ingest-topology",
+          "rendering": "dagre",
+          "reason": "6 nodes (4-8 range)"
+        }
+      ]
+    },
+    {
+      "id": "message-producer-detail",
+      "title": "Message Producer — Parallel Slot Processing",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-nfs-no-retry",
+          "rendering": "warning-card",
+          "reason": "has recommendation"
+        },
+        {
+          "type": "rationale",
+          "id": "rat-spawn-not-fork",
+          "rendering": "decision-card"
+        }
+      ]
+    },
+    {
+      "id": "entity-extraction-detail",
+      "title": "Entity Extraction — Fan-out to 9 Entity Topics",
+      "blocks": [
+        {
+          "type": "flow",
+          "id": "extraction-fan-out",
+          "rendering": "sequence",
+          "reason": "data flow (not state or failure cascade)"
+        },
+        {
+          "type": "observation",
+          "id": "obs-cluster-minhash",
+          "rendering": "compact-card",
+          "reason": "no recommendation, no code snippet"
+        }
+      ]
+    },
+    {
+      "id": "graph-store",
+      "title": "Graph Store — 27 Kafka Consumers to DuckDB",
+      "blocks": [
+        {
+          "type": "structure",
+          "id": "graph-store-topology",
+          "rendering": "cose-bilkent",
+          "reason": "9 nodes (9+ range)"
+        }
+      ]
+    },
+    {
+      "id": "node-consumer-pattern",
+      "title": "Node Consumer Pattern — stoik Stream-to-Store",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-traffic-compaction",
+          "rendering": "compact-card",
+          "reason": "no recommendation, no code snippet"
+        },
+        {
+          "type": "observation",
+          "id": "obs-known-cache-eviction",
+          "rendering": "compact-card",
+          "reason": "no recommendation, no code snippet"
+        }
+      ]
+    },
+    {
+      "id": "enrichment-flow",
+      "title": "Domain Enrichment — Redis-Mediated Async Enrichment",
+      "blocks": [
+        {
+          "type": "flow",
+          "id": "whois-enrichment-cycle",
+          "rendering": "sequence",
+          "reason": "data flow (not state or failure cascade)"
+        },
+        {
+          "type": "observation",
+          "id": "obs-redis-no-fallback",
+          "rendering": "warning-card",
+          "reason": "has recommendation"
+        }
+      ]
+    },
+    {
+      "id": "score-ingestion",
+      "title": "Score Ingestion — External Reputation and ML Signals",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-topic-distinguish-by-content",
+          "rendering": "warning-card",
+          "reason": "has recommendation and code snippet"
+        }
+      ]
+    },
+    {
+      "id": "analytics",
+      "title": "Analytics — Derived Signals and ML Classification",
+      "blocks": [
+        {
+          "type": "structure",
+          "id": "analytics-topology",
+          "rendering": "cose-bilkent",
+          "reason": "9 nodes (9+ range)"
+        }
+      ]
+    },
+    {
+      "id": "derived-tier-g",
+      "title": "Tier G — Graph Algorithms on Sparse Matrices",
+      "blocks": [
+        {
+          "type": "flow",
+          "id": "tier-g-flow",
+          "rendering": "sequence",
+          "reason": "data flow (not state or failure cascade)"
+        },
+        {
+          "type": "observation",
+          "id": "obs-tier-g-memory-mgmt",
+          "rendering": "compact-card",
+          "reason": "no recommendation, no code snippet"
+        }
+      ]
+    },
+    {
+      "id": "classifier-pipeline",
+      "title": "Classifier Pipeline — LightGBM Inference to Kafka",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-feature-alignment",
+          "rendering": "evidence-card",
+          "reason": "has code snippet"
+        }
+      ]
+    },
+    {
+      "id": "query-api",
+      "title": "Query API — REST and Arrow Flight SQL",
+      "blocks": [
+        {
+          "type": "structure",
+          "id": "api-topology",
+          "rendering": "dagre",
+          "reason": "7 nodes (4-8 range)"
+        }
+      ]
+    },
+    {
+      "id": "api-auth-cache",
+      "title": "API Auth and Cache — Token Auth with Tiered Entity Cache",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-user-identity-trust",
+          "rendering": "warning-card",
+          "reason": "has recommendation"
+        },
+        {
+          "type": "observation",
+          "id": "obs-no-rate-limiting",
+          "rendering": "warning-card",
+          "reason": "has recommendation"
+        }
+      ]
+    },
+    {
+      "id": "api-failure-modes",
+      "title": "API Failure Modes — What Breaks When Dependencies Go Down",
+      "blocks": [
+        {
+          "type": "flow",
+          "id": "kafka-failure-cascade",
+          "rendering": "timeline",
+          "reason": "failure cascade flow"
+        },
+        {
+          "type": "observation",
+          "id": "obs-single-kafka-broker",
+          "rendering": "warning-card",
+          "reason": "has recommendation"
+        }
+      ]
+    },
+    {
+      "id": "flight-sql-detail",
+      "title": "Arrow Flight SQL — Parquet-over-MinIO for Bulk Queries",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-flight-point-lookup-slow",
+          "rendering": "compact-card",
+          "reason": "no code snippet, recommendation is informational not warning"
+        },
+        {
+          "type": "rationale",
+          "id": "rat-two-query-paths",
+          "rendering": "decision-card"
+        }
+      ]
+    },
+    {
+      "id": "client",
+      "title": "Client — Python SDK and CLI",
+      "blocks": [
+        {
+          "type": "structure",
+          "id": "client-topology",
+          "rendering": "grid",
+          "reason": "3 nodes (1-3 range)"
+        }
+      ]
+    }
+  ],
+  "block_count": 24,
+  "story_count": 15
+}
