@@ -12,8 +12,8 @@ export default defineConfig({
 			description: 'Project documentation',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/Kord96' }],
 			logo: {
-				light: './src/assets/logo_light.webp',
-				dark: './src/assets/logo_dark.webp',
+				light: './src/assets/logo_light.png',
+				dark: './src/assets/logo_dark.png',
 			},
 			customCss: ['./src/styles/custom.css'],
 			head: [
