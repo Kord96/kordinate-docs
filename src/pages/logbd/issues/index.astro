@@ -1,8 +1,11 @@
 ---
 /**
- * logBD Issues — Actionable findings from augur analysis.
- * Debt violations, recommendations, gaps, and story observations in one view.
+ * logBD Issues — Architectural findings from augur analysis.
+ * Shows violations, failure modes, gaps, and story observations
+ * classified by severity and type.
  */
+import Base from '../../../layouts/Base.astro';
+import Header from '../../../components/Header.astro';
 import fs from 'node:fs';
 import yaml from 'js-yaml';
 
@@ -11,404 +14,267 @@ const atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
 
 // Load story observations
 const storyDir = `${dir}/stories`;
-const storyObservations: any[] = [];
-try {
-  const storyFiles = fs.readdirSync(storyDir).filter((f: string) => f.endsWith('.yaml'));
-  for (const f of storyFiles) {
-    const story: any = yaml.load(fs.readFileSync(`${storyDir}/${f}`, 'utf-8'));
-    if (story?.observations) {
-      for (const obs of story.observations) {
-        storyObservations.push({ ...obs, story_id: story.id, story_title: story.title || story.id });
-      }
+const storyObs: any[] = [];
+for (const f of fs.readdirSync(storyDir).filter((s: string) => s.endsWith('.yaml'))) {
+  const s = yaml.load(fs.readFileSync(`${storyDir}/${f}`, 'utf-8')) as any;
+  for (const obs of (s.observations || [])) {
+    if (obs.recommendation && obs.confidence !== 'low') {
+      storyObs.push({ ...obs, story: s.id });
     }
   }
-} catch {}
+}
 
-const debt = atlas.debt || {};
-const violations = debt.violations || [];
-const recommendations = debt.recommendations || [];
-const failures = atlas.failure_modes || [];
-const gaps = (atlas.concepts || {}).gaps || [];
-
-// Classify everything into a unified list
+// Build unified issues list
 interface Issue {
   id: string;
   type: 'bug' | 'enhancement' | 'suggestion';
   severity: string;
   title: string;
-  detail: string;
-  recommendation?: string;
+  description: string;
+  category: string;
+  components: string[];
   files: string[];
+  recommendation: string;
   source: string;
-  component?: string;
-  evidence?: any;
-  grounded_in?: string[];
 }
 
 const issues: Issue[] = [];
 
-// Violations → bugs or enhancements
-for (const v of violations) {
+// Violations
+for (const v of (atlas.debt?.violations || [])) {
   const sev = (v.severity || '').toUpperCase();
   issues.push({
-    id: `violation-${v.anti_pattern?.replace(/\s+/g, '-').toLowerCase().slice(0, 40) || issues.length}`,
+    id: `violation:${v.anti_pattern?.toLowerCase().replace(/\s+/g, '-').substring(0, 40)}`,
     type: sev === 'CRITICAL' || sev === 'HIGH' ? 'bug' : 'enhancement',
-    severity: v.severity,
-    title: v.anti_pattern || v.pattern || 'Violation',
-    detail: v.detail || '',
+    severity: v.severity?.toLowerCase() || 'medium',
+    title: v.anti_pattern,
+    description: v.detail,
+    category: v.category || 'General',
+    components: v.components || [],
     files: v.files || [],
-    source: 'Debt violation',
-    component: (v.components || [])[0]
+    recommendation: '',
+    source: 'Debt / Violations',
   });
 }
 
-// Recommendations → enhancements
-for (const r of recommendations) {
+// Recommendations
+for (const r of (atlas.debt?.recommendations || [])) {
+  const sev = (r.severity || '').toUpperCase();
   issues.push({
-    id: `rec-${r.priority || issues.length}`,
-    type: 'enhancement',
-    severity: r.severity || 'RECOMMENDED',
+    id: `rec:${r.title?.toLowerCase().replace(/\s+/g, '-').substring(0, 40)}`,
+    type: sev === 'CRITICAL' || sev === 'HIGH' ? 'bug' : 'enhancement',
+    severity: r.severity?.toLowerCase() || 'medium',
     title: r.title || 'Recommendation',
-    detail: r.description || '',
+    description: r.description || '',
+    category: r.category || 'General',
+    components: [],
     files: r.files || [],
-    source: 'Debt recommendation'
+    recommendation: r.description || '',
+    source: 'Debt / Recommendations',
   });
 }
 
-// Gaps → suggestions
-for (const g of gaps) {
-  const gap = typeof g === 'string' ? { id: g } : g;
-  issues.push({
-    id: `gap-${gap.id || issues.length}`,
-    type: 'suggestion',
-    severity: 'gap',
-    title: (gap.id || gap.name || 'Gap').replace(/-/g, ' '),
-    detail: gap.relevance || '',
-    recommendation: gap.recommendation,
-    files: [],
-    source: 'Missing pattern'
-  });
-}
-
-// Critical/high failure modes without detection → bugs
-for (const fm of failures) {
+// Failure modes
+for (const fm of (atlas.failure_modes || [])) {
   const sev = (fm.severity || '').toLowerCase();
-  if (sev !== 'critical' && sev !== 'high') continue;
-  const noDetection = !fm.detection || fm.detection.length === 0 || fm.detection[0] === 'none';
-  const noRecovery = !fm.recovery || fm.recovery.length === 0 || fm.recovery[0] === 'none';
-  if (!noDetection && !noRecovery) continue;
   issues.push({
-    id: `failure-${fm.id}`,
-    type: 'bug',
-    severity: fm.severity,
-    title: `${fm.id.replace(/-/g, ' ')}: missing ${noDetection ? 'detection' : ''}${noDetection && noRecovery ? ' and ' : ''}${noRecovery ? 'recovery' : ''}`,
-    detail: fm.trigger + (fm.impact ? '. ' + fm.impact : ''),
+    id: `failure:${fm.id}`,
+    type: sev === 'critical' || sev === 'high' ? 'bug' : 'enhancement',
+    severity: sev || 'medium',
+    title: `Failure mode: ${fm.id.replace(/-/g, ' ')}`,
+    description: fm.impact,
+    category: 'Reliability',
+    components: fm.cascade?.map((c: any) => c.component) || [],
+    files: fm.grounded_in || [],
+    recommendation: (fm.recovery || []).join('. '),
+    source: 'Failure Modes',
+  });
+}
+
+// Concept gaps
+for (const g of (atlas.concepts?.gaps || [])) {
+  const gap = typeof g === 'string' ? { id: g, relevance: '', recommendation: '' } : g;
+  issues.push({
+    id: `gap:${gap.id}`,
+    type: 'suggestion',
+    severity: 'low',
+    title: gap.id.replace(/-/g, ' '),
+    description: gap.relevance || '',
+    category: 'Architecture Gap',
+    components: [],
     files: [],
-    source: 'Failure mode',
-    grounded_in: fm.grounded_in
+    recommendation: gap.recommendation || '',
+    source: 'Concept Gaps',
   });
 }
 
-// Story observations with recommendations → enhancements
-for (const obs of storyObservations) {
-  if (!obs.recommendation || (obs.confidence && obs.confidence === 'low')) continue;
-  // Skip if already covered by a violation
-  const covered = violations.some((v: any) =>
-    obs.grounded_in?.some((g: string) => (v.files || []).some((f: string) => g.startsWith(f)))
-  );
-  if (covered) continue;
+// Story observations with recommendations
+for (const obs of storyObs) {
+  const tags = obs.tags || [];
+  const isCritical = tags.includes('critical') || tags.includes('security');
   issues.push({
-    id: `obs-${obs.id || issues.length}`,
-    type: 'enhancement',
-    severity: obs.tags?.includes('critical') ? 'HIGH' : 'RECOMMENDED',
-    title: obs.finding?.replace(/\*\*/g, '').slice(0, 80) || obs.id,
-    detail: obs.finding?.replace(/\*\*/g, '') || '',
-    recommendation: obs.recommendation,
-    files: obs.evidence?.file ? [obs.evidence.file] : [],
-    source: `Story: ${obs.story_title}`,
-    component: obs.component,
-    evidence: obs.evidence,
-    grounded_in: obs.grounded_in
+    id: obs.id,
+    type: isCritical ? 'bug' : 'enhancement',
+    severity: isCritical ? 'high' : 'medium',
+    title: obs.finding?.replace(/\*\*/g, '') || obs.id,
+    description: obs.finding?.replace(/\*\*/g, '') || '',
+    category: tags[0] || 'Observation',
+    components: obs.component ? [obs.component] : [],
+    files: obs.evidence?.file ? [`${obs.evidence.file}:${obs.evidence.lines?.[0] || ''}`] : [],
+    recommendation: obs.recommendation || '',
+    source: `Story: ${obs.story}`,
   });
 }
 
-// Count by type
+// Sort: bugs first, then by severity
+const sevOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const typeOrder: Record<string, number> = { bug: 0, enhancement: 1, suggestion: 2 };
+issues.sort((a, b) => (typeOrder[a.type] ?? 9) - (typeOrder[b.type] ?? 9) || (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9));
+
 const bugs = issues.filter(i => i.type === 'bug');
 const enhancements = issues.filter(i => i.type === 'enhancement');
 const suggestions = issues.filter(i => i.type === 'suggestion');
 
 function sevColor(s: string) {
-  const c: Record<string, string> = { CRITICAL: '#ef4444', critical: '#ef4444', HIGH: '#f97316', high: '#f97316', RECOMMENDED: '#3b82f6', MINOR: '#22c55e', medium: '#f59e0b', low: '#22c55e', gap: '#f59e0b' };
-  return c[s] || '#64748b';
+  const colors: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#22c55e' };
+  return colors[s] || '#64748b';
 }
+
 function typeColor(t: string) {
-  return t === 'bug' ? '#ef4444' : t === 'enhancement' ? '#3b82f6' : '#f59e0b';
+  const colors: Record<string, string> = { bug: '#ef4444', enhancement: '#60a5fa', suggestion: '#a78bfa' };
+  return colors[t] || '#64748b';
 }
 ---
 
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{atlas.project} — Issues</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg: #09090b; --bg-card: #18181b; --border: #27272a; --border-hover: #3f3f46;
-      --text: #fafafa; --text-2: #a1a1aa; --text-3: #71717a; --text-4: #52525b;
-      --accent: #818cf8; --accent-dim: rgba(129,140,248,.12);
-      --radius: 10px; --font: 'Inter', system-ui, sans-serif; --mono: 'JetBrains Mono', monospace;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: var(--font); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
-
-    header {
-      position: sticky; top: 0; z-index: 100; padding: 0 1.5rem; height: 48px;
-      display: flex; align-items: center; justify-content: space-between;
-      background: rgba(9,9,11,.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border);
-    }
-    .h-left { display: flex; align-items: center; gap: .75rem; }
-    .h-logo { font-weight: 700; font-size: .9rem; }
-    .h-badge { font-size: .6rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; padding: .1rem .4rem; border-radius: 3px; }
-    .h-title { font-size: .8rem; color: var(--text-3); }
-    .h-links { display: flex; gap: .5rem; }
-    .h-link { font-size: .7rem; color: var(--text-4); text-decoration: none; padding: .2rem .5rem; border: 1px solid var(--border); border-radius: 4px; transition: all .2s; }
-    .h-link:hover { color: var(--text-2); border-color: var(--border-hover); }
-
+<Base title={`${atlas.project} — Issues`}>
+  <style slot="head">
     .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    .page-title { font-size: 1.5rem; font-weight: 800; margin-bottom: .25rem; letter-spacing: -.03em; }
+    .page-sub { font-size: .85rem; color: var(--text-3); margin-bottom: 2rem; }
 
-    /* ─── Summary bar ─── */
-    .summary { display: flex; gap: 1.25rem; margin-bottom: 2rem; flex-wrap: wrap; }
-    .summary-stat {
-      display: flex; align-items: center; gap: .5rem;
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: .6rem 1rem;
-    }
-    .stat-count { font-size: 1.5rem; font-weight: 700; }
-    .stat-label { font-size: .7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; }
-    .debt-badge {
-      font-size: 1.2rem; font-weight: 800; width: 42px; height: 42px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center; color: white;
-    }
+    .stats { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+    .stat { text-align: center; }
+    .stat-num { font-size: 1.5rem; font-weight: 800; }
+    .stat-label { font-size: .7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
 
-    /* ─── Filter tabs ─── */
-    .filters { display: flex; gap: .4rem; margin-bottom: 1.5rem; }
-    .filter-btn {
-      font-size: .7rem; font-family: var(--font); padding: .35rem .7rem;
-      border: 1px solid var(--border); border-radius: 6px;
-      background: var(--bg-card); color: var(--text-3); cursor: pointer; transition: all .2s;
-    }
-    .filter-btn:hover { color: var(--text); border-color: var(--border-hover); }
-    .filter-btn.active { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
+    .section { margin-bottom: 2.5rem; }
+    .section-header { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; padding-bottom: .5rem; border-bottom: 1px solid var(--border); }
+    .section-title { font-size: 1rem; font-weight: 700; }
+    .section-count { font-size: .7rem; color: var(--text-3); background: var(--border); padding: .1rem .4rem; border-radius: 99px; }
 
-    /* ─── Issue cards ─── */
-    .issue-list { display: flex; flex-direction: column; gap: .6rem; }
-    .issue {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: .75rem 1rem; transition: border-color .2s;
-    }
+    .issue { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: .75rem 1rem; margin-bottom: .5rem; transition: border-color .2s; }
     .issue:hover { border-color: var(--border-hover); }
-    .issue-top { display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; flex-wrap: wrap; }
-    .issue-type {
-      font-size: .55rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
-      padding: .15rem .4rem; border-radius: 4px; color: white;
-    }
-    .issue-sev {
-      font-size: .55rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
-      padding: .15rem .4rem; border-radius: 4px;
-    }
-    .issue-source {
-      font-size: .6rem; color: var(--text-4); margin-left: auto;
-    }
-    .issue-title { font-weight: 600; font-size: .85rem; margin-bottom: .25rem; }
-    .issue-detail { font-size: .78rem; color: var(--text-2); line-height: 1.55; }
-    .issue-rec {
-      font-size: .75rem; color: var(--text-3); line-height: 1.5; margin-top: .3rem;
-      padding-top: .3rem; border-top: 1px solid var(--border);
-    }
-    .issue-files {
-      display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .35rem;
-    }
-    .issue-file {
-      font-size: .65rem; font-family: var(--mono); color: var(--accent);
-      padding: .1rem .35rem; border-radius: 3px; background: var(--accent-dim);
-    }
-    .issue-component {
-      font-size: .6rem; color: var(--text-4); border: 1px solid var(--border);
-      padding: .1rem .35rem; border-radius: 3px;
-    }
-
-    /* ─── Section headers ─── */
-    .section-header {
-      font-size: .65rem; font-weight: 600; color: var(--text-4); text-transform: uppercase;
-      letter-spacing: .08em; margin: 1.5rem 0 .6rem; padding-bottom: .3rem;
-      border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;
-    }
-
-    .empty-state { font-size: .8rem; color: var(--text-4); font-style: italic; padding: 1rem 0; }
+    .issue-top { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; flex-wrap: wrap; }
+    .issue-title { font-weight: 600; font-size: .85rem; flex: 1; min-width: 200px; }
+    .badge { font-size: .55rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: .1rem .35rem; border-radius: 3px; white-space: nowrap; }
+    .issue-desc { font-size: .78rem; color: var(--text-2); line-height: 1.5; margin-bottom: .35rem; }
+    .issue-meta { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+    .issue-source { font-size: .65rem; color: var(--text-4); }
+    .issue-files { font-size: .65rem; color: var(--text-3); font-family: var(--mono); }
+    .issue-rec { font-size: .75rem; color: var(--accent); margin-top: .35rem; padding: .4rem .6rem; background: var(--accent-dim); border-radius: 6px; border-left: 2px solid var(--accent); }
+    .components { display: flex; gap: .3rem; flex-wrap: wrap; }
+    .comp { font-size: .6rem; padding: .1rem .3rem; border-radius: 3px; background: rgba(99,102,241,0.08); color: var(--accent); border: 1px solid rgba(99,102,241,0.15); }
   </style>
-</head>
-<body>
 
-<header>
-  <div class="h-left">
-    <span class="h-logo">{atlas.project}</span>
-    <span class="h-badge" style={`background: rgba(239,68,68,.12); color: #ef4444;`}>issues</span>
-    <span class="h-title">Actionable Findings</span>
-  </div>
-  <div class="h-links">
-    <a class="h-link" href="/dev/logbd/">Journey</a>
-    <a class="h-link" href="/dev/logbd/atlas/">Atlas</a>
-    <a class="h-link" href="/dev/">Home</a>
-  </div>
-</header>
+<Header project={atlas.project} badge="issues" links={[{ label: 'Journey', href: '/dev/logbd/' }, { label: 'Atlas', href: '/dev/logbd/atlas/' }]} position="sticky" />
 
 <div class="container">
+  <h1 class="page-title">Issues</h1>
+  <p class="page-sub">Architectural findings from automated analysis — violations, failure modes, gaps, and observations.</p>
 
-  <!-- Summary -->
-  <div class="summary">
-    <div class="summary-stat">
-      <div class="debt-badge" style={`background: ${sevColor(debt.grade === 'A' ? 'low' : debt.grade === 'B' ? 'RECOMMENDED' : 'critical')}`}>
-        {debt.grade || '?'}
-      </div>
-      <div>
-        <div style="font-weight: 600; font-size: .85rem;">Debt Score: {debt.score}</div>
-        <div style="font-size: .65rem; color: var(--text-3);">{debt.interpretation || ''}</div>
-      </div>
-    </div>
-    <div class="summary-stat">
-      <div class="stat-count" style="color: #ef4444;">{bugs.length}</div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num" style={`color: ${typeColor('bug')}`}>{bugs.length}</div>
       <div class="stat-label">Bugs</div>
     </div>
-    <div class="summary-stat">
-      <div class="stat-count" style="color: #3b82f6;">{enhancements.length}</div>
-      <div class="stat-label">Improvements</div>
+    <div class="stat">
+      <div class="stat-num" style={`color: ${typeColor('enhancement')}`}>{enhancements.length}</div>
+      <div class="stat-label">Enhancements</div>
     </div>
-    <div class="summary-stat">
-      <div class="stat-count" style="color: #f59e0b;">{suggestions.length}</div>
+    <div class="stat">
+      <div class="stat-num" style={`color: ${typeColor('suggestion')}`}>{suggestions.length}</div>
       <div class="stat-label">Suggestions</div>
     </div>
-    <div class="summary-stat">
-      <div class="stat-count" style="color: var(--text-3);">{issues.length}</div>
+    <div class="stat">
+      <div class="stat-num" style="color: var(--text)">{issues.length}</div>
       <div class="stat-label">Total</div>
     </div>
   </div>
 
-  <!-- Filters -->
-  <div class="filters">
-    <button class="filter-btn active" data-filter="all">All ({issues.length})</button>
-    <button class="filter-btn" data-filter="bug">Bugs ({bugs.length})</button>
-    <button class="filter-btn" data-filter="enhancement">Improvements ({enhancements.length})</button>
-    <button class="filter-btn" data-filter="suggestion">Suggestions ({suggestions.length})</button>
-  </div>
-
-  <!-- Issue list -->
-  <div class="issue-list" id="issue-list">
-
-    {bugs.length > 0 && (
-      <div class="section-header" data-section="bug">
-        <span>Bugs</span>
-        <span>{bugs.length}</span>
+  {bugs.length > 0 && (
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title" style={`color: ${typeColor('bug')}`}>Bugs</span>
+        <span class="section-count">{bugs.length}</span>
       </div>
-    )}
-    {bugs.map((issue) => (
-      <div class="issue" data-type="bug">
-        <div class="issue-top">
-          <span class="issue-type" style={`background: ${typeColor(issue.type)}`}>{issue.type}</span>
-          <span class="issue-sev" style={`color: ${sevColor(issue.severity)}; border: 1px solid ${sevColor(issue.severity)}33; background: ${sevColor(issue.severity)}15;`}>{issue.severity}</span>
-          {issue.component && <span class="issue-component">{issue.component}</span>}
-          <span class="issue-source">{issue.source}</span>
-        </div>
-        <div class="issue-title">{issue.title}</div>
-        {issue.detail && <div class="issue-detail">{issue.detail}</div>}
-        {issue.recommendation && <div class="issue-rec">{issue.recommendation}</div>}
-        {issue.files.length > 0 && (
-          <div class="issue-files">
-            {issue.files.map((f) => <span class="issue-file">{f}</span>)}
+      {bugs.map(issue => (
+        <div class="issue">
+          <div class="issue-top">
+            <span class="issue-title">{issue.title}</span>
+            <span class="badge" style={`background: ${sevColor(issue.severity)}22; color: ${sevColor(issue.severity)}`}>{issue.severity}</span>
+            <span class="badge" style={`background: var(--border); color: var(--text-3)`}>{issue.category}</span>
           </div>
-        )}
-      </div>
-    ))}
-
-    {enhancements.length > 0 && (
-      <div class="section-header" data-section="enhancement">
-        <span>Improvements</span>
-        <span>{enhancements.length}</span>
-      </div>
-    )}
-    {enhancements.map((issue) => (
-      <div class="issue" data-type="enhancement">
-        <div class="issue-top">
-          <span class="issue-type" style={`background: ${typeColor(issue.type)}`}>{issue.type}</span>
-          <span class="issue-sev" style={`color: ${sevColor(issue.severity)}; border: 1px solid ${sevColor(issue.severity)}33; background: ${sevColor(issue.severity)}15;`}>{issue.severity}</span>
-          {issue.component && <span class="issue-component">{issue.component}</span>}
-          <span class="issue-source">{issue.source}</span>
-        </div>
-        <div class="issue-title">{issue.title}</div>
-        {issue.detail && <div class="issue-detail">{issue.detail}</div>}
-        {issue.recommendation && <div class="issue-rec">{issue.recommendation}</div>}
-        {issue.files.length > 0 && (
-          <div class="issue-files">
-            {issue.files.map((f) => <span class="issue-file">{f}</span>)}
+          {issue.description && <div class="issue-desc">{issue.description}</div>}
+          {issue.recommendation && <div class="issue-rec">{issue.recommendation}</div>}
+          <div class="issue-meta">
+            {issue.components.length > 0 && (
+              <div class="components">
+                {issue.components.map(c => <span class="comp">{c}</span>)}
+              </div>
+            )}
+            {issue.files.length > 0 && <span class="issue-files">{issue.files.join(', ')}</span>}
+            <span class="issue-source">{issue.source}</span>
           </div>
-        )}
-      </div>
-    ))}
-
-    {suggestions.length > 0 && (
-      <div class="section-header" data-section="suggestion">
-        <span>Suggestions</span>
-        <span>{suggestions.length}</span>
-      </div>
-    )}
-    {suggestions.map((issue) => (
-      <div class="issue" data-type="suggestion">
-        <div class="issue-top">
-          <span class="issue-type" style={`background: ${typeColor(issue.type)}`}>{issue.type}</span>
-          <span class="issue-sev" style={`color: ${sevColor(issue.severity)}; border: 1px solid ${sevColor(issue.severity)}33; background: ${sevColor(issue.severity)}15;`}>{issue.severity}</span>
-          <span class="issue-source">{issue.source}</span>
         </div>
-        <div class="issue-title">{issue.title}</div>
-        {issue.detail && <div class="issue-detail">{issue.detail}</div>}
-        {issue.recommendation && <div class="issue-rec">{issue.recommendation}</div>}
+      ))}
+    </div>
+  )}
+
+  {enhancements.length > 0 && (
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title" style={`color: ${typeColor('enhancement')}`}>Enhancements</span>
+        <span class="section-count">{enhancements.length}</span>
       </div>
-    ))}
+      {enhancements.map(issue => (
+        <div class="issue">
+          <div class="issue-top">
+            <span class="issue-title">{issue.title}</span>
+            <span class="badge" style={`background: ${sevColor(issue.severity)}22; color: ${sevColor(issue.severity)}`}>{issue.severity}</span>
+            <span class="badge" style={`background: var(--border); color: var(--text-3)`}>{issue.category}</span>
+          </div>
+          {issue.description && <div class="issue-desc">{issue.description}</div>}
+          {issue.recommendation && <div class="issue-rec">{issue.recommendation}</div>}
+          <div class="issue-meta">
+            {issue.components.length > 0 && (
+              <div class="components">
+                {issue.components.map(c => <span class="comp">{c}</span>)}
+              </div>
+            )}
+            {issue.files.length > 0 && <span class="issue-files">{issue.files.join(', ')}</span>}
+            <span class="issue-source">{issue.source}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
 
-  </div>
-
+  {suggestions.length > 0 && (
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title" style={`color: ${typeColor('suggestion')}`}>Suggestions</span>
+        <span class="section-count">{suggestions.length}</span>
+      </div>
+      {suggestions.map(issue => (
+        <div class="issue">
+          <div class="issue-top">
+            <span class="issue-title">{issue.title}</span>
+            <span class="badge" style={`background: var(--border); color: var(--text-3)`}>{issue.category}</span>
+          </div>
+          {issue.description && <div class="issue-desc">{issue.description}</div>}
+        </div>
+      ))}
+    </div>
+  )}
 </div>
-
-<script is:inline>
-(function() {
-  var btns = document.querySelectorAll('.filter-btn');
-  var issues = document.querySelectorAll('.issue');
-  var sections = document.querySelectorAll('.section-header');
-
-  btns.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      btns.forEach(function(b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      var filter = btn.getAttribute('data-filter');
-
-      issues.forEach(function(el) {
-        if (filter === 'all' || el.getAttribute('data-type') === filter) {
-          el.style.display = '';
-        } else {
-          el.style.display = 'none';
-        }
-      });
-
-      sections.forEach(function(el) {
-        if (filter === 'all' || el.getAttribute('data-section') === filter) {
-          el.style.display = '';
-        } else {
-          el.style.display = 'none';
-        }
-      });
-    });
-  });
-})();
-</script>
-
-</body>
-</html>
+</Base>
