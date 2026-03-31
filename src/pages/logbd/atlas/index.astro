@@ -619,6 +619,8 @@ function severity(s: string) {
 
   // Load CDN scripts then init
   loadScript('https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js')
+    .then(function() { return loadScript('https://unpkg.com/layout-base@2.0.1/layout-base.js'); })
+    .then(function() { return loadScript('https://unpkg.com/cose-base@2.2.0/cose-base.js'); })
     .then(function() { return loadScript('https://unpkg.com/cytoscape-cose-bilkent@4.1.0/cytoscape-cose-bilkent.js'); })
     .then(function() {
       if (typeof cytoscapeCoseBilkent !== 'undefined') cytoscape.use(cytoscapeCoseBilkent);
