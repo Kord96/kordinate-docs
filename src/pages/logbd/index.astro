@@ -303,6 +303,12 @@ function getTypeStyle(type: string) {
     /* ─── Structure ─── */
     .struct { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden; }
     .struct-graph { width: 100%; height: 280px; cursor: grab; }
+    .struct-legend {
+      display: flex; flex-wrap: wrap; gap: .4rem; padding: .3rem .6rem;
+      border-top: 1px solid var(--border); font-size: .6rem; color: var(--text-4);
+    }
+    .legend-item { display: flex; align-items: center; gap: .25rem; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
     .struct-graph:active { cursor: grabbing; }
     .struct-hint { text-align: center; font-size: .6rem; color: var(--text-4); padding: .35rem; }
 
@@ -708,7 +714,15 @@ function getTypeStyle(type: string) {
           return (
             <div class="struct">
               <div class="struct-graph" id={graphId} data-graph={graphData} data-refs={storyRefs}></div>
-              <div class="struct-hint">click a node to explore</div>
+              <div class="struct-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#6366f1"></span>worker</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span>service</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#22c55e"></span>api</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>store</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#64748b"></span>cli</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#a855f7"></span>scheduler</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>external</span>
+              </div>
             </div>
           );
         })}
