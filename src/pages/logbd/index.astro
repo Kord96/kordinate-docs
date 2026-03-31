@@ -213,6 +213,8 @@ function getTypeStyle(type: string) {
     .ch0 { justify-content: flex-start; padding-top: 80px; }
     .ch0-header { margin-bottom: 1rem; }
     .ch0-text { margin-top: 1rem; }
+    .ch0-journey-overview.hidden { display: none; }
+    .ch0-journey-title { font-size: .8rem; font-weight: 600; color: var(--accent); margin-bottom: .5rem; }
     .ch0-point {
       display: flex; gap: .6rem; align-items: flex-start;
       padding: .4rem 0; font-size: .85rem; color: var(--text-2); line-height: 1.6;
@@ -642,25 +644,19 @@ function getTypeStyle(type: string) {
       <div class="struct-hint">click a node to explore</div>
     </div>
 
-    {overview.how_it_works && (
-      <div class="ch0-text">
-        {overview.how_it_works.split(/\.\s+/).filter(Boolean).map((sentence: string, i: number) => (
-          <div class="ch0-point">
-            <span class="ch0-dot">{i + 1}</span>
-            <span>{sentence.trim()}{sentence.trim().endsWith('.') ? '' : '.'}</span>
-          </div>
-        ))}
-      </div>
-    )}
-
-    {overview.key_decisions && overview.key_decisions.length > 0 && (
-      <div class="ch0-decisions">
-        <div class="ch0-decisions-label">Key decisions</div>
-        {overview.key_decisions.map((d: string) => (
-          <div class="ch0-decision">→ {d}</div>
-        ))}
-      </div>
-    )}
+    <div class="ch0-text" id="ch0-overview">
+      {journeys.map((j: any) => (
+        <div class={`ch0-journey-overview ${j.id === defaultJourney.id ? '' : 'hidden'}`} data-journey-overview={j.id}>
+          <div class="ch0-journey-title">{j.title}</div>
+          {j.overview && j.overview.split(/\.\s+/).filter(Boolean).map((sentence: string, i: number) => (
+            <div class="ch0-point">
+              <span class="ch0-dot">{i + 1}</span>
+              <span>{sentence.trim()}{sentence.trim().endsWith('.') ? '' : '.'}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
 
     <div class="next">
       <a href={`#${defaultJourney.id}-s1`}>Begin the journey →</a>
@@ -1257,6 +1253,11 @@ function getTypeStyle(type: string) {
     // Show/hide story sections
     document.querySelectorAll('.journey-section').forEach(s => {
       s.classList.toggle('hidden', s.dataset.journey !== currentJourneyId);
+    });
+
+    // Swap chapter 0 overview
+    document.querySelectorAll('[data-journey-overview]').forEach(o => {
+      o.classList.toggle('hidden', o.dataset.journeyOverview !== currentJourneyId);
     });
 
     // Update start button
