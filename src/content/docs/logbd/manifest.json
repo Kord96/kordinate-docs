@@ -1,157 +1,190 @@
 {
+  "generated": "2026-03-31",
+  "project": "logbd",
   "stories": [
     {
-      "id": "ingestion-overview",
-      "title": "Log Ingestion Pipeline",
+      "id": "data-source-group",
+      "title": "Data Source: NFS to Kafka",
       "blocks": [
         {
           "type": "structure",
-          "id": "ingestion-topology",
+          "id": "data-source-topology",
           "renderer": "grid",
-          "reason": "2 nodes — small topology fits grid"
+          "reason": "3 nodes"
         }
       ]
     },
     {
-      "id": "ingestion-message-parsing",
-      "title": "Message Producer — NFS to Kafka",
-      "blocks": [
-        {
-          "type": "observation",
-          "id": "obs-nfs-no-circuit-breaker",
-          "renderer": "warning-card",
-          "reason": "has recommendation"
-        }
-      ]
-    },
-    {
-      "id": "ingestion-entity-extraction",
-      "title": "Entity Extraction — Message to Graph Entities",
+      "id": "log-ingestion",
+      "title": "Log Ingestion: NFS Scan to Kafka Publish",
       "blocks": [
         {
           "type": "flow",
-          "id": "extraction-fan-out",
+          "id": "slot-ingestion",
           "renderer": "sequence",
-          "reason": "data flow, not state or failure cascade"
+          "reason": "data type"
         },
         {
           "type": "observation",
-          "id": "obs-extraction-spf-inline",
+          "id": "obs-nfs-no-resilience",
           "renderer": "warning-card",
           "reason": "has recommendation"
         }
       ]
     },
     {
-      "id": "graph-engine-overview",
-      "title": "Graph Engine — Storage and Computation",
+      "id": "entity-fan-out",
+      "title": "Entity Extraction: One Message to Fourteen Topics",
+      "blocks": [
+        {
+          "type": "structure",
+          "id": "extraction-fan-out",
+          "renderer": "grid",
+          "reason": "3 nodes"
+        },
+        {
+          "type": "observation",
+          "id": "obs-worker-fail-fast",
+          "renderer": "evidence-card",
+          "reason": "has code snippet"
+        }
+      ]
+    },
+    {
+      "id": "graph-engine-group",
+      "title": "Graph Engine: Kafka to DuckDB",
       "blocks": [
         {
           "type": "structure",
           "id": "graph-engine-topology",
           "renderer": "dagre",
-          "reason": "4 nodes (node-consumers, edge-consumers, derived-refresh, graphdb-api) — fits dagre range"
+          "reason": "4 nodes"
         }
       ]
     },
     {
-      "id": "graph-engine-consumers",
-      "title": "Stream-to-Store Consumers",
+      "id": "consumer-architecture",
+      "title": "Consumer Architecture: stoik Buffer/Store Pattern",
       "blocks": [
         {
+          "type": "observation",
+          "id": "obs-known-cache-eviction",
+          "renderer": "evidence-card",
+          "reason": "has code snippet"
+        },
+        {
           "type": "rationale",
-          "id": "rat-single-writer",
+          "id": "half-eviction",
           "renderer": "decision-card"
         }
       ]
     },
     {
-      "id": "graph-engine-derived-tiers",
-      "title": "Tiered Derived Table Refresh",
+      "id": "enrichment-pipeline",
+      "title": "Domain Enrichment: WHOIS, CT, and UCLT",
       "blocks": [
         {
           "type": "observation",
-          "id": "obs-tier-intervals-hardcoded",
+          "id": "obs-enrichment-no-circuit-breaker",
           "renderer": "warning-card",
           "reason": "has recommendation"
         }
       ]
     },
     {
-      "id": "graph-engine-failure-handling",
-      "title": "DuckDB Lock Contention and Recovery",
+      "id": "derived-computation",
+      "title": "Derived Refresh: Seven Tiers of Computation",
       "blocks": [
         {
           "type": "flow",
-          "id": "lock-contention-recovery",
+          "id": "derived-tier-flow",
           "renderer": "sequence",
-          "reason": "resource flow type — not state machine or failure cascade"
+          "reason": "data type"
+        },
+        {
+          "type": "observation",
+          "id": "obs-tier-g-community",
+          "renderer": "evidence-card",
+          "reason": "has code snippet"
         }
       ]
     },
     {
-      "id": "query-layer-overview",
-      "title": "Query Layer — API, Flight SQL, CLI, and MCP",
+      "id": "query-layer-group",
+      "title": "Query Layer: API, Flight SQL, and CLI",
       "blocks": [
         {
           "type": "structure",
           "id": "query-layer-topology",
           "renderer": "dagre",
-          "reason": "4 nodes — fits dagre range"
+          "reason": "4 nodes"
         }
       ]
     },
     {
-      "id": "query-layer-api-auth",
-      "title": "Token Authentication and Access Control",
+      "id": "api-and-flight",
+      "title": "REST API and Flight SQL: Two Query Interfaces",
       "blocks": [
         {
           "type": "observation",
-          "id": "obs-flight-sql-no-auth",
+          "id": "obs-flight-no-auth",
           "renderer": "warning-card",
-          "reason": "has recommendation (critical security finding)"
-        }
-      ]
-    },
-    {
-      "id": "query-layer-edgepool",
-      "title": "EdgePool — Direct DuckDB Connection Management",
-      "blocks": [
+          "reason": "has recommendation"
+        },
         {
           "type": "rationale",
-          "id": "rat-edgepool-vs-flight",
+          "id": "minio-snapshot-architecture",
           "renderer": "decision-card"
         }
       ]
     },
     {
-      "id": "classification-overview",
-      "title": "ML Classification Pipeline",
+      "id": "classification-group",
+      "title": "Classification: ML Spam Scoring",
       "blocks": [
         {
           "type": "structure",
           "id": "classification-topology",
-          "renderer": "grid",
-          "reason": "3 nodes — fits grid range"
+          "renderer": "dagre",
+          "reason": "4 nodes"
         }
       ]
     },
     {
-      "id": "classification-scheduler-lifecycle",
-      "title": "Scheduler Job Lifecycle and Subprocess Isolation",
+      "id": "ml-scoring-loop",
+      "title": "ML Scoring: Feature Query to Kafka Publish",
       "blocks": [
         {
           "type": "observation",
-          "id": "obs-classifier-no-retry",
-          "renderer": "warning-card",
-          "reason": "has recommendation"
+          "id": "obs-dedup-via-signal-db",
+          "renderer": "evidence-card",
+          "reason": "has code snippet"
         }
       ]
     },
     {
-      "id": "classification-score-ingestion",
-      "title": "Score Ingestion and Storage",
-      "blocks": []
+      "id": "classifier-feedback",
+      "title": "Score Feedback Loop: Kafka to Graph",
+      "blocks": [
+        {
+          "type": "observation",
+          "id": "obs-score-unification",
+          "renderer": "compact-card",
+          "reason": "no code snippet, no recommendation"
+        }
+      ]
+    },
+    {
+      "id": "health-monitoring",
+      "title": "Pipeline Health: Sentinel and Metrics",
+      "blocks": [
+        {
+          "type": "flow",
+          "id": "sentinel-probe-flow",
+          "renderer": "timeline",
+          "reason": "control type — branching health checks"
+        }
+      ]
     }
   ]
 }

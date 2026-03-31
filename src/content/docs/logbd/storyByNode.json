@@ -1,50 +1,60 @@
 {
-  "message-producer": [
-    "ingestion-overview",
-    "ingestion-message-parsing"
-  ],
-  "entity-extraction": [
-    "ingestion-overview",
-    "ingestion-entity-extraction"
-  ],
-  "node-consumers": [
-    "graph-engine-overview",
-    "graph-engine-consumers",
-    "graph-engine-failure-handling"
-  ],
-  "edge-consumers": [
-    "graph-engine-overview",
-    "graph-engine-consumers",
-    "graph-engine-failure-handling"
-  ],
-  "derived-refresh": [
-    "graph-engine-overview",
-    "graph-engine-derived-tiers",
-    "graph-engine-failure-handling"
-  ],
-  "graphdb-api": [
-    "query-layer-overview",
-    "query-layer-api-auth",
-    "query-layer-edgepool"
-  ],
-  "flight-sql": [
-    "query-layer-overview",
-    "query-layer-edgepool",
-    "classification-overview",
-    "classification-scheduler-lifecycle"
-  ],
-  "graph-client": [
-    "query-layer-overview"
-  ],
-  "mcp-server": [
-    "query-layer-overview"
-  ],
-  "classifier-scheduler": [
-    "classification-overview",
-    "classification-scheduler-lifecycle"
-  ],
-  "score-consumer": [
-    "classification-overview",
-    "classification-score-ingestion"
-  ]
+  "generated": "2026-03-31",
+  "project": "logbd",
+  "storyByNode": {
+    "message-producer": [
+      "data-source-group",
+      "log-ingestion"
+    ],
+    "entity-extraction": [
+      "data-source-group",
+      "entity-fan-out"
+    ],
+    "metadata-archiver": [
+      "data-source-group"
+    ],
+    "node-consumers": [
+      "graph-engine-group",
+      "consumer-architecture",
+      "entity-fan-out",
+      "classifier-feedback"
+    ],
+    "edge-consumers": [
+      "graph-engine-group",
+      "entity-fan-out"
+    ],
+    "enrichment-service": [
+      "graph-engine-group",
+      "enrichment-pipeline"
+    ],
+    "derived-refresh": [
+      "graph-engine-group",
+      "derived-computation"
+    ],
+    "graphdb-api": [
+      "query-layer-group",
+      "api-and-flight"
+    ],
+    "flight-sql": [
+      "query-layer-group",
+      "api-and-flight",
+      "classification-group",
+      "ml-scoring-loop"
+    ],
+    "graphdb-client": [
+      "query-layer-group"
+    ],
+    "sentinel": [
+      "query-layer-group",
+      "health-monitoring"
+    ],
+    "classifier-infer": [
+      "classification-group",
+      "ml-scoring-loop"
+    ],
+    "classifier-scheduler": [
+      "classification-group",
+      "ml-scoring-loop"
+    ]
+  }
 }
