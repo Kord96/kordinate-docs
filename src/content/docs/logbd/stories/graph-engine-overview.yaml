@@ -1,0 +1,37 @@
+id: graph-engine-overview
+title: Graph Engine — Storage and Computation
+teaches: How entity and edge records flow from Kafka into DuckDB files, and how derived analytical signals are computed via tiered batch refresh.
+tags: [graph, duckdb, consumers, derived, stream-to-store]
+
+anchor:
+  file: graphdb/graph/node/base/consumer.py
+  line: 21
+  description: The generic consumer loop that all node consumers share, wiring stoik's consume() to entity-specific parse and flush callbacks.
+
+parent: null
+children: [graph-engine-consumers, graph-engine-derived-tiers, graph-engine-failure-handling]
+
+summary: |
+  **node-consumers** (11 entity types) and **edge-consumers** (3 edge types) subscribe to per-type Kafka topics and persist records to individual DuckDB files via stoik's stream-to-store pattern. **derived-refresh** periodically recomputes 72 analytical signals across tiers A-G, attaching base DuckDB files read-only and running SQL computations in batch. All consumers share a common Buffer/Store abstraction with Prometheus metrics, traffic history tracking, and DuckDB lock contention retry.
+
+structures:
+  - id: graph-engine-topology
+    title: Graph Engine Component Topology
+    type: component topology
+    nodes:
+      - id: node-consumers
+      - id: edge-consumers
+      - id: derived-refresh
+    edges:
+      - from: node-consumers
+        to: derived-refresh
+        label: DuckDB files (read-only ATTACH)
+        type: reads
+      - from: edge-consumers
+        to: derived-refresh
+        label: DuckDB files (read-only ATTACH)
+        type: reads
+      - from: derived-refresh
+        to: graphdb-api
+        label: Derived DuckDB snapshots
+        type: reads

@@ -25,14 +25,20 @@ for (const f of fs.readdirSync(`${dir}/stories`).filter((s: string) => s.endsWit
   storyMap[s.id] = s;
 }
 
-// Order stories per journey
-const stories = (defaultJourney.stories || []).map((sid: string) => storyMap[sid]).filter(Boolean);
-
-// Build bridge lookup: to-story-id → bridge text
-const bridgeMap: Record<string, any> = {};
-for (const b of (defaultJourney.bridges || [])) {
-  if (b && typeof b === 'object') bridgeMap[b.to] = b;
+// Build stories + bridges per journey
+const journeyData: Record<string, { stories: any[]; bridgeMap: Record<string, any>; total: number }> = {};
+for (const j of journeys) {
+  const jStories = (j.stories || []).map((sid: string) => storyMap[sid]).filter(Boolean);
+  const jBridges: Record<string, any> = {};
+  for (const b of (j.bridges || [])) {
+    if (b && typeof b === 'object') jBridges[b.to] = b;
+  }
+  journeyData[j.id] = { stories: jStories, bridgeMap: jBridges, total: jStories.length };
 }
+
+// Default journey stories (for dots count)
+const stories = journeyData[defaultJourney.id]?.stories || [];
+const bridgeMap = journeyData[defaultJourney.id]?.bridgeMap || {};
 
 // Component lookup
 const compMap: Record<string, any> = {};
@@ -328,6 +334,9 @@ function getTypeStyle(type: string) {
     }
     .next a:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 
+    /* ─── Journey switching ─── */
+    .journey-section.hidden { display: none; }
+
     /* terminal styles are above with detail drawer */
 
     /* ─── Responsive ─── */
@@ -371,7 +380,11 @@ function getTypeStyle(type: string) {
     ))}
   </div>
   <div class="h-right">
-    <span class="h-tab active">{defaultJourney.title}</span>
+    {journeys.map((j: any) => (
+      <a class={`h-tab ${j.id === defaultJourney.id ? 'active' : ''}`} href={`#journey-${j.id}`} data-journey={j.id}>
+        {j.title}
+      </a>
+    ))}
     <a class="h-switch" href="/dev/" title="Back to home">Home</a>
   </div>
 </header>
@@ -386,7 +399,7 @@ function getTypeStyle(type: string) {
         ◆ {dm.primary} · {dm.entities?.length || 0} entities · {dm.relationships?.length || 0} relationships
       </div>
     )}
-    <div><a href="#s1" class="landing-cta">Start Journey →</a></div>
+    <div><a href={`#${defaultJourney.id}-s1`} class="landing-cta" id="start-btn">Start Journey →</a></div>
     <div class="landing-stats">
       <span>{atlas.components?.length} components</span>
       <span>{atlas.flows?.length} flows</span>
@@ -396,18 +409,23 @@ function getTypeStyle(type: string) {
   </div>
 </section>
 
-<!-- Stories -->
-{stories.map((story: any, i: number) => {
-  const bridge = bridgeMap[story.id];
+<!-- Stories — all journeys rendered, hidden by default except default -->
+{journeys.map((journey: any) => {
+  const jd = journeyData[journey.id];
+  const isDefault = journey.id === defaultJourney.id;
+  return jd.stories.map((story: any, i: number) => {
+  const bridge = jd.bridgeMap[story.id];
   const anchor = story.anchor;
   const html = parseSummary(story.summary || '');
+  const journeyId = journey.id;
+  const storyTotal = jd.total;
 
   return (
-    <section class="snap" id={`s${i+1}`}>
+    <section class={`snap journey-section ${isDefault ? '' : 'hidden'}`} id={`${journeyId}-s${i+1}`} data-journey={journeyId}>
       <div class="snap-inner">
         {bridge && <div class="bridge">{bridge.text}</div>}
 
-        <div class="story-num">Story {i+1} of {totalStories}</div>
+        <div class="story-num">Story {i+1} of {storyTotal}</div>
         <h2 class="story-title">{story.title}</h2>
 
         {anchor && (
@@ -477,14 +495,15 @@ function getTypeStyle(type: string) {
         ))}
 
         <div class="next">
-          {i < totalStories - 1
-            ? <a href={`#s${i+2}`}>Next →</a>
+          {i < storyTotal - 1
+            ? <a href={`#${journeyId}-s${i+2}`}>Next →</a>
             : <a href="#s0">↑ Start</a>
           }
         </div>
       </div>
     </section>
   );
+});
 })}
 
 <!-- Hidden data for ref click lookups -->
@@ -508,7 +527,7 @@ function getTypeStyle(type: string) {
 </div>
 
 <script is:inline>
-  const secs = document.querySelectorAll('.snap');
+  const secs = document.querySelectorAll('.snap:not(.hidden)');
   const dots = document.querySelectorAll('.h-dot');
   const prog = document.getElementById('progress');
   let cur = 0;
@@ -702,6 +721,67 @@ function getTypeStyle(type: string) {
   }, { threshold: 0.1 });
 
   document.querySelectorAll('.struct-graph').forEach(g => graphObserver.observe(g));
+
+  // ─── Journey switching ───
+  const journeyTabs = document.querySelectorAll('.h-tab[data-journey]');
+  const journeyLabel = document.querySelector('.h-journey');
+
+  journeyTabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      const jid = tab.dataset.journey;
+
+      // Update active tab
+      journeyTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      // Update header label
+      if (journeyLabel) journeyLabel.textContent = tab.textContent.trim();
+
+      // Show/hide story sections
+      document.querySelectorAll('.journey-section').forEach(s => {
+        s.classList.toggle('hidden', s.dataset.journey !== jid);
+      });
+
+      // Update dots
+      const visibleSections = document.querySelectorAll(`.journey-section[data-journey="${jid}"]`);
+      const dotsContainer = document.getElementById('dots');
+      dotsContainer.innerHTML = '<div class="h-dot active" data-i="0"></div>';
+      visibleSections.forEach((_, i) => {
+        const dot = document.createElement('div');
+        dot.className = 'h-dot';
+        dot.dataset.i = String(i + 1);
+        dot.addEventListener('click', () => {
+          visibleSections[i]?.scrollIntoView({ behavior: 'smooth' });
+        });
+        dotsContainer.appendChild(dot);
+      });
+
+      // Re-observe for progress
+      const allSections = [document.getElementById('s0'), ...visibleSections];
+      const newObs = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const idx = allSections.indexOf(entry.target);
+            dotsContainer.querySelectorAll('.h-dot').forEach((d, di) => {
+              d.classList.toggle('active', di === idx);
+              d.classList.toggle('done', di < idx);
+            });
+            prog.style.width = (idx / (allSections.length - 1) * 100) + '%';
+          }
+        });
+      }, { threshold: 0.5 });
+      allSections.forEach(s => { if (s) newObs.observe(s); });
+
+      // Scroll to landing
+      document.getElementById('s0')?.scrollIntoView({ behavior: 'smooth' });
+
+      // Init any graphs that are now visible
+      document.querySelectorAll(`.journey-section[data-journey="${jid}"] .struct-graph`).forEach(g => {
+        if (!g._cy) graphObserver.observe(g);
+      });
+    });
+  });
 
   // ─── Bold ref clicks → open node detail in drawer ───
   const allCompData = JSON.parse(document.getElementById('comp-data')?.textContent || '{}');

@@ -1,0 +1,15 @@
+id: classification-score-ingestion
+title: Score Ingestion and Storage
+teaches: How ML signal scores and external reference scores flow from Kafka into DuckDB for query-time join.
+tags: [scores, kafka, duckdb, stream-to-store]
+
+anchor:
+  file: graphdb/graph/score/consumer.py
+  line: 36
+  description: ScoreBuffer — accumulates scores from two Kafka topics for batch persistence.
+
+parent: classification-overview
+children: []
+
+summary: |
+  **score-consumer** subscribes to two Kafka topics: score.external_source (FortiGuard fg_scores, reference list matches) and score.signal (ML classifier outputs). ScoreBuffer accumulates records by type, and on flush writes external scores to external_score.duckdb and ML signals to signal.duckdb. Each score carries entity_type, entity_key, a numeric score, source identifier, and timestamp. The API joins these at query time via EdgePool snapshot connections.

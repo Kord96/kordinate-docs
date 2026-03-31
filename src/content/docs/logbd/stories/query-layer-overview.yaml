@@ -1,0 +1,38 @@
+id: query-layer-overview
+title: Query Layer — API, Flight SQL, CLI, and MCP
+teaches: How analysts and LLM agents query the graph through REST, gRPC, CLI, and MCP interfaces.
+tags: [api, fastapi, flight-sql, cli, mcp, query]
+
+anchor:
+  file: graphdb/api/app.py
+  line: 146
+  description: create_app() — the FastAPI application factory that wires routers, auth middleware, EdgePool, and background threads.
+
+parent: null
+children: [query-layer-api-auth, query-layer-edgepool]
+
+summary: |
+  **graphdb-api** serves 16 REST endpoints via FastAPI with Bearer token auth, backed by direct DuckDB connections through EdgePool. **flight-sql** provides a gRPC interface for analytical SQL queries used by the classifier. **graph-client** is a Click CLI with disk caching and Loki logging. **mcp-server** wraps the REST API as LLM-friendly tools via FastMCP. All four share the same underlying DuckDB snapshot files but use different access patterns — EdgePool for point lookups, Flight SQL for full table scans.
+
+structures:
+  - id: query-layer-topology
+    title: Query Layer Component Topology
+    type: component topology
+    nodes:
+      - id: graphdb-api
+      - id: flight-sql
+      - id: graph-client
+      - id: mcp-server
+    edges:
+      - from: graph-client
+        to: graphdb-api
+        label: HTTP REST
+        type: calls
+      - from: mcp-server
+        to: graphdb-api
+        label: HTTP REST
+        type: calls
+      - from: graphdb-api
+        to: flight-sql
+        label: gRPC (Flight SQL)
+        type: calls

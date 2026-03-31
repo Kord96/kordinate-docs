@@ -1,0 +1,29 @@
+id: graph-engine-derived-tiers
+title: Tiered Derived Table Refresh
+teaches: How 72 analytical signals are computed in tiers A-G with different refresh intervals and batch limits.
+tags: [derived, tiers, batch-processing, graph-algorithms]
+
+anchor:
+  file: graphdb/graph/derived/refresh.py
+  line: 109
+  description: refresh_entity_type() — the core batch refresh function that selects new and stale entities, determines which tiers each needs, and runs tier functions.
+
+parent: graph-engine-overview
+children: []
+
+summary: |
+  **derived-refresh** computes analytical columns in seven tiers: A (5min, traffic aggregation), B (10min, cross-DB joins), C (1h, reputation lookups), D (6h, multi-hop traversals), E (24h, aggregations), F (once, static properties), and G (batch graph algorithms via SciPy). Each cycle selects stalest entities, determines needed tiers by staleness, and runs tier functions against a _batch_keys temp table. Backfill mode (>80% new keys) restricts to tiers A and F. Results are bulk-upserted via PyArrow temp table.
+
+observations:
+  - id: obs-tier-intervals-hardcoded
+    finding: Tier intervals (300, 600, 3600, 21600, 86400) and batch limits (50000, 25000) are hardcoded without named constants explaining their derivation.
+    confidence: medium
+    component: derived-refresh
+    evidence:
+      file: graphdb/graph/derived/refresh.py
+      lines: [47, 59]
+      snippet: "'A': 300, 'B': 600, 'C': 3600"
+    tags: [maintainability]
+    detection_method: manual
+    recommendation: Extract to named constants with comments documenting how each interval was chosen (traffic volume, query cost, staleness tolerance).
+    grounded_in: ["graphdb/graph/derived/refresh.py:47"]

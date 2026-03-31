@@ -1,0 +1,10 @@
+id: failure-modes
+title: Failure Mode Walkthrough
+description: Trace what breaks when NFS goes down, Kafka stalls, or DuckDB locks contend, and how the system recovers.
+audience: [operator, sre]
+stories:
+  - ingestion-message-parsing
+  - graph-engine-failure-handling
+  - graph-engine-derived-tiers
+  - query-layer-edgepool
+  - classification-scheduler-lifecycle

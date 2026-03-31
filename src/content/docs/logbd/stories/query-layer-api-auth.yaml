@@ -1,0 +1,31 @@
+id: query-layer-api-auth
+title: Token Authentication and Access Control
+teaches: How API tokens are managed, activated on first use, and enforced via middleware.
+tags: [auth, tokens, middleware, security]
+
+anchor:
+  file: graphdb/api/auth.py
+  line: 343
+  description: AuthMiddleware.dispatch() — the Starlette middleware that validates Bearer tokens on every non-exempt request.
+
+parent: query-layer-overview
+children: []
+
+summary: |
+  **graphdb-api** uses a DuckDB-backed TokenStore with in-memory cache (refreshed every 60s). Tokens are generic access keys with an is_admin flag — user identity comes from the client's X-Graph-User header, not the token itself. New tokens expire after 7 days if never used; first use activates them permanently by clearing expires_at. AuthMiddleware exempts /health and /metrics, rejects missing/invalid tokens with 401, and records per-user request metrics (counter + histogram).
+
+  Admin endpoints (/admin/tokens) are gated by the is_admin flag. The token schema self-migrates from older formats (username-based to admin-flag-based) on startup, preserving existing tokens through the transition.
+
+observations:
+  - id: obs-flight-sql-no-auth
+    finding: Flight SQL gRPC endpoint (port 8815) has no authentication — any pod in the cluster namespace can execute arbitrary SQL against all DuckDB snapshots.
+    confidence: high
+    component: flight-sql
+    evidence:
+      file: graphdb/api/flight.py
+      lines: [1, 1]
+      snippet: ""
+    tags: [security, critical]
+    detection_method: manual
+    recommendation: Add token-based auth to Flight SQL or restrict access via k8s NetworkPolicy to only the classifier pod.
+    grounded_in: ["graphdb/api/flight.py:1"]

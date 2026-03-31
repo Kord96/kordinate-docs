@@ -1,0 +1,28 @@
+id: ingestion-overview
+title: Log Ingestion Pipeline
+teaches: How FortiMail rawLog files become structured Kafka messages and typed entity records.
+tags: [ingestion, kafka, nfs, pipeline]
+
+anchor:
+  file: graphdb/data_source/logServer/messageProducer/service.py
+  line: 208
+  description: The main service loop that scans NFS for new rawLog slots and drives the ingestion pipeline.
+
+parent: null
+children: [ingestion-message-parsing, ingestion-entity-extraction]
+
+summary: |
+  **message-producer** scans NFS-mounted rawLog directories for new time slots, parses FortiMail log files, and publishes structured messages to Kafka. **entity-extraction** consumes those messages, splits each into 9 entity types (domain, host, subnet, uri, email, text, image, content_template, cluster), and routes them to per-type Kafka topics. This two-stage design decouples log parsing from entity routing, allowing each to scale and fail independently.
+
+structures:
+  - id: ingestion-topology
+    title: Ingestion Component Topology
+    type: component topology
+    nodes:
+      - id: message-producer
+      - id: entity-extraction
+    edges:
+      - from: message-producer
+        to: entity-extraction
+        label: Kafka 'message' topic
+        type: publishes

@@ -1,0 +1,29 @@
+id: ingestion-message-parsing
+title: Message Producer — NFS to Kafka
+teaches: How rawLog files on NFS are discovered, parsed, and published as Kafka messages with progress tracking.
+tags: [ingestion, nfs, kafka, message-producer]
+
+anchor:
+  file: graphdb/data_source/logServer/messageProducer/service.py
+  line: 248
+  description: The main ingestion loop with inventory and ingestion phases.
+
+parent: ingestion-overview
+children: []
+
+summary: |
+  **message-producer** runs a two-phase loop. Phase 1 (inventory) scans all NFS day directories every 10 minutes, building a slot map and updating Prometheus gauges. Phase 2 (ingestion) processes unprocessed slots, parsing each rawLog file and publishing to Kafka with lz4 compression. A DuckDB progress database prevents duplicate ingestion across restarts. The service uses systemd sd_notify for watchdog integration and kills orphaned workers on startup.
+
+observations:
+  - id: obs-nfs-no-circuit-breaker
+    finding: NFS mount failures log an error and return empty results but have no circuit breaker — the producer retries every scan cycle even during sustained NFS outages.
+    confidence: high
+    component: message-producer
+    evidence:
+      file: graphdb/data_source/logServer/messageProducer/service.py
+      lines: [69, 71]
+      snippet: "os.statvfs(str(rawlog_dir))"
+    tags: [resilience, nfs]
+    detection_method: manual
+    recommendation: Add a circuit breaker that backs off on repeated NFS failures instead of retrying every 60 seconds.
+    grounded_in: ["graphdb/data_source/logServer/messageProducer/service.py:69"]
