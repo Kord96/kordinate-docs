@@ -90,37 +90,41 @@ function getTypeStyle(type: string) {
     html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
 
     /* ─── Journey bar (below header, sticky) ─── */
-    .journey-bar {
-      position: fixed; top: 40px; left: 0; right: 0; z-index: 99;
-      background: rgba(9,9,11,0.8); backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 1.5rem;
-      opacity: 0; transform: translateY(-100%);
-      transition: all .3s ease;
+    /* ─── Bottom pill nav ─── */
+    .journey-nav {
+      position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%);
+      z-index: 200; display: flex; align-items: center; gap: 2px;
+      background: rgba(9,9,11,0.92); backdrop-filter: blur(16px) saturate(180%);
+      border: 1px solid var(--border-hover); border-radius: 99px; padding: 3px;
+      max-width: 90vw; overflow-x: auto; scrollbar-width: none;
+      opacity: 0; transform: translateX(-50%) translateY(20px);
+      transition: opacity .3s, transform .3s;
     }
-    .journey-bar.visible { opacity: 1; transform: translateY(0); }
-    .jb-top {
-      display: flex; align-items: center; justify-content: space-between;
-      height: 32px;
+    .journey-nav.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .journey-nav::-webkit-scrollbar { display: none; }
+    .jn-journey {
+      padding: .3rem .6rem; border-radius: 99px;
+      font-size: .65rem; font-weight: 600; color: var(--accent);
+      cursor: pointer; transition: all .2s; white-space: nowrap;
+      border-right: 1px solid var(--border-hover); margin-right: 2px;
+      position: relative;
     }
-    .jb-left { display: flex; align-items: center; gap: .75rem; }
-    .jb-select {
-      font-size: .75rem; font-weight: 500; color: var(--accent);
-      background: var(--accent-dim); border: 1px solid var(--accent-border);
-      padding: .2rem .6rem; border-radius: 5px; cursor: pointer;
-      outline: none; -webkit-appearance: none; appearance: none;
+    .jn-journey:hover { background: var(--accent-dim); }
+    .jn-journey::after { content: ' ▾'; font-size: .5rem; opacity: .6; }
+    .jn-picker {
+      position: absolute; bottom: calc(100% + 6px); left: 0;
+      background: var(--bg); border: 1px solid var(--border-hover);
+      border-radius: 8px; padding: 4px; min-width: 180px;
+      display: none; flex-direction: column; gap: 1px;
     }
-    .jb-select option { background: var(--bg); color: var(--text); }
-    .jb-dots {
-      display: inline-flex; align-items: center; gap: 2px;
-      background: var(--bg);
-      border: 1px solid var(--border-hover);
-      border-radius: 99px;
-      padding: 3px;
-      overflow-x: auto; scrollbar-width: none;
-      max-width: 68%;
+    .jn-picker.open { display: flex; }
+    .jn-pick {
+      padding: .35rem .6rem; border-radius: 6px;
+      font-size: .65rem; color: var(--text-3); cursor: pointer;
+      transition: all .15s; white-space: nowrap;
     }
-    .jb-dots::-webkit-scrollbar { display: none; }
+    .jn-pick:hover { color: var(--text); background: var(--border); }
+    .jn-pick-active { color: var(--accent); }
     .jb-dot {
       padding: .3rem .6rem; border-radius: 99px;
       font-size: .65rem; font-weight: 500; color: var(--text-4);
@@ -515,28 +519,28 @@ function getTypeStyle(type: string) {
 
 <Header project={atlas.project || 'logBD'} badge="dev" links={[{ label: 'Atlas', href: '/dev/logbd/atlas/' }, { label: 'Issues', href: '/dev/logbd/issues/' }]} active="journey" />
 
-<!-- Journey bar — appears after scrolling past landing -->
-<div class="journey-bar" id="journey-bar">
-  <div class="jb-top">
-    <div class="jb-left">
-      <select class="jb-select" id="jb-select">
-        {journeys.map((j: any) => (
-          <option value={j.id} selected={j.id === defaultJourney.id}>{j.title}</option>
-        ))}
-      </select>
-    </div>
-    <div class="jb-dots" id="jb-dots">
-      {stories.map((s: any, i: number) => {
-        const label = s.title?.includes(':') ? s.title.split(':')[0].trim() : (s.title || `Story ${i+1}`);
-        return (
-          <a class={`jb-dot ${i === 0 ? 'jb-dot-active' : ''}`} data-index={i + 1} title={s.title}>
-            {label}
-          </a>
-        );
+<!-- Bottom pill nav — journey selector + story pills -->
+<nav class="journey-nav" id="journey-nav">
+  <span class="jn-journey" id="jn-journey">
+    {defaultJourney.title.includes(':') ? defaultJourney.title.split(':')[0].trim() : defaultJourney.title}
+    <div class="jn-picker" id="jn-picker">
+      {journeys.map((j: any) => {
+        const label = j.title?.includes(':') ? j.title.split(':')[0].trim() : j.title;
+        return <div class={`jn-pick ${j.id === defaultJourney.id ? 'jn-pick-active' : ''}`} data-journey={j.id}>{label}</div>;
       })}
     </div>
-  </div>
-</div>
+  </span>
+  <span id="jb-dots">
+    {stories.map((s: any, i: number) => {
+      const label = s.title?.includes(':') ? s.title.split(':')[0].trim() : (s.title || `Story ${i+1}`);
+      return (
+        <a class={`jb-dot ${i === 0 ? 'jb-dot-active' : ''}`} data-index={i + 1} title={s.title}>
+          {label}
+        </a>
+      );
+    })}
+  </span>
+</nav>
 
 <!-- Landing -->
 <section class="snap" id="s0">
@@ -752,24 +756,43 @@ function getTypeStyle(type: string) {
 </div>
 
 <script is:inline>
-  const journeyBar = document.getElementById('journey-bar');
+  const journeyNav = document.getElementById('journey-nav');
   const jbDots = document.getElementById('jb-dots');
-  const jbSelect = document.getElementById('jb-select');
+  const jnJourney = document.getElementById('jn-journey');
+  const jnPicker = document.getElementById('jn-picker');
   const landing = document.getElementById('s0');
   let cur = 0;
-  let currentJourneyId = jbSelect.value;
+  let currentJourneyId = jnPicker.querySelector('.jn-pick-active')?.dataset.journey || 'getting-started';
 
   function getVisibleSections() {
     return [landing, ...document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"]`)];
   }
 
-  // Show/hide journey bar based on scroll position
+  // Show/hide nav based on scroll position
   const landingObs = new IntersectionObserver(entries => {
     entries.forEach(e => {
-      journeyBar.classList.toggle('visible', !e.isIntersecting);
+      journeyNav.classList.toggle('visible', !e.isIntersecting);
     });
   }, { threshold: 0.3 });
   landingObs.observe(landing);
+
+  // Journey picker toggle
+  jnJourney.addEventListener('click', (e) => {
+    e.stopPropagation();
+    jnPicker.classList.toggle('open');
+  });
+  document.addEventListener('click', () => jnPicker.classList.remove('open'));
+  jnPicker.querySelectorAll('.jn-pick').forEach(pick => {
+    pick.addEventListener('click', (e) => {
+      e.stopPropagation();
+      jnPicker.classList.remove('open');
+      switchJourney(pick.dataset.journey);
+      // Update picker label and active state
+      const label = pick.textContent;
+      jnJourney.childNodes[0].textContent = label + ' ';
+      jnPicker.querySelectorAll('.jn-pick').forEach(p => p.classList.toggle('jn-pick-active', p === pick));
+    });
+  });
 
   // Track current story and update dots
   function rebuildDots() {
@@ -1197,7 +1220,6 @@ function getTypeStyle(type: string) {
   // ─── Journey switching ───
   function switchJourney(jid) {
     currentJourneyId = jid;
-    jbSelect.value = jid;
 
     // Show/hide story sections
     document.querySelectorAll('.journey-section').forEach(s => {
@@ -1256,7 +1278,7 @@ function getTypeStyle(type: string) {
     });
   }
 
-  jbSelect.addEventListener('change', () => switchJourney(jbSelect.value));
+  // Journey switch is handled by the bottom pill nav picker
 
   // Landing journey buttons
   document.querySelectorAll('.landing-journey-btn').forEach(btn => {
