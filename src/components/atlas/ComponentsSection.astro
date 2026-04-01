@@ -1,0 +1,35 @@
+---
+interface Props { groups: any[]; components: any[]; }
+const { groups, components } = Astro.props;
+---
+
+<div class="section" id="components-section">
+  <h2 class="section-title">Components</h2>
+  <p class="section-sub">{components.length} components across {groups.length} groups</p>
+
+  {groups.map((g: any) => {
+    const groupComps = components.filter((c: any) => c.group === g.id);
+    return (
+      <div>
+        <div class="group-header">
+          <div class="group-name">{g.name}</div>
+          <div class="group-desc">{g.description}</div>
+        </div>
+        <div class="card-grid">
+          {groupComps.map((c: any) => (
+            <div class="card" id={`card-${c.id}`} data-component-id={c.id}>
+              <div class="card-name">{c.name}</div>
+              <div class="card-type">{c.type}</div>
+              <div class="card-desc">{c.description}</div>
+              {c.patterns && c.patterns.length > 0 && (
+                <div class="card-meta">
+                  {c.patterns.map((p: string) => <span class="card-tag">{p}</span>)}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  })}
+</div>

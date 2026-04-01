@@ -1,0 +1,41 @@
+---
+/**
+ * Landing section — hero with project name, purpose, journey buttons, stats.
+ */
+interface Props {
+  project: string;
+  purpose: string;
+  journeys: any[];
+  defaultJourney: any;
+  totalStories: number;
+  domainModel?: any;
+}
+
+const { project, purpose, journeys, defaultJourney, totalStories, domainModel } = Astro.props;
+const dm = domainModel || {};
+---
+
+<section class="snap" id="s0">
+  <div class="snap-inner landing">
+    <h1>{project}</h1>
+    <p class="landing-sub">{purpose}</p>
+    {dm.primary && (
+      <div class="landing-badge">
+        ◆ {dm.primary} · {dm.entities?.length || 0} entities · {dm.relationships?.length || 0} relationships
+      </div>
+    )}
+    <div class="landing-journeys">
+      {journeys.map((j: any) => (
+        <a class={`landing-journey-btn ${j.id === defaultJourney.id ? 'primary' : ''}`} href="#chapter0" data-journey={j.id}>
+          {j.title}
+        </a>
+      ))}
+    </div>
+    <div class="landing-stats">
+      <span>{Astro.props.componentCount || '?'} components</span>
+      <span>{Astro.props.flowCount || '?'} flows</span>
+      <span>{totalStories} stories</span>
+      <span>~{Math.ceil(totalStories * 1.5)} min</span>
+    </div>
+  </div>
+</section>

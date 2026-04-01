@@ -1,0 +1,27 @@
+---
+interface Props { extDeps: any[]; severity: (s: string) => string; }
+const { extDeps, severity } = Astro.props;
+---
+
+<div class="section" id="sec-external">
+  <h2 class="section-title">External Dependencies</h2>
+  <p class="section-sub">{extDeps.length} external dependencies</p>
+  <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem 1rem;">
+    {extDeps.map((e: any) => (
+      <div class="dep">
+        <div class="dep-header">
+          <span class="dep-name">{e.name || e.id}</span>
+          <span class="dep-crit" style={`color: ${severity(e.criticality)}`}>{e.criticality}</span>
+        </div>
+        {e.components && e.components.length > 0 && (
+          <div class="dep-components">
+            {e.components.map((comp: string) => (
+              <a href={`#components-section`} class="dep-comp-link">{comp}</a>
+            ))}
+          </div>
+        )}
+        {e.purpose && <p class="dep-purpose">{e.purpose}</p>}
+      </div>
+    ))}
+  </div>
+</div>

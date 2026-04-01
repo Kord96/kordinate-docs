@@ -12,7 +12,7 @@ import DebtSection from '../../../components/atlas/DebtSection.astro';
 import PatternsSection from '../../../components/atlas/PatternsSection.astro';
 import fs from 'node:fs';
 
-const dir = 'src/content/docs/logbd';
+const dir = 'src/content/docs/fmailai';
 const atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
 
 const groups = atlas.groups || [];
@@ -33,7 +33,7 @@ function severity(s: string) {
 <Base title={`${atlas.project} — Atlas`}>
   <AtlasStyles />
 
-  <Header project={atlas.project} badge="dev" links={[{ label: 'Journey', href: '/dev/logbd/' }, { label: 'Issues', href: '/dev/logbd/issues/' }]} position="sticky" active="atlas" />
+  <Header project={atlas.project} badge="dev" links={[{ label: 'Journey', href: '/dev/fmailai/' }, { label: 'Issues', href: '/dev/fmailai/issues/' }]} position="sticky" active="atlas" />
 
   <div class="container">
     <div class="section" id="sec-overview">

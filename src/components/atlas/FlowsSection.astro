@@ -1,0 +1,16 @@
+---
+interface Props { flows: any[]; }
+const { flows } = Astro.props;
+---
+
+<div class="section" id="sec-flows">
+  <h2 class="section-title">Flows</h2>
+  <p class="section-sub">{flows.length} typed flows</p>
+  {flows.map((f: any) => (
+    <div class="flow-card">
+      <div class="flow-name">{f.name}</div>
+      <div class="flow-type">{f.type} flow</div>
+      <div class="flow-desc">{f.description}</div>
+    </div>
+  ))}
+</div>

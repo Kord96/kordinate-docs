@@ -1,0 +1,54 @@
+---
+/**
+ * Chapter 0 — Overview with atlas graph and journey overviews.
+ */
+interface Props {
+  atlas: any;
+  journeys: any[];
+  defaultJourney: any;
+  storyByNode: Record<string, string[]>;
+}
+
+const { atlas, journeys, defaultJourney, storyByNode } = Astro.props;
+---
+
+<section class="snap" id="chapter0">
+  <div class="snap-inner ch0">
+    <div class="ch0-header">
+      <div class="story-num">Overview</div>
+      <h2 class="story-title">How it works</h2>
+    </div>
+
+    <div class="struct">
+      <div class="struct-graph" id="atlas-overview" data-graph={JSON.stringify({
+        nodes: (atlas.components || []).map((c: any) => ({
+          id: c.id, name: c.name, type: c.type,
+          description: c.description, depends_on: c.depends_on || [], patterns: c.patterns || []
+        })),
+        edges: (atlas.components || []).flatMap((c: any) =>
+          (c.depends_on || []).filter((d: string) => (atlas.components || []).some((cc: any) => cc.id === d))
+            .map((d: string) => ({ from: c.id, to: d, label: '' }))
+        )
+      })} data-refs={JSON.stringify(storyByNode)}></div>
+      <div class="struct-hint">click a node to explore</div>
+    </div>
+
+    <div class="ch0-text" id="ch0-overview">
+      {journeys.map((j: any) => (
+        <div class={`ch0-journey-overview ${j.id === defaultJourney.id ? '' : 'hidden'}`} data-journey-overview={j.id}>
+          <div class="ch0-journey-title">{j.title}</div>
+          {j.overview && j.overview.split(/\.\s+/).filter(Boolean).map((sentence: string, i: number) => (
+            <div class="ch0-point">
+              <span class="ch0-dot">{i + 1}</span>
+              <span>{sentence.trim()}{sentence.trim().endsWith('.') ? '' : '.'}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+
+    <div class="next">
+      <a href={`#${defaultJourney.id}-s1`}>Begin the journey →</a>
+    </div>
+  </div>
+</section>

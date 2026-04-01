@@ -7,18 +7,31 @@ import IssueSection from '../../../components/issues/IssueSection.astro';
 import fs from 'node:fs';
 import yaml from 'js-yaml';
 
-const dir = 'src/content/docs/logbd';
-const atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
+const { project } = Astro.params;
+const dir = `src/content/docs/${project}`;
 
-const storyDir = `${dir}/stories`;
-const storyObs: any[] = [];
-for (const f of fs.readdirSync(storyDir).filter((s: string) => s.endsWith('.yaml'))) {
-  const s = yaml.load(fs.readFileSync(`${storyDir}/${f}`, 'utf-8')) as any;
-  for (const obs of (s.observations || [])) {
-    if (obs.recommendation && obs.confidence !== 'low') {
-      storyObs.push({ ...obs, story: s.id });
+let atlas = {};
+try {
+  atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
+} catch (e) {
+  console.error(`Failed to load atlas for ${project}:`, e);
+}
+
+let storyObs: any[] = [];
+try {
+  const storyDir = `${dir}/stories`;
+  if (fs.existsSync(storyDir)) {
+    for (const f of fs.readdirSync(storyDir).filter((s: string) => s.endsWith('.yaml'))) {
+      const s = yaml.load(fs.readFileSync(`${storyDir}/${f}`, 'utf-8')) as any;
+      for (const obs of (s.observations || [])) {
+        if (obs.recommendation && obs.confidence !== 'low') {
+          storyObs.push({ ...obs, story: s.id });
+        }
+      }
     }
   }
+} catch (e) {
+  console.error(`Failed to load stories for ${project}:`, e);
 }
 
 interface Issue { id: string; type: 'bug' | 'enhancement' | 'suggestion'; severity: string; title: string; description: string; category: string; components: string[]; files: string[]; recommendation: string; source: string; }
@@ -62,7 +75,7 @@ function typeColor(t: string) { return ({ bug: '#ef4444', enhancement: '#60a5fa'
 <Base title={`${atlas.project} — Issues`}>
   <IssuesStyles />
 
-  <Header project={atlas.project} badge="dev" links={[{ label: 'Journey', href: '/dev/logbd/' }, { label: 'Atlas', href: '/dev/logbd/atlas/' }]} position="sticky" active="issues" />
+  <Header project={atlas.project} badge="dev" links={[{ label: 'Journey', href: `/dev/${project}/` }, { label: 'Atlas', href: `/dev/${project}/atlas/` }]} position="sticky" active="issues" />
 
   <div class="container">
     <h1 class="page-title">Issues</h1>

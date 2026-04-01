@@ -1,0 +1,30 @@
+id: getting-started
+number: 1
+title: "Getting Started"
+description: "A teaching-order path through the fmailai codebase for someone new to the project."
+audience: ["new-developer", "sre"]
+overview: |
+  FmailAI is a Kafka-driven email classification engine that evaluates incoming emails against 20+ ordered classifiers to produce spam, phishing, and newsletter verdicts. Follow an email from Kafka ingestion through the classifier pipeline, into the ML and LLM intelligence layer, and down to the multi-database persistence layer. The system runs as 4 Docker Compose containers backed by Kafka, Aerospike, MongoDB, Qdrant, and an external LLM server.
+stories:
+  - classification-engine
+  - kafka-ingestion
+  - classifier-pipeline
+  - data-layer
+  - operations
+  - external-dependencies
+bridges:
+  - from: classification-engine
+    to: kafka-ingestion
+    text: "How does a raw Kafka message become a structured email ready for classification?"
+  - from: kafka-ingestion
+    to: classifier-pipeline
+    text: "Once parsed, how do 20+ classifiers decide whether an email is spam?"
+  - from: classifier-pipeline
+    to: data-layer
+    text: "Where do email records, sender profiles, and config live?"
+  - from: data-layer
+    to: operations
+    text: "What runs outside the main classification loop?"
+  - from: operations
+    to: external-dependencies
+    text: "The system depends on 6 external services -- what happens when one fails?"

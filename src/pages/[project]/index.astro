@@ -1,6 +1,6 @@
 ---
 /**
- * logBD Journey — Guided architecture walkthrough
+ * Generic Project Journey — Dynamic routing for any project
  * Uses shared journey components from src/components/journey/
  */
 import Base from '../../layouts/Base.astro';
@@ -17,21 +17,57 @@ import JourneyScript from '../../components/journey/JourneyScript.astro';
 import fs from 'node:fs';
 import yaml from 'js-yaml';
 
-const dir = 'src/content/docs/logbd';
-const atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
-const manifest = JSON.parse(fs.readFileSync(`${dir}/manifest.json`, 'utf-8'));
-const storyByNode = JSON.parse(fs.readFileSync(`${dir}/storyByNode.json`, 'utf-8'));
+const { project } = Astro.params;
+const dir = `src/content/docs/${project}`;
+
+let atlas = {};
+let manifest = {};
+let storyByNode = {};
+let journeys = [];
+let storyMap: Record<string, any> = {};
+
+try {
+  atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
+} catch (e) {
+  console.error(`Failed to load atlas for ${project}:`, e);
+}
+
+try {
+  manifest = JSON.parse(fs.readFileSync(`${dir}/manifest.json`, 'utf-8'));
+} catch (e) {
+  console.error(`Failed to load manifest for ${project}:`, e);
+}
+
+try {
+  storyByNode = JSON.parse(fs.readFileSync(`${dir}/storyByNode.json`, 'utf-8'));
+} catch (e) {
+  // storyByNode is optional
+}
 
 // Load journeys
-const journeyFiles = fs.readdirSync(`${dir}/journeys`).filter((f: string) => f.endsWith('.yaml'));
-const journeys = journeyFiles.map((f: string) => yaml.load(fs.readFileSync(`${dir}/journeys/${f}`, 'utf-8')));
-const defaultJourney = journeys.find((j: any) => j.id === 'getting-started') || journeys[0];
+try {
+  const journeyDir = `${dir}/journeys`;
+  if (fs.existsSync(journeyDir)) {
+    const journeyFiles = fs.readdirSync(journeyDir).filter((f: string) => f.endsWith('.yaml'));
+    journeys = journeyFiles.map((f: string) => yaml.load(fs.readFileSync(`${journeyDir}/${f}`, 'utf-8'))) as any[];
+  }
+} catch (e) {
+  console.error(`Failed to load journeys for ${project}:`, e);
+}
+
+const defaultJourney = journeys.find((j: any) => j.id === 'getting-started') || journeys[0] || { id: 'default', title: 'Journey', stories: [] };
 
 // Load all stories into a map
-const storyMap: Record<string, any> = {};
-for (const f of fs.readdirSync(`${dir}/stories`).filter((s: string) => s.endsWith('.yaml'))) {
-  const s = yaml.load(fs.readFileSync(`${dir}/stories/${f}`, 'utf-8')) as any;
-  storyMap[s.id] = s;
+try {
+  const storyDir = `${dir}/stories`;
+  if (fs.existsSync(storyDir)) {
+    for (const f of fs.readdirSync(storyDir).filter((s: string) => s.endsWith('.yaml'))) {
+      const s = yaml.load(fs.readFileSync(`${storyDir}/${f}`, 'utf-8')) as any;
+      storyMap[s.id] = s;
+    }
+  }
+} catch (e) {
+  console.error(`Failed to load stories for ${project}:`, e);
 }
 
 // Build stories + bridges per journey
@@ -65,12 +101,12 @@ function parseSummary(text: string): string {
 <Base title={defaultJourney.title}>
   <JourneyStyles />
 
-  <Header project={atlas.project || 'logBD'} badge="dev" links={[{ label: 'Atlas', href: '/dev/logbd/atlas/' }, { label: 'Issues', href: '/dev/logbd/issues/' }]} active="journey" />
+  <Header project={atlas.project || project} badge="dev" links={[{ label: 'Atlas', href: `/dev/${project}/atlas/` }, { label: 'Issues', href: `/dev/${project}/issues/` }]} active="journey" />
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
 
   <LandingSection
-    project={atlas.project || 'logBD'}
+    project={atlas.project || project}
     purpose={purpose}
     journeys={journeys}
     defaultJourney={defaultJourney}
@@ -102,6 +138,6 @@ function parseSummary(text: string): string {
 
   <FocusOverlay />
   <JourneyData atlas={atlas} storyByNode={storyByNode} />
-  <Drawer project={atlas.project || 'logBD'} />
+  <Drawer project={atlas.project || project} />
   <JourneyScript />
 </Base>

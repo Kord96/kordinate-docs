@@ -1,0 +1,53 @@
+{
+  "background-workers": [
+    "background-processing",
+    "data-layer",
+    "observability-stack"
+  ],
+  "kafka-consumer": [
+    "classification-engine",
+    "data-layer",
+    "external-dependencies",
+    "failure-cascades",
+    "kafka-ingestion",
+    "verdict-lifecycle"
+  ],
+  "classification-pipeline": [
+    "classification-engine",
+    "classifier-pipeline",
+    "data-layer",
+    "failure-cascades",
+    "kafka-ingestion",
+    "verdict-lifecycle"
+  ],
+  "classifier-chain": [
+    "classification-engine",
+    "classifier-pipeline",
+    "vector-similarity",
+    "verdict-lifecycle"
+  ],
+  "europa-database": [
+    "classification-engine",
+    "data-layer",
+    "external-dependencies",
+    "failure-cascades",
+    "storage-topology"
+  ],
+  "email-model": [
+    "data-layer",
+    "email-domain-model",
+    "security-surface"
+  ],
+  "vector-service": [
+    "external-dependencies",
+    "security-surface",
+    "vector-similarity"
+  ],
+  "llm-client": [
+    "external-dependencies",
+    "llm-integration"
+  ],
+  "feature-extractor": [
+    "vector-similarity"
+  ]
+}

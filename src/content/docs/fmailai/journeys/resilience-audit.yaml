@@ -1,0 +1,26 @@
+id: resilience-audit
+number: 2
+title: "Resilience Audit"
+description: "Walk through every failure mode and missing resilience pattern in the system."
+audience: ["sre", "security-engineer"]
+overview: |
+  The system has 6 external dependencies, none with circuit breakers, and only one with a timeout. This journey traces what breaks when each dependency fails, where the backpressure builds, and what monitoring exists to detect problems. Start with the infrastructure map, then walk each failure cascade.
+stories:
+  - external-dependencies
+  - failure-cascades
+  - kafka-ingestion
+  - llm-integration
+  - background-processing
+bridges:
+  - from: external-dependencies
+    to: failure-cascades
+    text: "With no resilience wrappers, how does each failure actually cascade?"
+  - from: failure-cascades
+    to: kafka-ingestion
+    text: "The Kafka consumer has no reconnection -- how does thread pool exhaustion compound this?"
+  - from: kafka-ingestion
+    to: llm-integration
+    text: "The LLM client is the only dependency with a timeout -- how does its caching help?"
+  - from: llm-integration
+    to: background-processing
+    text: "Background workers run without metrics or alerting -- what fails silently?"

@@ -1,0 +1,27 @@
+---
+interface Props {
+  issue: { title: string; severity: string; category: string; description: string; recommendation: string; components: string[]; files: string[]; source: string; type: string; };
+  sevColor: (s: string) => string;
+  showSeverity?: boolean;
+}
+const { issue, sevColor, showSeverity = true } = Astro.props;
+---
+
+<div class="issue">
+  <div class="issue-top">
+    <span class="issue-title">{issue.title}</span>
+    {showSeverity && <span class="badge" style={`background: ${sevColor(issue.severity)}22; color: ${sevColor(issue.severity)}`}>{issue.severity}</span>}
+    <span class="badge" style={`background: var(--border); color: var(--text-3)`}>{issue.category}</span>
+  </div>
+  {issue.description && <div class="issue-desc">{issue.description}</div>}
+  {issue.recommendation && <div class="issue-rec">{issue.recommendation}</div>}
+  <div class="issue-meta">
+    {issue.components.length > 0 && (
+      <div class="components">
+        {issue.components.map((c: string) => <a href="#components-section" class="comp">{c}</a>)}
+      </div>
+    )}
+    {issue.files.length > 0 && <span class="issue-files">{issue.files.join(', ')}</span>}
+    <span class="issue-source">{issue.source}</span>
+  </div>
+</div>

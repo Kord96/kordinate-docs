@@ -1,0 +1,107 @@
+---
+/**
+ * Story section — one scroll-snap section per story with bridge, summary,
+ * structures (graphs), flows, observations, rationale, and next link.
+ */
+interface Props {
+  story: any;
+  index: number;
+  total: number;
+  journeyId: string;
+  isDefault: boolean;
+  bridge?: any;
+  compMap: Record<string, any>;
+  storyByNode: Record<string, string[]>;
+  parseSummary: (text: string) => string;
+}
+
+const { story, index, total, journeyId, isDefault, bridge, compMap, storyByNode, parseSummary } = Astro.props;
+const anchor = story.anchor;
+const html = parseSummary(story.summary || '');
+---
+
+<section class={`snap journey-section ${isDefault ? '' : 'hidden'}`} id={`${journeyId}-s${index+1}`} data-journey={journeyId}>
+  <button class="focus-btn" data-focus={`${journeyId}-s${index+1}`}>Focus ⛶</button>
+  <div class="snap-inner">
+    {bridge && <div class="bridge">{bridge.text}</div>}
+
+    <div class="story-num">Story {index+1} of {total}</div>
+    <h2 class="story-title">{story.title}</h2>
+
+    {anchor && (
+      <div class="anchor">
+        <span class="anchor-pin">📌</span>
+        <div>
+          <div class="anchor-file">{anchor.file}:{anchor.line}</div>
+          <div class="anchor-desc">{anchor.description}</div>
+        </div>
+      </div>
+    )}
+
+    <div class="summary" set:html={html} />
+
+    {(story.structures || []).map((st: any, si: number) => {
+      const graphId = `graph-${index}-${si}`;
+      const explicitIds = (st.nodes || []).map((n: any) => typeof n === 'string' ? n : n.id);
+      const edgeIds = (st.edges || []).flatMap((e: any) => [e.from, e.to].filter(Boolean));
+      const missingIds = edgeIds.filter((id: string) => !explicitIds.includes(id));
+      const allNodeIds = [...new Set([...explicitIds, ...missingIds])];
+      const graphData = JSON.stringify({
+        nodes: allNodeIds.map((nid: string) => {
+          const c = compMap[nid];
+          return { id: nid, name: c?.name || nid, type: c?.type || 'worker', description: c?.description || '', depends_on: c?.depends_on || [], patterns: c?.patterns || [] };
+        }),
+        edges: (st.edges || []).map((e: any) => ({ from: e.from, to: e.to, label: e.label || '' }))
+      });
+      const storyRefs = JSON.stringify(storyByNode);
+      return (
+        <div class="struct">
+          <div class="struct-graph" id={graphId} data-graph={graphData} data-refs={storyRefs}></div>
+          <div class="struct-hint">click a node to explore</div>
+        </div>
+      );
+    })}
+
+    {(story.flows || []).map((fl: any) => (
+      <div class="flow">
+        {fl.title && <div class="flow-head">{fl.title}</div>}
+        {(fl.steps || []).map((step: any, si: number) => (
+          <div class="flow-step">
+            <span class="flow-n">{si+1}</span>
+            <div>
+              <span class="flow-from">{compMap[step.node]?.name || step.node}</span>
+              {step.to && <span class="flow-arrow"> → {compMap[step.to]?.name || step.to}</span>}
+              <div class="flow-action">{step.action || step.effect}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ))}
+
+    {(story.observations || []).map((obs: any) => (
+      <div class={`obs ${obs.recommendation ? 'gap' : 'finding'}`}>
+        <div class="obs-text" set:html={parseSummary(obs.finding || '')} />
+        <div class="obs-meta">
+          {obs.evidence?.file && <span class="obs-file">{obs.evidence.file}{obs.evidence.lines ? `:${obs.evidence.lines[0]}` : ''}</span>}
+          {obs.confidence && <span class={`obs-badge ${obs.confidence}`}>{obs.confidence}</span>}
+        </div>
+        {obs.recommendation && <div class="obs-rec">→ {obs.recommendation}</div>}
+      </div>
+    ))}
+
+    {(story.rationale || []).map((r: any) => (
+      <div class="rat">
+        <div class="rat-dec">ℹ {r.decision}</div>
+        {r.context && <div class="rat-ctx">{r.context}</div>}
+        {r.trade_offs && <div class="rat-trade">↔ {r.trade_offs}</div>}
+      </div>
+    ))}
+
+    <div class="next">
+      {index < total - 1
+        ? <a href={`#${journeyId}-s${index+2}`}>Next →</a>
+        : <a href="#s0">↑ Start</a>
+      }
+    </div>
+  </div>
+</section>

@@ -1,0 +1,26 @@
+id: data-flow
+number: 3
+title: "Data Flow End-to-End"
+description: "Trace email data from Kafka ingestion through classification to database persistence."
+audience: ["developer", "data-engineer"]
+overview: |
+  An email classification request arrives as gzip-compressed JSON on Kafka, gets parsed into EmailInfo, passes through the classifier chain collecting scores and verdicts, and finally gets persisted to Aerospike with sender stats and cached verdict. This journey follows the data transformations at each stage.
+stories:
+  - kafka-ingestion
+  - email-domain-model
+  - classifier-pipeline
+  - vector-similarity
+  - storage-topology
+bridges:
+  - from: kafka-ingestion
+    to: email-domain-model
+    text: "The raw dict is parsed -- what does the EmailInfo domain object look like?"
+  - from: email-domain-model
+    to: classifier-pipeline
+    text: "With features extracted, how does the pipeline chain process the enriched email?"
+  - from: classifier-pipeline
+    to: vector-similarity
+    text: "For content-based classification, how does vector similarity scoring work?"
+  - from: vector-similarity
+    to: storage-topology
+    text: "After classification, where does the email record end up?"

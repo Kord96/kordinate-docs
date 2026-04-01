@@ -1,0 +1,41 @@
+---
+/**
+ * All CSS for issues pages.
+ */
+---
+
+<style is:global>
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .page-title { font-size: 1.5rem; font-weight: 800; margin-bottom: .25rem; letter-spacing: -.03em; }
+  .page-sub { font-size: .85rem; color: var(--text-3); margin-bottom: 2rem; }
+
+  .summary { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .summary-stat { display: flex; align-items: center; gap: .75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: .75rem 1.25rem; }
+  .debt-badge { font-size: 1.3rem; font-weight: 800; width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
+  .stat-count { font-size: 1.4rem; font-weight: 800; }
+  .stat-label { font-size: .65rem; color: var(--text-4); text-transform: uppercase; letter-spacing: .08em; font-weight: 500; }
+
+  .stats { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+  .stat { text-align: center; }
+  .stat-num { font-size: 1.5rem; font-weight: 800; }
+  .stat-label { font-size: .7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
+
+  .section { margin-bottom: 3rem; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; padding-bottom: .75rem; border-bottom: 1px solid var(--border); }
+  .section-title { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; }
+  .section-count { font-size: .65rem; color: var(--text-3); background: var(--border); padding: .2rem .5rem; border-radius: 4px; font-weight: 600; }
+
+  .issue { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: .75rem; transition: all .2s; }
+  .issue:hover { border-color: var(--border-hover); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .issue-top { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; flex-wrap: wrap; }
+  .issue-title { font-weight: 600; font-size: .9rem; flex: 1; min-width: 200px; }
+  .badge { font-size: .55rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: .15rem .4rem; border-radius: 4px; white-space: nowrap; }
+  .issue-desc { font-size: .82rem; color: var(--text-2); line-height: 1.6; margin-bottom: .5rem; }
+  .issue-meta { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; font-size: .75rem; color: var(--text-3); }
+  .issue-source { font-size: .7rem; color: var(--text-4); }
+  .issue-files { font-size: .7rem; color: var(--accent); font-family: var(--mono); }
+  .issue-rec { font-size: .8rem; color: var(--accent); margin-top: .75rem; padding: .6rem .8rem; background: var(--accent-dim); border-radius: 6px; border-left: 3px solid var(--accent); line-height: 1.5; }
+  .components { display: flex; gap: .3rem; flex-wrap: wrap; }
+  .comp { font-size: .6rem; padding: .1rem .3rem; border-radius: 3px; background: rgba(99,102,241,0.08); color: var(--accent); border: 1px solid rgba(99,102,241,0.15); text-decoration: none; transition: all .2s; cursor: pointer; }
+  .comp:hover { background: var(--accent); color: white; border-color: var(--accent); }
+</style>

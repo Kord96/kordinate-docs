@@ -1,0 +1,63 @@
+id: verdict-lifecycle
+title: "Verdict Lifecycle"
+teaches: "How email verdicts progress from Unknown through classification to final response."
+tags: ["verdict", "state-machine", "metrics"]
+
+anchor:
+  file: "kafkaClientMT.py"
+  line: 225
+  description: "Prometheus counter increment based on final verdict value."
+
+parent: classification-engine
+children: []
+
+summary: |
+  An email enters as Verdict.Unknown and transitions through the classifier chain. Each classifier may return Clean, Spam, Newsletter, SuspiciousNewsletter, Skipped, or Timedout. The first non-Unknown verdict terminates the chain. **kafka-consumer** records the final verdict via Prometheus counters (one per verdict type) and produces a JSON response to the per-appliance FML-RESPONSE-{fml_sn} topic.
+
+  Verdicts carry a companion risk_level (0-9) and optional spam_category. The risk_level provides granularity within the Spam verdict: 7 (Phishy), 8 (Suspicious), 9 (Malicious). Special handling: Timedout emails produce no response. Skipped and QdrantVectorCollect verdicts suppress database insertion. FNSubmission post-processing may rewrite Clean to Newsletter.
+
+flows:
+  - id: verdict-state-flow
+    title: "Verdict State Transitions"
+    type: state
+    trigger: "Email enters pipeline with Verdict.Unknown."
+    steps:
+      - node: classification-pipeline
+        action: "initial state"
+        from_state: "Unknown"
+        to_state: "Unknown (cache miss)"
+        side_effects: "cache lookup attempted"
+      - node: classifier-chain
+        action: "classifier assigns verdict"
+        from_state: "Unknown"
+        to_state: "Clean | Spam | Newsletter | SuspiciousNewsletter | Skipped | Timedout"
+        side_effects: "risk_level and classifier_id set on EmailInfo"
+      - node: classification-pipeline
+        action: "FNSubmission rewrite"
+        from_state: "Clean | Newsletter"
+        to_state: "Newsletter | SuspiciousNewsletter"
+        side_effects: "only when EMAIL_SOURCE==2 and SRG score conditions met"
+      - node: kafka-consumer
+        action: "produce response and increment counter"
+        from_state: "final verdict"
+        to_state: "response produced"
+        side_effects: "Prometheus counter incremented, email archived to log"
+
+observations:
+  - id: obs-timedout-no-response
+    finding: "Timedout emails produce no Kafka response, leaving the FortiMail appliance waiting indefinitely."
+    confidence: high
+    component: kafka-consumer
+    evidence:
+      file: "kafkaClientMT.py"
+      lines: [251, 252]
+    tags: ["reliability"]
+    detection_method: manual
+    recommendation: "Send an explicit timeout response so FortiMail can fall back to default action."
+    grounded_in: ["kafkaClientMT.py:251"]
+
+evaluation:
+  groundedness: 0.90
+  coverage: 0.85
+  claim_count: 8
+  ungrounded_claims: []

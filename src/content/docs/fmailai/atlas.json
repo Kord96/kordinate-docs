@@ -1,0 +1,1028 @@
+{
+  "version": "4",
+  "generated": "2026-04-01",
+  "project": "fmailai",
+
+  "purpose": "Kafka-driven email classification engine that predicts spam, phishing, and newsletter verdicts.",
+
+  "domain_model": {
+    "primary": "data-pipeline",
+    "description": "Emails flow through a Kafka-consumed pipeline of ordered classifiers that assign verdicts and risk levels.",
+    "entities": ["email", "verdict", "classifier", "risk-level", "api-key", "sender-profile", "user-profile"],
+    "relationships": [
+      "email -> classified-by -> classifier-chain",
+      "email -> produces -> verdict + risk-level",
+      "sender-profile -> aggregates -> email-history",
+      "api-key -> scopes -> pipeline-config"
+    ],
+    "bounded_contexts": [
+      {
+        "id": "classification",
+        "name": "Classification",
+        "description": "Pipeline of classifiers that evaluate emails and produce verdicts.",
+        "entities": ["email", "verdict", "classifier", "risk-level", "spam-category"],
+        "modules": ["pipeline.py", "classifier.py", "*Classifier.py"],
+        "ubiquitous_language": {
+          "verdict": "Enum outcome of classification: Clean, Spam, Newsletter, SuspiciousNewsletter, Skipped, Timedout, Unknown.",
+          "risk-level": "Numeric 0-9 severity score assigned alongside the verdict.",
+          "classifier": "Ordered prediction unit in the pipeline, each with a unique ClassifierID.",
+          "pipeline": "Ordered chain of classifiers that processes an email to produce a verdict."
+        }
+      },
+      {
+        "id": "ingestion",
+        "name": "Ingestion",
+        "description": "Kafka consumer that deserializes, decompresses, and dispatches email requests.",
+        "entities": ["kafka-message", "request-type", "response-topic"],
+        "modules": ["kafkaClientMT.py", "emailinfo.py"],
+        "ubiquitous_language": {
+          "request-type": "Integer 1-6 distinguishing prediction, notification, training, query, ping, test-connection.",
+          "fml-sn": "FortiMail serial number identifying the sending appliance."
+        }
+      },
+      {
+        "id": "persistence",
+        "name": "Persistence",
+        "description": "Aerospike, MongoDB, and MySQL stores for email records, config, and user profiles.",
+        "entities": ["email-record", "sender-stats", "user-profile", "config-document"],
+        "modules": ["database.py"],
+        "ubiquitous_language": {
+          "europa-database": "Facade class wrapping all database operations (Aerospike, MongoDB, legacy MySQL).",
+          "home-domain": "Customer-owned domain configured per API key."
+        }
+      }
+    ]
+  },
+
+  "stack": {
+    "languages": ["Python"],
+    "frameworks": [
+      {"name": "confluent-kafka", "concepts": ["stream-to-store"]},
+      {"name": "Flask", "concepts": ["rest"]},
+      {"name": "prometheus_client", "concepts": ["metrics-instrumentation"]},
+      {"name": "scikit-learn", "concepts": []},
+      {"name": "PyTorch", "concepts": []},
+      {"name": "transformers (HuggingFace)", "concepts": []},
+      {"name": "spacy", "concepts": []},
+      {"name": "qdrant-client", "concepts": []}
+    ],
+    "runtime": "Python 3.12 on Fedora 39, deployed via Docker Compose with 4 application containers (fai, merge-usr-pro, dbclean, vector-srv) plus Kafka, Aerospike, MongoDB, Qdrant, OpenSearch, Prometheus, Grafana."
+  },
+
+  "groups": [
+    {
+      "id": "classification-engine",
+      "name": "Classification Engine",
+      "description": "Kafka consumer, pipeline orchestration, classifier chain, and ML/LLM intelligence.",
+      "components": ["kafka-consumer", "classification-pipeline", "classifier-chain", "feature-extractor", "llm-client"]
+    },
+    {
+      "id": "data-layer",
+      "name": "Data Layer",
+      "description": "Database facade, email domain model, and configuration management.",
+      "components": ["europa-database", "email-model"]
+    },
+    {
+      "id": "operations",
+      "name": "Operations",
+      "description": "Background workers, vector management API, and deployment infrastructure.",
+      "components": ["background-workers", "vector-service"]
+    }
+  ],
+
+  "actors": [
+    {
+      "id": "fortimail-appliance",
+      "type": "service",
+      "description": "FortiMail appliance that publishes email classification requests to Kafka and consumes verdict responses."
+    },
+    {
+      "id": "vector-api-user",
+      "type": "user",
+      "description": "Operator or tool that uses the vector-srv REST API to vectorize text or release vectors to Qdrant."
+    },
+    {
+      "id": "cron-scheduler",
+      "type": "cron",
+      "description": "Docker Compose restart policy keeps merge-usr-pro and dbclean running continuously."
+    }
+  ],
+
+  "components": [
+    {
+      "id": "kafka-consumer",
+      "name": "Kafka Consumer",
+      "description": "Consumes FML-REQUEST topic, deserializes gzip+JSON messages, dispatches to pipeline via thread pool.",
+      "type": "worker",
+      "group": "classification-engine",
+      "modules": ["kafkaClientMT.py"],
+      "depends_on": ["classification-pipeline"],
+      "abstraction": ["messaging", "concurrency"],
+      "patterns": ["stream-to-store", "producer-consumer", "worker-pool"],
+      "children": []
+    },
+    {
+      "id": "classification-pipeline",
+      "name": "Classification Pipeline",
+      "description": "Orchestrates ordered classifier chain, handles caching, trusted-sender bypass, and verdict adjustment.",
+      "type": "service",
+      "group": "classification-engine",
+      "modules": ["pipeline.py"],
+      "depends_on": ["classifier-chain", "europa-database"],
+      "abstraction": ["architectural", "data"],
+      "patterns": ["pipeline-filter", "chain-of-responsibility"],
+      "children": []
+    },
+    {
+      "id": "classifier-chain",
+      "name": "Classifier Chain",
+      "description": "20+ classifiers with abstract Classifier interface, dynamically loaded from MongoDB config, sorted by ClassifierID priority.",
+      "type": "library",
+      "group": "classification-engine",
+      "modules": ["classifier.py", "phishingClassifier.py", "malformedClassifier.py", "newsletterClassifier.py", "contentClassifier.py", "contentExpClassifier.py", "contentSrgClassifier.py", "socialRelationClassifier.py", "suspiciousClassifier.py", "impersonationClassifier.py", "outbreakClassifier.py", "whiteClassifier.py", "autoReplyClassifier.py", "duplicatedClassifier.py", "skippedClassifier.py", "customerServiceClassifier.py", "prsnlEmlClassifier.py", "testClassifier.py", "qdrantClassifier.py", "llmClassifier.py"],
+      "depends_on": ["europa-database", "feature-extractor", "llm-client"],
+      "abstraction": ["design", "data"],
+      "patterns": ["strategy", "chain-of-responsibility", "factory"],
+      "children": []
+    },
+    {
+      "id": "vector-service",
+      "name": "Vector Service",
+      "description": "Flask REST API exposing /vectorize and /release endpoints for text-to-vector conversion and Qdrant storage.",
+      "type": "api",
+      "group": "operations",
+      "modules": ["vector-srv.py"],
+      "depends_on": ["feature-extractor"],
+      "abstraction": ["api"],
+      "patterns": ["rest"],
+      "children": []
+    },
+    {
+      "id": "feature-extractor",
+      "name": "Feature Extractor",
+      "description": "Sentence-transformer vectorizer and ML feature extraction using HuggingFace models and scikit-learn.",
+      "type": "library",
+      "group": "classification-engine",
+      "modules": ["featureExtractor.py", "langAndTopicDetector.py"],
+      "depends_on": [],
+      "abstraction": ["ml"],
+      "patterns": [],
+      "children": []
+    },
+    {
+      "id": "llm-client",
+      "name": "LLM Client",
+      "description": "HTTP client calling an external LLM inference server with TTL cache and Prometheus instrumentation.",
+      "type": "library",
+      "group": "classification-engine",
+      "modules": ["llmClassifier.py"],
+      "depends_on": [],
+      "abstraction": ["integration"],
+      "patterns": ["cache-aside"],
+      "children": []
+    },
+    {
+      "id": "europa-database",
+      "name": "Europa Database",
+      "description": "Facade over Aerospike, MongoDB, and legacy MySQL providing config, email storage, sender stats, and user profiles.",
+      "type": "store",
+      "group": "data-layer",
+      "modules": ["database.py"],
+      "depends_on": [],
+      "abstraction": ["data", "storage"],
+      "patterns": ["facade", "repository"],
+      "children": []
+    },
+    {
+      "id": "background-workers",
+      "name": "Background Workers",
+      "description": "merge_usr_pro (hourly/daily profile aggregation) and dbclean (record aging) containers running as long-lived loops.",
+      "type": "worker",
+      "group": "operations",
+      "modules": ["fmailai.py"],
+      "depends_on": ["europa-database"],
+      "abstraction": ["lifecycle", "concurrency"],
+      "patterns": ["scheduler"],
+      "children": []
+    },
+    {
+      "id": "email-model",
+      "name": "Email Model",
+      "description": "EmailInfo domain object parsing raw Kafka messages into structured fields with scoring, normalization, and hashing.",
+      "type": "library",
+      "group": "data-layer",
+      "modules": ["emailinfo.py", "emailParseHelper.py", "htmlParser.py", "contentParser.py", "uriPatterns.py", "urlDecode.py", "expression_tree_evaluator.py"],
+      "depends_on": [],
+      "abstraction": ["design"],
+      "patterns": [],
+      "children": []
+    }
+  ],
+
+  "flows": [
+    {
+      "id": "email-classification",
+      "type": "data",
+      "name": "Email Classification",
+      "description": "End-to-end flow from Kafka message to verdict response.",
+      "trigger": "FortiMail publishes email to FML-REQUEST Kafka topic.",
+      "actors": ["fortimail-appliance"],
+      "grounded_in": ["kafkaClientMT.py:121", "kafkaClientMT.py:143", "pipeline.py:50", "pipeline.py:164"],
+      "steps": [
+        {"component": "kafka-consumer", "action": "poll FML-REQUEST topic", "data": "gzip+base64 JSON email", "technology": "Kafka"},
+        {"component": "kafka-consumer", "action": "decompress and parse JSON wrapper", "data": "email fields dict", "transform": "gzip decompress, JSON parse, extract response_topic"},
+        {"component": "kafka-consumer", "action": "submit to thread pool executor", "to": "classification-pipeline", "data": "EmailInfo object", "technology": "concurrent.futures ThreadPoolExecutor"},
+        {"component": "classification-pipeline", "action": "check email cache by hash", "to": "europa-database", "data": "hash1/hash2/hash6/hash9", "transform": "return cached verdict if hit"},
+        {"component": "classification-pipeline", "action": "check trusted sender list", "to": "europa-database", "data": "sender address + SPF result"},
+        {"component": "classification-pipeline", "action": "parse HTML and extract content", "to": "email-model", "data": "raw HTML", "transform": "visible text, URLs, content features"},
+        {"component": "classification-pipeline", "action": "run classifier chain", "to": "classifier-chain", "data": "EmailInfo", "transform": "verdict + risk_level assignment"},
+        {"component": "kafka-consumer", "action": "produce verdict response", "data": "JSON {email_id, verdict, risk_level, classifier_id}", "technology": "Kafka", "transform": "serialize to FML-RESPONSE-{fml_sn} topic"}
+      ]
+    },
+    {
+      "id": "classifier-chain-execution",
+      "type": "control",
+      "name": "Classifier Chain Execution",
+      "description": "Ordered evaluation through 20+ classifiers, short-circuiting on first non-Unknown verdict.",
+      "trigger": "PipelineManager.process() dispatches to Pipeline.process().",
+      "actors": [],
+      "grounded_in": ["pipeline.py:150", "pipeline.py:158", "classifier.py:68"],
+      "steps": [
+        {"component": "classifier-chain", "action": "iterate sorted classifiers", "condition": "verdict == Unknown AND not timed out", "branch": "continue to next classifier"},
+        {"component": "classifier-chain", "action": "call classifier.predict()", "condition": "classifier-specific logic (SPF, scores, thresholds)", "gate": "validation"},
+        {"component": "classifier-chain", "action": "short-circuit on non-Unknown verdict", "condition": "verdict != Unknown", "branch": "break loop, set classifier_id"},
+        {"component": "classification-pipeline", "action": "post-process verdict", "condition": "FNSubmission rewrite rules and TEST_FP flag", "branch": "adjust verdict to Newsletter/SuspiciousNewsletter/Test"}
+      ]
+    },
+    {
+      "id": "vector-similarity-scoring",
+      "type": "data",
+      "name": "Vector Similarity Scoring",
+      "description": "Text vectorization and Qdrant-based similarity search for content classification.",
+      "trigger": "QdrantScoreClassifier.predict() called during classifier chain.",
+      "actors": [],
+      "grounded_in": ["qdrantClassifier.py:57", "featureExtractor.py:41"],
+      "steps": [
+        {"component": "classifier-chain", "action": "extract visible text from email", "data": "normalized visible text + subject"},
+        {"component": "feature-extractor", "action": "tokenize and encode with sentence-transformer", "data": "text chunks", "transform": "768-dim mean-pooled vectors"},
+        {"component": "classifier-chain", "action": "search Qdrant for similar vectors", "data": "query vector", "technology": "Qdrant REST API"},
+        {"component": "classifier-chain", "action": "evaluate expression tree rules on matches", "data": "match payloads", "transform": "risk_level assignment based on rule evaluation"}
+      ]
+    },
+    {
+      "id": "user-profile-aggregation",
+      "type": "state",
+      "name": "User Profile Aggregation",
+      "description": "Periodic merging and cleanup of per-user email activity profiles in Aerospike.",
+      "trigger": "merge_usr_pro container loop triggers at minute==1 each hour.",
+      "actors": ["cron-scheduler"],
+      "grounded_in": ["fmailai.py:214", "fmailai.py:219"],
+      "steps": [
+        {"component": "background-workers", "action": "hourly merge", "from_state": "detail records accumulated", "to_state": "hourly aggregates merged", "side_effects": "Aerospike UDF execution"},
+        {"component": "background-workers", "action": "daily aggregate and cleanup at hour==1", "from_state": "hourly aggregates accumulated", "to_state": "daily aggregates created, old detail records purged", "side_effects": "TTL-based record expiry"}
+      ]
+    }
+  ],
+
+  "state": [
+    {
+      "id": "aerospike-store",
+      "concept": "document-store",
+      "technology": "Aerospike 7.2",
+      "component": "europa-database",
+      "stores": "Email records, sender stats, URL stats, user profiles (detail/hourly/daily), cached emails.",
+      "purpose": "source-of-truth",
+      "persistence": "persistent",
+      "readers": ["classification-pipeline", "classifier-chain", "background-workers"],
+      "writers": ["classification-pipeline", "background-workers"],
+      "grounded_in": ["database.py:21", "database.py:83"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "schema-on-read",
+        "tools": null
+      },
+      "concurrency": {
+        "strategy": "single-writer",
+        "mechanism": "Aerospike CAS via generation count, UDF-based aggregation",
+        "conflicts": "last-write-wins for simple records, UDF-based merge for profiles"
+      }
+    },
+    {
+      "id": "mongodb-store",
+      "concept": "document-store",
+      "technology": "MongoDB 7.0",
+      "component": "europa-database",
+      "stores": "Pipeline config (cfg_pipelines), classifier registry (cfg_models), home domains, email addresses, malformed/phishing rules, URI patterns.",
+      "purpose": "source-of-truth",
+      "persistence": "persistent",
+      "readers": ["classification-pipeline", "classifier-chain", "vector-service"],
+      "writers": ["europa-database"],
+      "grounded_in": ["database.py:33", "database.py:84"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "schema-on-read",
+        "tools": null
+      },
+      "concurrency": {
+        "strategy": "optimistic",
+        "mechanism": "MongoDB $setOnInsert for upserts",
+        "conflicts": "last-write-wins"
+      }
+    },
+    {
+      "id": "qdrant-store",
+      "concept": "document-store",
+      "technology": "Qdrant 1.13",
+      "component": "vector-service",
+      "stores": "Email text vectors (768-dim) with category, rule, and language payloads.",
+      "purpose": "derived",
+      "persistence": "persistent",
+      "readers": ["classifier-chain"],
+      "writers": ["vector-service", "kafka-consumer"],
+      "grounded_in": ["qdrantClassifier.py:14", "vector-srv.py:44"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "append-only",
+        "tools": null
+      },
+      "concurrency": {
+        "strategy": "lock-free",
+        "mechanism": "Qdrant internal concurrency",
+        "conflicts": "duplicate check via similarity search threshold 0.9"
+      }
+    },
+    {
+      "id": "llm-cache",
+      "concept": "cache",
+      "technology": "cachetools TTLCache (in-memory)",
+      "component": "llm-client",
+      "stores": "LLM classification results keyed by MD5 hash of query content.",
+      "purpose": "cache",
+      "persistence": "ephemeral",
+      "readers": ["classifier-chain"],
+      "writers": ["classifier-chain"],
+      "grounded_in": ["llmClassifier.py:18"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "none",
+        "tools": null
+      },
+      "concurrency": {
+        "strategy": "none",
+        "mechanism": null,
+        "conflicts": "no locking, potential race on concurrent writes (benign for cache)"
+      }
+    }
+  ],
+
+  "events": [
+    {
+      "id": "fml-request",
+      "type": "topic",
+      "name": "FML-REQUEST",
+      "producer": "fortimail-appliance",
+      "consumers": ["kafka-consumer"],
+      "data": "JSON-wrapped gzip-compressed email fields (email_id, request_type, fml_sn, api_key, headers, body, SPF/DKIM results)."
+    },
+    {
+      "id": "fml-response",
+      "type": "topic",
+      "name": "FML-RESPONSE-{fml_sn}",
+      "producer": "kafka-consumer",
+      "consumers": ["fortimail-appliance"],
+      "data": "JSON verdict response (email_id, verdict, risk_level, classifier_id)."
+    }
+  ],
+
+  "external_dependencies": [
+    {
+      "id": "kafka",
+      "name": "Apache Kafka",
+      "concept": "message-broker",
+      "technology": "Apache Kafka 3.8.1 (KRaft mode)",
+      "components": ["kafka-consumer"],
+      "purpose": "Request/response messaging between FortiMail appliances and the classification engine.",
+      "criticality": "critical",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "Process exits on UNKNOWN_TOPIC_OR_PART error; no reconnection logic."
+      }
+    },
+    {
+      "id": "aerospike",
+      "name": "Aerospike",
+      "concept": "database",
+      "technology": "Aerospike Server 7.2",
+      "components": ["europa-database", "background-workers"],
+      "purpose": "Primary data store for email records, sender statistics, and user profiles.",
+      "criticality": "critical",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": null
+      }
+    },
+    {
+      "id": "mongodb",
+      "name": "MongoDB",
+      "concept": "database",
+      "technology": "MongoDB 7.0.5",
+      "components": ["europa-database", "vector-service"],
+      "purpose": "Configuration store for pipeline settings, classifier registry, domain rules, and phishing patterns.",
+      "criticality": "critical",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": null
+      }
+    },
+    {
+      "id": "qdrant",
+      "name": "Qdrant",
+      "concept": "database",
+      "technology": "Qdrant 1.13.5",
+      "components": ["classifier-chain", "vector-service"],
+      "purpose": "Vector similarity search for content-based email classification.",
+      "criticality": "important",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "QdrantScoreClassifier returns Unknown if Qdrant is unavailable."
+      }
+    },
+    {
+      "id": "llm-server",
+      "name": "LLM Inference Server",
+      "concept": "http-api",
+      "technology": "Custom HTTP API at configurable URL",
+      "components": ["llm-client"],
+      "purpose": "External LLM-based email content risk assessment.",
+      "criticality": "important",
+      "resilience": {
+        "timeout": true,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "Returns Verdict.Unknown on timeout or connection failure."
+      }
+    },
+    {
+      "id": "mysql-legacy",
+      "name": "MySQL (Legacy)",
+      "concept": "database",
+      "technology": "MariaDB (via PyMySQL)",
+      "components": ["europa-database"],
+      "purpose": "Legacy config change detection (cfg_attributes table). Being replaced by MongoDB.",
+      "criticality": "optional",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "Errors logged and swallowed."
+      }
+    }
+  ],
+
+  "failure_modes": [
+    {
+      "id": "kafka-unavailable",
+      "trigger": "Kafka broker becomes unreachable or FML-REQUEST topic is deleted.",
+      "cascade": [
+        {"component": "kafka-consumer", "effect": "Consumer poll returns UNKNOWN_TOPIC_OR_PART, consumer closes."},
+        {"component": "classification-pipeline", "effect": "No new emails processed."},
+        {"component": "kafka-consumer", "effect": "No verdict responses produced, FortiMail gets no classification."}
+      ],
+      "impact": "All email classification stops. FortiMail appliances receive no verdict, emails pass through unscanned.",
+      "detection": ["fmailai_request_count_inbound counter stops incrementing", "Kafka exporter metrics at :9308"],
+      "recovery": ["Restart Kafka broker", "Restart fai container after Kafka is healthy"],
+      "severity": "critical",
+      "grounded_in": ["kafkaClientMT.py:126", "kafkaClientMT.py:129"]
+    },
+    {
+      "id": "aerospike-unavailable",
+      "trigger": "Aerospike server becomes unreachable.",
+      "cascade": [
+        {"component": "europa-database", "effect": "All Aerospike operations raise exceptions."},
+        {"component": "classification-pipeline", "effect": "Email cache lookups, sender stats, email inserts all fail."},
+        {"component": "background-workers", "effect": "merge_usr_pro and dbclean loops log errors and retry every 30s."}
+      ],
+      "impact": "Classification continues with degraded accuracy (no sender history, no caching). Emails still processed but without historical context. Profile aggregation halts.",
+      "detection": ["Error logs from Aerospike operations", "Aerospike exporter at :9145"],
+      "recovery": ["Restart Aerospike container", "Data recovers from persistent volume"],
+      "severity": "high",
+      "grounded_in": ["database.py:21", "fmailai.py:231"]
+    },
+    {
+      "id": "mongodb-unavailable",
+      "trigger": "MongoDB server becomes unreachable.",
+      "cascade": [
+        {"component": "europa-database", "effect": "Config loading fails, classifier discovery fails."},
+        {"component": "classification-pipeline", "effect": "Pipeline uses stale in-memory config until restart. New classifiers cannot be registered."}
+      ],
+      "impact": "Classification continues with stale config. Config changes from admin UI are not picked up. On restart, fai container fails to initialize.",
+      "detection": ["Error logs from MongoDB operations", "MongoDB healthcheck in docker-compose"],
+      "recovery": ["Restart MongoDB container", "Data recovers from persistent volume"],
+      "severity": "high",
+      "grounded_in": ["database.py:84", "database.py:260"]
+    },
+    {
+      "id": "llm-server-timeout",
+      "trigger": "LLM inference server responds slowly or is unreachable.",
+      "cascade": [
+        {"component": "llm-client", "effect": "requests.post times out after LLM_TIMEOUT seconds (default 4s)."},
+        {"component": "classifier-chain", "effect": "LlmClassifier returns Verdict.Unknown, next classifier in chain evaluates."}
+      ],
+      "impact": "Emails that would have been caught by LLM analysis pass to downstream classifiers. Latency increases by timeout duration per email.",
+      "detection": ["fmailai_llm_process_latency_seconds histogram", "fmailai_llm_process_count counter"],
+      "recovery": ["Restart LLM server", "LLM cache provides some resilience for repeated content"],
+      "severity": "medium",
+      "grounded_in": ["llmClassifier.py:188", "llmClassifier.py:198"]
+    },
+    {
+      "id": "qdrant-unavailable",
+      "trigger": "Qdrant server becomes unreachable.",
+      "cascade": [
+        {"component": "classifier-chain", "effect": "QdrantScoreClassifier fails, returns Unknown."},
+        {"component": "vector-service", "effect": "/vectorize and /release endpoints return 500."}
+      ],
+      "impact": "Vector similarity classification disabled. Other classifiers continue. Vector-srv API is unavailable.",
+      "detection": ["Error logs from Qdrant operations", "vector-srv /health endpoint returns 200 but operations fail"],
+      "recovery": ["Restart Qdrant container", "Data recovers from persistent volume"],
+      "severity": "medium",
+      "grounded_in": ["qdrantClassifier.py:14", "vector-srv.py:44"]
+    },
+    {
+      "id": "thread-pool-exhaustion",
+      "trigger": "All THREAD_POOL_SIZE threads (default 8) are occupied by slow email classifications.",
+      "cascade": [
+        {"component": "kafka-consumer", "effect": "executor.submit blocks, consumer.poll is not called, Kafka consumer falls behind."},
+        {"component": "kafka-consumer", "effect": "Commit interval missed, risk of reprocessing on restart."}
+      ],
+      "impact": "Classification latency increases, backpressure builds up in Kafka. FortiMail may timeout waiting for verdicts.",
+      "detection": ["fmailai_process_latency_seconds histogram p99 increases", "Kafka consumer lag via kafka-exporter"],
+      "recovery": ["Increase THREAD_POOL_SIZE config", "Identify slow classifiers via DEBUG_PROCESS_TIME"],
+      "severity": "medium",
+      "grounded_in": ["kafkaClientMT.py:92", "kafkaClientMT.py:134"]
+    }
+  ],
+
+  "concepts": {
+    "detected_patterns": [
+      {
+        "id": "pipeline-filter",
+        "category": "structural",
+        "confidence": "high",
+        "components": ["classification-pipeline", "classifier-chain"],
+        "evidence": {"files": ["pipeline.py", "classifier.py"], "method": "manual", "note": "Ordered chain of classifiers where each processes or passes the email."}
+      },
+      {
+        "id": "strategy",
+        "category": "behavioral",
+        "confidence": "high",
+        "components": ["classifier-chain"],
+        "evidence": {"files": ["classifier.py"], "method": "manual", "note": "Abstract Classifier base class with interchangeable predict() implementations."}
+      },
+      {
+        "id": "chain-of-responsibility",
+        "category": "behavioral",
+        "confidence": "high",
+        "components": ["classification-pipeline"],
+        "evidence": {"files": ["pipeline.py:158"], "method": "manual", "note": "Each classifier can handle (return verdict) or pass (return Unknown) to the next."}
+      },
+      {
+        "id": "producer-consumer",
+        "category": "concurrency",
+        "confidence": "high",
+        "components": ["kafka-consumer", "classification-pipeline"],
+        "evidence": {"files": ["kafkaClientMT.py", "pipeline.py"], "method": "ast-grep", "note": "queue.Queue used for email insert threads and archive thread."}
+      },
+      {
+        "id": "worker-pool",
+        "category": "concurrency",
+        "confidence": "high",
+        "components": ["kafka-consumer"],
+        "evidence": {"files": ["kafkaClientMT.py:92"], "method": "ast-grep", "note": "concurrent.futures.ThreadPoolExecutor for parallel email processing."}
+      },
+      {
+        "id": "stream-to-store",
+        "category": "data",
+        "confidence": "high",
+        "components": ["kafka-consumer"],
+        "evidence": {"files": ["kafkaClientMT.py:68", "kafkaClientMT.py:89"], "method": "ast-grep", "note": "confluent_kafka Consumer with poll/commit cycle writing to Aerospike/MongoDB."}
+      },
+      {
+        "id": "facade",
+        "category": "structural",
+        "confidence": "high",
+        "components": ["europa-database"],
+        "evidence": {"files": ["database.py"], "method": "manual", "note": "EuropaDatabase wraps Aerospike, MongoDB, and MySQL behind a single interface."}
+      },
+      {
+        "id": "factory",
+        "category": "creational",
+        "confidence": "high",
+        "components": ["classification-pipeline"],
+        "evidence": {"files": ["pipeline.py:139", "database.py:118"], "method": "manual", "note": "Dynamic classifier instantiation via __import__ and getattr from MongoDB config."}
+      },
+      {
+        "id": "cache-aside",
+        "category": "storage",
+        "confidence": "high",
+        "components": ["llm-client", "classification-pipeline"],
+        "evidence": {"files": ["llmClassifier.py:18", "pipeline.py:67"], "method": "manual", "note": "TTLCache for LLM results and Aerospike cache for email verdicts."}
+      },
+      {
+        "id": "metrics-instrumentation",
+        "category": "observability",
+        "confidence": "high",
+        "components": ["kafka-consumer", "llm-client"],
+        "evidence": {"files": ["kafkaClientMT.py:30", "llmClassifier.py:15"], "method": "ast-grep", "note": "Prometheus Histogram and Counter metrics for latency and request counts."}
+      },
+      {
+        "id": "rest",
+        "category": "api",
+        "confidence": "high",
+        "components": ["vector-service"],
+        "evidence": {"files": ["vector-srv.py:35"], "method": "manual", "note": "Flask app with /health, /vectorize, /release endpoints."}
+      },
+      {
+        "id": "config-management",
+        "category": "infrastructure",
+        "confidence": "medium",
+        "components": ["classification-pipeline", "kafka-consumer"],
+        "evidence": {"files": ["config.py", "fmailai.cfg"], "method": "manual", "note": "INI-based config with typed defaults, loaded from file. Database-backed dynamic config via MongoDB."}
+      },
+      {
+        "id": "service-manager",
+        "category": "lifecycle",
+        "confidence": "medium",
+        "components": ["kafka-consumer", "background-workers"],
+        "evidence": {"files": ["fmailai.py:130"], "method": "ast-grep", "note": "SIGINT/SIGTERM handlers with threading.Event for graceful shutdown."}
+      }
+    ],
+    "detected_anti_patterns": [
+      {
+        "id": "god-object",
+        "category": "code-structure",
+        "confidence": "high",
+        "components": ["europa-database", "email-model"],
+        "evidence": {"files": ["database.py", "emailinfo.py"], "method": "manual", "note": "database.py is 3615 lines; emailinfo.py is 1942 lines. Both handle many unrelated concerns."}
+      },
+      {
+        "id": "swallowed-exception",
+        "category": "operations",
+        "confidence": "high",
+        "components": ["kafka-consumer", "email-model"],
+        "evidence": {"files": ["util.py:120", "fmailai.py:144", "emailinfo.py:42"], "method": "grep", "note": "13+ bare except: clauses that silently catch and discard all exceptions."}
+      },
+      {
+        "id": "tight-coupling",
+        "category": "dependencies",
+        "confidence": "high",
+        "components": ["classifier-chain"],
+        "evidence": {"files": ["phishingClassifier.py:5", "llmClassifier.py:5"], "method": "manual", "note": "Classifiers directly import EuropaDatabase and call its methods. No abstraction layer between classifiers and storage."}
+      },
+      {
+        "id": "magic-numbers",
+        "category": "data",
+        "confidence": "medium",
+        "components": ["classifier-chain"],
+        "evidence": {"files": ["phishingClassifier.py", "llmClassifier.py", "suspiciousClassifier.py"], "method": "manual", "note": "Numeric thresholds (scores, counts) scattered as literals across classifiers without named constants."}
+      },
+      {
+        "id": "config-sprawl",
+        "category": "operations",
+        "confidence": "high",
+        "components": ["classification-pipeline", "europa-database"],
+        "evidence": {"files": ["config.py", "database.py:260", "fmailai.cfg"], "method": "manual", "note": "Config spread across INI file, Python defaults, MongoDB documents, and hardcoded values."}
+      }
+    ],
+    "gaps": [
+      {
+        "id": "circuit-breaker",
+        "relevance": "6 external dependencies (Kafka, Aerospike, MongoDB, Qdrant, LLM, MySQL) with no circuit breaker on any.",
+        "recommendation": "Add circuit breaker to Aerospike and MongoDB calls to prevent cascading failures during partial outages."
+      },
+      {
+        "id": "retry",
+        "relevance": "No retry logic on any external dependency except implicit Kafka consumer reconnection.",
+        "recommendation": "Add retry with backoff to Aerospike, MongoDB, and Qdrant client calls."
+      },
+      {
+        "id": "health-check",
+        "relevance": "Only vector-srv has a /health endpoint. The main fai service exposes /metrics but no health check.",
+        "recommendation": "Add health/readiness endpoints to the fai container for Docker healthcheck and monitoring."
+      },
+      {
+        "id": "structured-logging",
+        "relevance": "JSONLogFormatter exists but some code paths use print() statements.",
+        "recommendation": "Replace all print() calls with logger calls to ensure consistent structured JSON output."
+      },
+      {
+        "id": "input-validation",
+        "relevance": "Kafka message parsing has basic field checks but no schema validation.",
+        "recommendation": "Add Pydantic or JSON schema validation for incoming Kafka messages."
+      },
+      {
+        "id": "distributed-tracing",
+        "relevance": "No trace ID propagation across Kafka messages, LLM calls, or database operations.",
+        "recommendation": "Add OpenTelemetry trace context propagation through the request lifecycle."
+      }
+    ],
+    "scan_metadata": {
+      "catalog_size": {"patterns": "182", "anti_patterns": "22"},
+      "tools_used": ["ast-grep", "grep", "manual"],
+      "categories_scanned": ["architecture", "structural", "data", "integration", "resilience", "lifecycle", "creational", "behavioral", "concurrency", "frontend", "storage", "messaging", "deployment", "security", "api", "distributed", "testing", "error-handling", "infrastructure", "observability", "ml", "compiler"]
+    }
+  },
+
+  "module_graph": {
+    "modules": [
+      {"id": "fmailai.py", "imports": ["util.py", "config.py", "kafkaClientMT.py", "qdrantClassifier.py", "database.py"], "imported_by": [], "role": "standard"},
+      {"id": "kafkaClientMT.py", "imports": ["util.py", "emailinfo.py", "classifier.py", "config.py", "pipeline.py"], "imported_by": ["fmailai.py"], "role": "standard"},
+      {"id": "pipeline.py", "imports": ["emailinfo.py", "database.py", "util.py", "config.py", "classifier.py", "uriPatterns.py", "htmlParser.py", "contentParser.py"], "imported_by": ["kafkaClientMT.py"], "role": "standard"},
+      {"id": "classifier.py", "imports": ["util.py"], "imported_by": ["pipeline.py", "kafkaClientMT.py", "phishingClassifier.py", "malformedClassifier.py", "newsletterClassifier.py", "contentClassifier.py", "qdrantClassifier.py", "llmClassifier.py", "outbreakClassifier.py", "suspiciousClassifier.py", "impersonationClassifier.py", "whiteClassifier.py", "autoReplyClassifier.py", "duplicatedClassifier.py", "skippedClassifier.py", "customerServiceClassifier.py", "prsnlEmlClassifier.py", "testClassifier.py", "contentExpClassifier.py", "contentSrgClassifier.py", "socialRelationClassifier.py"], "role": "hub"},
+      {"id": "database.py", "imports": ["util.py", "config.py", "emailinfo.py", "classifier.py"], "imported_by": ["pipeline.py", "fmailai.py", "phishingClassifier.py", "malformedClassifier.py", "newsletterClassifier.py", "qdrantClassifier.py", "llmClassifier.py", "outbreakClassifier.py", "suspiciousClassifier.py", "impersonationClassifier.py", "whiteClassifier.py", "autoReplyClassifier.py", "customerServiceClassifier.py", "prsnlEmlClassifier.py", "contentSrgClassifier.py", "socialRelationClassifier.py"], "role": "hub"},
+      {"id": "util.py", "imports": ["config.py"], "imported_by": ["fmailai.py", "kafkaClientMT.py", "pipeline.py", "classifier.py", "database.py", "emailinfo.py", "vector-srv.py", "featureExtractor.py", "phishingClassifier.py", "malformedClassifier.py", "newsletterClassifier.py", "contentClassifier.py", "qdrantClassifier.py", "llmClassifier.py", "outbreakClassifier.py", "suspiciousClassifier.py", "impersonationClassifier.py", "whiteClassifier.py", "autoReplyClassifier.py", "duplicatedClassifier.py", "skippedClassifier.py", "customerServiceClassifier.py", "prsnlEmlClassifier.py", "contentExpClassifier.py", "contentSrgClassifier.py", "socialRelationClassifier.py", "testClassifier.py"], "role": "hub"},
+      {"id": "emailinfo.py", "imports": ["util.py", "config.py"], "imported_by": ["kafkaClientMT.py", "pipeline.py", "database.py", "vector-srv.py", "qdrantClassifier.py", "llmClassifier.py", "phishingClassifier.py", "malformedClassifier.py", "newsletterClassifier.py", "outbreakClassifier.py", "suspiciousClassifier.py", "impersonationClassifier.py", "whiteClassifier.py", "autoReplyClassifier.py", "customerServiceClassifier.py", "prsnlEmlClassifier.py", "contentExpClassifier.py", "contentSrgClassifier.py", "socialRelationClassifier.py"], "role": "hub"},
+      {"id": "config.py", "imports": [], "imported_by": ["util.py", "fmailai.py", "kafkaClientMT.py", "pipeline.py", "database.py", "emailinfo.py", "vector-srv.py", "qdrantClassifier.py", "llmClassifier.py"], "role": "hub"},
+      {"id": "vector-srv.py", "imports": ["featureExtractor.py", "htmlParser.py", "qdrantClassifier.py", "emailinfo.py", "langAndTopicDetector.py", "config.py", "util.py", "emailParseHelper.py"], "imported_by": [], "role": "standard"},
+      {"id": "featureExtractor.py", "imports": [], "imported_by": ["contentClassifier.py", "qdrantClassifier.py", "vector-srv.py"], "role": "standard"}
+    ],
+    "circular_dependencies": [
+      {"cycle": ["util.py", "config.py"]}
+    ],
+    "hub_modules": ["util.py", "config.py", "classifier.py", "database.py", "emailinfo.py"],
+    "infrastructure": [
+      {"resource": "Kafka (KRaft)", "kind": "Service", "source": "docker-compose.yml", "notes": "Single-node KRaft mode, persistent volume at /var/kafka/data."},
+      {"resource": "Aerospike", "kind": "Service", "source": "docker-compose.yml", "notes": "Namespace 'fmailai', persistent volume."},
+      {"resource": "MongoDB", "kind": "Service", "source": "docker-compose.yml", "notes": "Persistent volume, healthcheck configured."},
+      {"resource": "Qdrant", "kind": "Service", "source": "docker-compose.yml", "notes": "Persistent volume at /qdrant/storage."},
+      {"resource": "Prometheus", "kind": "Service", "source": "docker-compose.yml", "notes": "Scrapes fai:8800, kafka-exporter:9308, aerospike-exporter:9145."},
+      {"resource": "Grafana", "kind": "Service", "source": "docker-compose.yml", "notes": "Port 3050, depends on Prometheus and exporters."},
+      {"resource": "OpenSearch (2-node)", "kind": "Service", "source": "docker-compose.yml", "notes": "Cluster with 2 nodes, Dashboards on :5601."}
+    ],
+    "inter_service": [
+      {"service": "Kafka", "discovered_in": "config.py", "pattern": "*_BOOTSTRAP_SERVERS", "value": "kafka:9093"},
+      {"service": "MongoDB", "discovered_in": "config.py", "pattern": "*_HOST", "value": "mongodb:27017"},
+      {"service": "Aerospike", "discovered_in": "config.py", "pattern": "*_HOST", "value": "aerospike:3000"},
+      {"service": "Qdrant", "discovered_in": "config.py", "pattern": "*_HOST", "value": "qdrant:6333"},
+      {"service": "LLM Server", "discovered_in": "config.py", "pattern": "LLM_URL", "value": "http://10.4.2.130:8008/process-email"},
+      {"service": "FortiMail", "discovered_in": "docker-compose.yml", "pattern": "depends_on", "value": "fmail-ai-network shared network"}
+    ],
+    "ci_cd": [],
+    "iac": [
+      {
+        "tool": "helm",
+        "files": ["docker-compose.yml"],
+        "resources": ["fai Deployment", "merge-usr-pro Deployment", "dbclean Deployment", "vector-srv Deployment", "kafka Service", "aerospike Service", "mongodb Service", "qdrant Service", "prometheus Service", "grafana Service", "opensearch-node1 Service", "opensearch-node2 Service"],
+        "environment": "dev"
+      }
+    ],
+    "risks": {
+      "hardcoded_endpoints": ["config.py:93"],
+      "missing_resilience": [
+        {"file": "database.py", "service_type": "database", "missing": ["timeout", "retry", "circuit_breaker"]},
+        {"file": "kafkaClientMT.py", "service_type": "message-broker", "missing": ["circuit_breaker"]},
+        {"file": "qdrantClassifier.py", "service_type": "database", "missing": ["timeout", "retry", "circuit_breaker"]}
+      ],
+      "unversioned_deps": ["tldextract pinned via post-install override in Dockerfile (line 38) after different version in requirements.txt"]
+    }
+  },
+
+  "observability": {
+    "logging": {
+      "format": "json",
+      "levels_used": ["DEBUG", "INFO", "WARN", "ERROR"],
+      "correlation_id": false,
+      "libraries": ["logging (stdlib)", "custom JSONLogFormatter"],
+      "grounded_in": ["util.py:62", "kafkaClientMT.py:42"]
+    },
+    "metrics": {
+      "format": "prometheus",
+      "endpoint": "/:8800/metrics",
+      "key_metrics": [
+        "fmailai_process_latency_seconds",
+        "fmailai_request_count_inbound",
+        "fmailai_request_count_outbound",
+        "fmailai_response_count_spam",
+        "fmailai_response_count_clean",
+        "fmailai_response_count_newsletter",
+        "fmailai_response_count_timeout",
+        "fmailai_llm_process_latency_seconds",
+        "fmailai_llm_process_count"
+      ],
+      "grounded_in": ["kafkaClientMT.py:30", "llmClassifier.py:15", "fmailai.py:196"]
+    },
+    "tracing": {
+      "enabled": false,
+      "provider": "none",
+      "propagation": "none",
+      "grounded_in": []
+    },
+    "gaps": [
+      "No correlation/trace ID propagation across Kafka request-response cycle.",
+      "No metrics for Aerospike, MongoDB, or Qdrant operation latency.",
+      "print() statements used in emailParseHelper.py and util.py instead of structured logger.",
+      "No alerting rules configured in Prometheus."
+    ]
+  },
+
+  "security": {
+    "authentication": {
+      "methods": ["api-key"],
+      "default_deny": false,
+      "identity_provider": null,
+      "grounded_in": ["pipeline.py:56", "database.py:414"]
+    },
+    "authorization": {
+      "model": "none",
+      "enforcement": "manual-check",
+      "grounded_in": ["pipeline.py:56"]
+    },
+    "secrets_management": {
+      "strategy": "dotenv",
+      "hardcoded_secrets": ["config.py:53", "encryption.py:10"],
+      "rotation": "none",
+      "grounded_in": ["config.py:53", "encryption.py:10"]
+    },
+    "threat_surface": [
+      {
+        "entry_point": "FML-REQUEST Kafka topic",
+        "type": "queue",
+        "authentication": "none",
+        "validation": "manual",
+        "rate_limited": false
+      },
+      {
+        "entry_point": "/vectorize",
+        "type": "api",
+        "authentication": "none",
+        "validation": "manual",
+        "rate_limited": false
+      },
+      {
+        "entry_point": "/release",
+        "type": "api",
+        "authentication": "none",
+        "validation": "manual",
+        "rate_limited": false
+      }
+    ]
+  },
+
+  "developer_experience": {
+    "testing": {
+      "frameworks": ["pytest"],
+      "strategy": {
+        "unit": "none",
+        "integration": "test_vector_srv.py, aerospike_test.py",
+        "e2e": "none"
+      },
+      "coverage": "unknown",
+      "grounded_in": ["test_vector_srv.py:1", "aerospike_test.py:1", "requirements-dev.txt"]
+    },
+    "linting": [],
+    "documentation": {
+      "readme": false,
+      "adrs": null,
+      "api_docs": null,
+      "inline_coverage": "low"
+    }
+  },
+
+  "api_surface": {
+    "style": "REST",
+    "frameworks": [
+      {"name": "Flask", "version": "unknown"}
+    ],
+    "endpoints": [
+      {"method": "GET", "path": "/health", "handler": "health_check", "file": "vector-srv.py:46", "auth": "no", "validation": "no"},
+      {"method": "POST", "path": "/vectorize", "handler": "vectorize", "file": "vector-srv.py:51", "auth": "no", "validation": "partial"},
+      {"method": "POST", "path": "/release", "handler": "release", "file": "vector-srv.py:126", "auth": "no", "validation": "partial"}
+    ],
+    "findings": {
+      "critical": [
+        {"description": "No authentication on any endpoint. /release writes to Qdrant vector store without any access control.", "files": ["vector-srv.py:126"], "count": "3"}
+      ],
+      "recommended": [
+        {"description": "No rate limiting on any endpoint. Vector operations are CPU-intensive.", "files": ["vector-srv.py:35"], "count": "3"},
+        {"description": "No API versioning. Routes are unversioned.", "files": ["vector-srv.py:46", "vector-srv.py:51", "vector-srv.py:126"], "count": "3"},
+        {"description": "Handler functions contain direct Qdrant client calls. No service layer separation.", "files": ["vector-srv.py:163", "vector-srv.py:182"], "count": "2"}
+      ],
+      "minor": [
+        {"description": "Error responses leak internal exception details to clients via str(e).", "files": ["vector-srv.py:122", "vector-srv.py:198"], "count": "2"}
+      ]
+    },
+    "compliance": {
+      "gateway": {"status": "non-compliant", "notes": "Handlers query Qdrant directly, no service layer."},
+      "hexagonal": {"status": "non-compliant", "notes": "Route handlers import qdrant_client and call it directly."},
+      "external_gateway": null
+    }
+  },
+
+  "debt": {
+    "score": 42,
+    "grade": "D",
+    "grade_capped": true,
+    "interpretation": "Significant structural debt driven by god objects, bare exception handling, hardcoded secrets, and zero resilience patterns across 6 external dependencies.",
+    "by_category": [
+      {"category": "Structural", "points": 15, "violations": 3},
+      {"category": "Resilience", "points": 10, "violations": 2},
+      {"category": "Data", "points": 5, "violations": 2},
+      {"category": "Lifecycle", "points": 5, "violations": 2},
+      {"category": "Integration", "points": 7, "violations": 2}
+    ],
+    "violations": [
+      {"severity": "CRITICAL", "category": "Structural", "pattern": "facade", "anti_pattern": "god-object", "components": ["europa-database"], "files": ["database.py"], "detail": "database.py is 3615 lines handling Aerospike, MongoDB, MySQL, config loading, email queries, sender stats, and user profiles.", "points": 5},
+      {"severity": "CRITICAL", "category": "Structural", "pattern": "strategy", "anti_pattern": "god-object", "components": ["email-model"], "files": ["emailinfo.py"], "detail": "emailinfo.py is 1942 lines combining parsing, normalization, scoring, hashing, and accessor logic.", "points": 5},
+      {"severity": "CRITICAL", "category": "Lifecycle", "pattern": "config-management", "anti_pattern": "hardcoded-secret", "components": ["classification-pipeline"], "files": ["config.py:53", "encryption.py:10"], "detail": "Default MySQL password 'Spam123#db' in config.py:53 and hardcoded AES key in encryption.py:10.", "points": 5},
+      {"severity": "CRITICAL", "category": "Resilience", "pattern": "stream-to-store", "anti_pattern": "missing-resilience", "components": ["kafka-consumer", "europa-database"], "files": ["database.py", "kafkaClientMT.py", "qdrantClassifier.py"], "detail": "No circuit breaker, retry, or timeout on Aerospike, MongoDB, or Qdrant calls.", "points": 5},
+      {"severity": "CRITICAL", "category": "Integration", "pattern": "rest", "anti_pattern": "no-auth", "components": ["vector-service"], "files": ["vector-srv.py"], "detail": "All 3 vector-srv endpoints have no authentication. /release writes directly to production Qdrant store.", "points": 5},
+      {"severity": "RECOMMENDED", "category": "Structural", "pattern": "facade", "anti_pattern": "tight-coupling", "components": ["classifier-chain"], "files": ["phishingClassifier.py", "llmClassifier.py"], "detail": "Classifiers directly import and call EuropaDatabase methods. No repository abstraction.", "points": 2},
+      {"severity": "RECOMMENDED", "category": "Resilience", "pattern": "stream-to-store", "anti_pattern": "swallowed-exception", "components": ["kafka-consumer", "email-model"], "files": ["util.py", "fmailai.py", "emailinfo.py"], "detail": "13+ bare except: clauses silently discard exceptions, masking failures.", "points": 2},
+      {"severity": "RECOMMENDED", "category": "Data", "pattern": "config-management", "anti_pattern": "config-sprawl", "components": ["classification-pipeline"], "files": ["config.py", "database.py", "fmailai.cfg"], "detail": "Config spread across INI file, Python defaults, MongoDB documents, and inline literals.", "points": 2},
+      {"severity": "RECOMMENDED", "category": "Integration", "pattern": "rest", "anti_pattern": "leaky-abstraction", "components": ["vector-service"], "files": ["vector-srv.py:122", "vector-srv.py:198"], "detail": "Exception details leaked to API clients via str(e).", "points": 2},
+      {"severity": "RECOMMENDED", "category": "Lifecycle", "pattern": "service-manager", "anti_pattern": "no-health-endpoint", "components": ["kafka-consumer"], "files": ["fmailai.py"], "detail": "Main fai service has /metrics but no /health or /readyz endpoint for container orchestration.", "points": 2},
+      {"severity": "MINOR", "category": "Data", "pattern": "strategy", "anti_pattern": "magic-numbers", "components": ["classifier-chain"], "files": ["phishingClassifier.py", "llmClassifier.py", "suspiciousClassifier.py"], "detail": "Numeric thresholds scattered as literals (7, 13, 50, 2048) without named constants.", "points": 1},
+      {"severity": "MINOR", "category": "Structural", "pattern": "structured-logging", "anti_pattern": "print-statements", "components": ["email-model", "europa-database"], "files": ["emailParseHelper.py:89", "util.py:336"], "detail": "print() used for logging in 10+ locations instead of structured JSON logger.", "points": 1},
+      {"severity": "MINOR", "category": "Data", "pattern": "pipeline-filter", "anti_pattern": "todo-markers", "components": ["classification-pipeline", "europa-database"], "files": ["pipeline.py:75", "database.py:949", "database.py:960"], "detail": "3 TODO comments for ATO handling that has not been implemented.", "points": 1}
+    ],
+    "recommendations": [
+      {
+        "priority": 1,
+        "title": "Rotate hardcoded secrets and move to environment variables",
+        "severity": "CRITICAL",
+        "category": "Lifecycle",
+        "files": ["config.py:53", "encryption.py:10"],
+        "description": "The default MySQL password 'Spam123#db' and hardcoded AES key are committed to source. Move all secrets to environment variables or a secrets manager. Rotate the AES key and MySQL password immediately.",
+        "fixes": ["hardcoded-secret"]
+      },
+      {
+        "priority": 2,
+        "title": "Add authentication to vector-srv endpoints",
+        "severity": "CRITICAL",
+        "category": "Integration",
+        "files": ["vector-srv.py"],
+        "description": "All vector-srv endpoints are unauthenticated. /release writes to the production Qdrant store. Add API key authentication at minimum, ideally a shared secret or mTLS.",
+        "fixes": ["no-auth"]
+      },
+      {
+        "priority": 3,
+        "title": "Add resilience wrappers to external dependency calls",
+        "severity": "CRITICAL",
+        "category": "Resilience",
+        "files": ["database.py", "kafkaClientMT.py", "qdrantClassifier.py"],
+        "description": "None of the 6 external dependencies have circuit breakers, retries, or timeouts. Add a resilience wrapper (e.g., tenacity for retry, pybreaker for circuit breaking) to Aerospike, MongoDB, and Qdrant client calls. This single change addresses both the missing-resilience and the cascading failure risks.",
+        "fixes": ["missing-resilience"]
+      },
+      {
+        "priority": 4,
+        "title": "Split database.py into domain-scoped repositories",
+        "severity": "CRITICAL",
+        "category": "Structural",
+        "files": ["database.py"],
+        "description": "database.py (3615 lines) handles Aerospike email ops, MongoDB config, MySQL legacy, sender stats, and user profiles. Split into AerospikeEmailRepository, MongoConfigRepository, SenderStatsService, and UserProfileService. This also addresses the tight-coupling issue as classifiers would depend on interfaces rather than the god object.",
+        "fixes": ["god-object", "tight-coupling"]
+      },
+      {
+        "priority": 5,
+        "title": "Replace bare except clauses with specific exception handling",
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "files": ["util.py", "fmailai.py", "emailinfo.py"],
+        "description": "13+ bare except: clauses silently discard exceptions. Replace with specific exception types and ensure errors are logged. This will surface hidden failures that currently go unnoticed.",
+        "fixes": ["swallowed-exception"]
+      },
+      {
+        "priority": 6,
+        "title": "Consolidate configuration into a single source",
+        "severity": "RECOMMENDED",
+        "category": "Data",
+        "files": ["config.py", "database.py", "fmailai.cfg"],
+        "description": "Config is spread across INI file defaults, Python hardcoded defaults, and MongoDB documents. Establish MongoDB as the single source of truth for runtime config, with the INI file providing only bootstrap values (Kafka, DB connection strings).",
+        "fixes": ["config-sprawl"]
+      },
+      {
+        "priority": 7,
+        "title": "Extract named constants for classifier thresholds",
+        "severity": "MINOR",
+        "category": "Data",
+        "files": ["phishingClassifier.py", "llmClassifier.py", "suspiciousClassifier.py"],
+        "description": "Numeric thresholds are scattered as magic numbers. Move to named constants in a shared thresholds module or to MongoDB config for runtime tuning.",
+        "fixes": ["magic-numbers"]
+      }
+    ]
+  },
+
+  "metadata": {
+    "story_ids": ["classification-engine", "kafka-ingestion", "classifier-pipeline", "verdict-lifecycle", "llm-integration", "data-layer", "storage-topology", "email-domain-model", "operations", "background-processing", "vector-similarity", "observability-stack", "external-dependencies", "failure-cascades", "security-surface"],
+    "flags": {
+      "detect_only": false
+    }
+  }
+}

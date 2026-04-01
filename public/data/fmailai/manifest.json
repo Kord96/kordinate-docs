@@ -1,0 +1,241 @@
+{
+  "background-processing": {
+    "blocks": [
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 1,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "classification-engine": {
+    "blocks": [
+      {
+        "type": "structure",
+        "index": 0,
+        "layout": "grid",
+        "node_count": 2
+      },
+      {
+        "type": "flow",
+        "index": 0,
+        "layout": "sequence",
+        "flow_type": "data"
+      },
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 1,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "classifier-pipeline": {
+    "blocks": [
+      {
+        "type": "flow",
+        "index": 0,
+        "layout": "sequence",
+        "flow_type": "control"
+      },
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 1,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "data-layer": {
+    "blocks": [
+      {
+        "type": "structure",
+        "index": 0,
+        "layout": "grid",
+        "node_count": 3
+      },
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "email-domain-model": {
+    "blocks": [
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "external-dependencies": {
+    "blocks": [
+      {
+        "type": "structure",
+        "index": 0,
+        "layout": "dagre",
+        "node_count": 4
+      },
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "failure-cascades": {
+    "blocks": [
+      {
+        "type": "flow",
+        "index": 0,
+        "layout": "sequence",
+        "flow_type": "control"
+      },
+      {
+        "type": "flow",
+        "index": 1,
+        "layout": "sequence",
+        "flow_type": "control"
+      },
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 1,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "kafka-ingestion": {
+    "blocks": [
+      {
+        "type": "structure",
+        "index": 0,
+        "layout": "grid",
+        "node_count": 1
+      },
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 1,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "llm-integration": {
+    "blocks": [
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 1,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 2,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "observability-stack": {
+    "blocks": [
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "operations": {
+    "blocks": []
+  },
+  "security-surface": {
+    "blocks": [
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 1,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "storage-topology": {
+    "blocks": [
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 1,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "vector-similarity": {
+    "blocks": [
+      {
+        "type": "flow",
+        "index": 0,
+        "layout": "sequence",
+        "flow_type": "data"
+      },
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      },
+      {
+        "type": "observation",
+        "index": 1,
+        "layout": "evidence-card"
+      }
+    ]
+  },
+  "verdict-lifecycle": {
+    "blocks": [
+      {
+        "type": "flow",
+        "index": 0,
+        "layout": "timeline",
+        "flow_type": "state"
+      },
+      {
+        "type": "observation",
+        "index": 0,
+        "layout": "evidence-card"
+      }
+    ]
+  }
+}

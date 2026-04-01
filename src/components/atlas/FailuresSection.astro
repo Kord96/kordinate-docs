@@ -1,0 +1,23 @@
+---
+interface Props { failures: any[]; severity: (s: string) => string; }
+const { failures, severity } = Astro.props;
+---
+
+<div class="section" id="sec-failures">
+  <h2 class="section-title">Failure Modes</h2>
+  <p class="section-sub">{failures.length} failure scenarios analyzed</p>
+  {failures.map((fm: any) => (
+    <div class="failure">
+      <div class="failure-header">
+        <span class="failure-name">{fm.id.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
+        <span class="failure-sev" style={`background: ${severity(fm.severity)}`}>{fm.severity}</span>
+      </div>
+      <div class="failure-trigger">▸ {fm.trigger}</div>
+      {fm.cascade && fm.cascade.length > 0 && (
+        <div class="failure-cascade">
+          Cascade: {fm.cascade.map((c: any) => c.component || c.effect).join(' → ')}
+        </div>
+      )}
+    </div>
+  ))}
+</div>

@@ -1,0 +1,47 @@
+id: security-surface
+title: "Security Surface"
+teaches: "What entry points exist, how authentication works, and where secrets are managed."
+tags: ["security", "authentication", "secrets"]
+
+anchor:
+  file: "vector-srv.py"
+  line: 35
+  description: "Flask app initialization with CORS enabled for all routes."
+
+parent: external-dependencies
+children: []
+
+summary: |
+  The system has three entry points: the FML-REQUEST Kafka topic (no authentication, relies on network isolation), and the vector-srv /vectorize and /release Flask endpoints (no authentication, CORS enabled for all origins). API key validation exists only for FortiMail ping/test-connection requests, checked against MongoDB cfg_pipelines.
+
+  Secrets management is weak: config.py:53 contains a default MySQL password ('Spam123#db'), encryption.py:10 hardcodes an AES key as a character array, and the LLM server URL defaults to a private IP (10.4.2.130). No secrets rotation, no vault integration, no encrypted config. The AES cipher in encryption.py uses PyCrypto (deprecated, unmaintained) instead of cryptography.
+
+observations:
+  - id: obs-hardcoded-aes-key
+    finding: "encryption.py hardcodes the AES key as a list of chr() values. This key is committed to source control."
+    confidence: high
+    component: email-model
+    evidence:
+      file: "encryption.py"
+      lines: [10]
+    tags: ["security", "critical"]
+    detection_method: grep
+    recommendation: "Move to environment variable or secrets manager. Rotate immediately."
+    grounded_in: ["encryption.py:10"]
+  - id: obs-cors-open
+    finding: "Flask CORS is enabled for all origins on vector-srv, allowing any browser-based client to call /release."
+    confidence: high
+    component: vector-service
+    evidence:
+      file: "vector-srv.py"
+      lines: [36]
+    tags: ["security"]
+    detection_method: manual
+    recommendation: "Restrict CORS origins to trusted admin domains."
+    grounded_in: ["vector-srv.py:36"]
+
+evaluation:
+  groundedness: 0.92
+  coverage: 0.85
+  claim_count: 8
+  ungrounded_claims: []

@@ -1,0 +1,22 @@
+---
+interface Props { concepts: any; }
+const { concepts } = Astro.props;
+---
+
+<div class="section" id="sec-patterns">
+  <h2 class="section-title">Detected Patterns</h2>
+  <p class="section-sub">{(concepts.detected_patterns || []).length} patterns, {(concepts.detected_anti_patterns || []).length} anti-patterns, {(concepts.gaps || []).length} gaps</p>
+  <div style="display: flex; flex-wrap: wrap; gap: .3rem;">
+    {(concepts.detected_patterns || []).map((p: any) => (
+      <span class="card-tag">{p.id || p.name || p}</span>
+    ))}
+  </div>
+  {(concepts.gaps || []).length > 0 && (
+    <div style="margin-top: 1rem;">
+      <div style="font-size: .7rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; margin-bottom: .3rem;">Gaps</div>
+      {(concepts.gaps || []).map((g: any) => (
+        <div style="font-size: .78rem; color: #f59e0b; padding: .2rem 0;">⚠ {g.name || g.id || g}</div>
+      ))}
+    </div>
+  )}
+</div>

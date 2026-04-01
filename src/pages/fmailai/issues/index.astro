@@ -7,7 +7,7 @@ import IssueSection from '../../../components/issues/IssueSection.astro';
 import fs from 'node:fs';
 import yaml from 'js-yaml';
 
-const dir = 'src/content/docs/logbd';
+const dir = 'src/content/docs/fmailai';
 const atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
 
 const storyDir = `${dir}/stories`;
@@ -62,7 +62,7 @@ function typeColor(t: string) { return ({ bug: '#ef4444', enhancement: '#60a5fa'
 <Base title={`${atlas.project} — Issues`}>
   <IssuesStyles />
 
-  <Header project={atlas.project} badge="dev" links={[{ label: 'Journey', href: '/dev/logbd/' }, { label: 'Atlas', href: '/dev/logbd/atlas/' }]} position="sticky" active="issues" />
+  <Header project={atlas.project} badge="dev" links={[{ label: 'Journey', href: '/dev/fmailai/' }, { label: 'Atlas', href: '/dev/fmailai/atlas/' }]} position="sticky" active="issues" />
 
   <div class="container">
     <h1 class="page-title">Issues</h1>
@@ -71,7 +71,7 @@ function typeColor(t: string) { return ({ bug: '#ef4444', enhancement: '#60a5fa'
     <div class="summary">
       {atlas.debt?.grade && (
         <div class="summary-stat">
-          <div class="debt-badge" style={`background: ${sevColor(atlas.debt.grade === 'A' ? 'low' : atlas.debt.grade === 'B' ? 'medium' : 'high')}`}>{atlas.debt.grade}</div>
+          <div class="debt-badge" style={`background: ${typeColor(atlas.debt.grade === 'A' ? 'suggestion' : atlas.debt.grade === 'B' ? 'enhancement' : 'bug')}`}>{atlas.debt.grade}</div>
           <div>
             <div style="font-weight: 600; font-size: .85rem;">Debt Score: {atlas.debt.score}</div>
             <div style="font-size: .65rem; color: var(--text-3);">{atlas.debt.interpretation || ''}</div>

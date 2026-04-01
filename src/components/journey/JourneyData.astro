@@ -1,0 +1,19 @@
+---
+/**
+ * Hidden JSON data blobs consumed by JourneyScript.
+ */
+interface Props {
+  atlas: any;
+  storyByNode: Record<string, string[]>;
+}
+
+const { atlas, storyByNode } = Astro.props;
+---
+
+<script id="comp-data" type="application/json" set:html={JSON.stringify(
+  Object.fromEntries([
+    ...(atlas.components || []).map((c: any) => [c.id, { id: c.id, name: c.name, type: c.type, description: c.description, depends_on: c.depends_on || [], patterns: c.patterns || [] }]),
+    ...(atlas.external_dependencies || []).map((e: any) => [e.id, { id: e.id, name: e.name || e.id, type: 'external', description: e.description || '', depends_on: [], patterns: [] }]),
+  ])
+)} />
+<script id="refs-data" type="application/json" set:html={JSON.stringify(storyByNode)} />

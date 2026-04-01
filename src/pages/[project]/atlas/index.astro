@@ -12,8 +12,15 @@ import DebtSection from '../../../components/atlas/DebtSection.astro';
 import PatternsSection from '../../../components/atlas/PatternsSection.astro';
 import fs from 'node:fs';
 
-const dir = 'src/content/docs/logbd';
-const atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
+const { project } = Astro.params;
+const dir = `src/content/docs/${project}`;
+
+let atlas = {};
+try {
+  atlas = JSON.parse(fs.readFileSync(`${dir}/atlas.json`, 'utf-8'));
+} catch (e) {
+  console.error(`Failed to load atlas for ${project}:`, e);
+}
 
 const groups = atlas.groups || [];
 const components = atlas.components || [];
@@ -33,7 +40,7 @@ function severity(s: string) {
 <Base title={`${atlas.project} — Atlas`}>
   <AtlasStyles />
 
-  <Header project={atlas.project} badge="dev" links={[{ label: 'Journey', href: '/dev/logbd/' }, { label: 'Issues', href: '/dev/logbd/issues/' }]} position="sticky" active="atlas" />
+  <Header project={atlas.project} badge="dev" links={[{ label: 'Journey', href: `/dev/${project}/` }, { label: 'Issues', href: `/dev/${project}/issues/` }]} position="sticky" active="atlas" />
 
   <div class="container">
     <div class="section" id="sec-overview">

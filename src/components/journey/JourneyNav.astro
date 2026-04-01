@@ -1,0 +1,34 @@
+---
+/**
+ * Bottom pill nav — journey selector dropdown + story dot pills.
+ */
+interface Props {
+  journeys: any[];
+  defaultJourney: any;
+  stories: any[];
+}
+
+const { journeys, defaultJourney, stories } = Astro.props;
+---
+
+<div class="jn-picker" id="jn-picker">
+  {journeys.map((j: any) => {
+    const label = j.title?.includes(':') ? j.title.split(':')[0].trim() : j.title;
+    return <div class={`jn-pick ${j.id === defaultJourney.id ? 'jn-pick-active' : ''}`} data-journey={j.id}>{label}</div>;
+  })}
+</div>
+<nav class="journey-nav" id="journey-nav">
+  <span class="jn-journey" id="jn-journey">
+    {defaultJourney.title.includes(':') ? defaultJourney.title.split(':')[0].trim() : defaultJourney.title}
+  </span>
+  <span id="jb-dots">
+    {stories.map((s: any, i: number) => {
+      const label = s.title?.includes(':') ? s.title.split(':')[0].trim() : (s.title || `Story ${i+1}`);
+      return (
+        <a class={`jb-dot ${i === 0 ? 'jb-dot-active' : ''}`} data-index={i + 1} title={s.title}>
+          {label}
+        </a>
+      );
+    })}
+  </span>
+</nav>
