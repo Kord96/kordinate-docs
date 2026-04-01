@@ -112,24 +112,21 @@ function getTypeStyle(type: string) {
     }
     .jb-select option { background: var(--bg); color: var(--text); }
     .jb-dots {
-      display: inline-flex; align-items: center; gap: 2px;
-      background: var(--bg);
-      border: 1px solid var(--border-hover);
-      border-radius: 99px;
-      padding: 3px;
+      display: inline-flex; align-items: center; gap: 4px;
       overflow-x: auto; scrollbar-width: none;
-      max-width: 65%;
+      max-width: 68%;
     }
     .jb-dots::-webkit-scrollbar { display: none; }
     .jb-dot {
-      padding: .3rem .6rem; border-radius: 99px;
+      padding: .2rem .5rem; border-radius: 4px;
       font-size: .65rem; font-weight: 500; color: var(--text-4);
+      border: 1px solid var(--border);
       cursor: pointer; transition: all .2s; text-decoration: none;
       white-space: nowrap;
     }
-    .jb-dot:hover { color: var(--text-2); background: var(--border); }
-    .jb-dot-active { color: var(--text); background: var(--border-hover); font-weight: 600; }
-    .jb-dot-visited { color: var(--text-3); }
+    .jb-dot:hover { color: var(--text-2); border-color: var(--border-hover); }
+    .jb-dot-active { color: var(--text); border-color: var(--accent-border); background: var(--accent-dim); }
+    .jb-dot-visited { color: var(--text-3); border-color: var(--border-hover); }
 
     /* ─── Sections ─── */
     .snap { min-height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; }
