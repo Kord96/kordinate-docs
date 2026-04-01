@@ -1,0 +1,165 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Sign in">
+  <div class="login-wrap">
+    <div class="login-card">
+      <img src="/dev/logo_dark.png" alt="Logo" class="logo" />
+      <h1>Sign in</h1>
+      <p class="subtitle">Dev environment</p>
+
+      <p class="error" style="display:none">Wrong password</p>
+
+      <form method="POST" action="/dev/login">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="Enter password"
+          autofocus
+          required
+        />
+        <button type="submit">Continue</button>
+      </form>
+
+      <p class="hint">
+        Set <code>DEV_PASSWORD</code> in <code>.env</code> to change the password.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Show error if redirected back from failed auth attempt
+    if (document.cookie.includes('dev-auth-error')) {
+      const el = document.querySelector('.error') as HTMLElement;
+      if (el) el.style.display = '';
+      document.cookie = 'dev-auth-error=; path=/; max-age=0';
+    }
+  </script>
+</Base>
+
+<style>
+  .login-wrap {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-bottom: 1rem;
+  }
+
+  .error {
+    font-size: 0.8rem;
+    color: var(--danger);
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.2);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+
+  input {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    font-family: var(--font);
+    font-size: 0.875rem;
+    color: var(--text);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input::placeholder {
+    color: var(--text-4);
+  }
+
+  input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+
+  button {
+    margin-top: 0.5rem;
+    padding: 0.6rem;
+    font-family: var(--font);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  button:hover {
+    opacity: 0.9;
+  }
+
+  button:active {
+    opacity: 0.8;
+  }
+
+  .hint {
+    margin-top: 1.5rem;
+    font-size: 0.7rem;
+    color: var(--text-4);
+    text-align: center;
+  }
+
+  .hint code {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    background: var(--bg-raised);
+    padding: 0.15em 0.35em;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+</style>

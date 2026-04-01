@@ -12,8 +12,12 @@
   "dependencies": {
     "@astrojs/starlight": "^0.38.2",
     "astro": "^6.0.1",
+    "cookie": "^1.1.1",
     "locomotive-scroll": "^5.0.1",
     "playwright": "^1.58.2",
     "sharp": "^0.34.2"
+  },
+  "devDependencies": {
+    "@types/cookie": "^0.6.0"
   }
 }
