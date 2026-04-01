@@ -112,18 +112,21 @@ function getTypeStyle(type: string) {
     }
     .jb-select option { background: var(--bg); color: var(--text); }
     .jb-dots {
-      display: flex; align-items: center; gap: 3px;
+      display: flex; align-items: center; gap: 2px;
+      overflow-x: auto; scrollbar-width: none;
+      max-width: 70%;
     }
+    .jb-dots::-webkit-scrollbar { display: none; }
     .jb-dot {
-      width: 22px; height: 22px; border-radius: 99px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: .6rem; font-weight: 600; color: var(--text-4);
-      background: transparent; border: 1px solid var(--border);
+      padding: .2rem .5rem; border-radius: 99px;
+      font-size: .6rem; font-weight: 500; color: var(--text-4);
+      background: transparent;
       cursor: pointer; transition: all .2s; text-decoration: none;
+      white-space: nowrap;
     }
-    .jb-dot:hover { color: var(--text-2); border-color: var(--border-hover); background: rgba(39,39,42,0.4); }
-    .jb-dot-active { color: var(--text); background: var(--accent-dim); border-color: var(--accent-border); }
-    .jb-dot-visited { color: var(--text-3); border-color: var(--border-hover); }
+    .jb-dot:hover { color: var(--text-2); background: rgba(39,39,42,0.5); }
+    .jb-dot-active { color: var(--text); background: var(--border); }
+    .jb-dot-visited { color: var(--text-3); }
 
     /* ─── Sections ─── */
     .snap { min-height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; }
@@ -520,11 +523,14 @@ function getTypeStyle(type: string) {
       </select>
     </div>
     <div class="jb-dots" id="jb-dots">
-      {stories.map((_: any, i: number) => (
-        <a class={`jb-dot ${i === 0 ? 'jb-dot-active' : ''}`} data-index={i + 1} title={stories[i]?.title || `Story ${i+1}`}>
-          {i + 1}
-        </a>
-      ))}
+      {stories.map((s: any, i: number) => {
+        const label = s.title?.includes(':') ? s.title.split(':')[0].trim() : (s.title || `Story ${i+1}`);
+        return (
+          <a class={`jb-dot ${i === 0 ? 'jb-dot-active' : ''}`} data-index={i + 1} title={s.title}>
+            {label}
+          </a>
+        );
+      })}
     </div>
   </div>
 </div>
@@ -771,10 +777,11 @@ function getTypeStyle(type: string) {
       const dot = document.createElement('a');
       dot.className = 'jb-dot';
       dot.dataset.index = i;
-      dot.textContent = i;
       const sec = secs[i];
       const titleEl = sec?.querySelector('.story-title');
-      dot.title = titleEl ? titleEl.textContent : 'Story ' + i;
+      const fullTitle = titleEl ? titleEl.textContent : 'Story ' + i;
+      dot.title = fullTitle;
+      dot.textContent = fullTitle.includes(':') ? fullTitle.split(':')[0].trim() : fullTitle;
       dot.addEventListener('click', () => {
         secs[i]?.scrollIntoView({ behavior: 'smooth' });
       });
