@@ -112,19 +112,22 @@ function getTypeStyle(type: string) {
     }
     .jb-select option { background: var(--bg); color: var(--text); }
     .jb-dots {
-      display: flex; align-items: center; gap: 2px;
+      display: flex; align-items: center; gap: 3px;
       overflow-x: auto; scrollbar-width: none;
       max-width: 70%;
+      background: rgba(9,9,11,0.6);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 2px;
     }
     .jb-dots::-webkit-scrollbar { display: none; }
     .jb-dot {
-      padding: .2rem .5rem; border-radius: 99px;
+      padding: .2rem .55rem; border-radius: 99px;
       font-size: .6rem; font-weight: 500; color: var(--text-4);
-      background: transparent;
       cursor: pointer; transition: all .2s; text-decoration: none;
       white-space: nowrap;
     }
-    .jb-dot:hover { color: var(--text-2); background: rgba(39,39,42,0.5); }
+    .jb-dot:hover { color: var(--text-2); background: rgba(39,39,42,0.6); }
     .jb-dot-active { color: var(--text); background: var(--border); }
     .jb-dot-visited { color: var(--text-3); }
 
