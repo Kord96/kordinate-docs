@@ -9,9 +9,15 @@ import Base from '../layouts/Base.astro';
       <h1>Sign in</h1>
       <p class="subtitle">Dev environment</p>
 
+      <div class="tabs">
+        <button class="tab active" data-role="admin">Admin</button>
+        <button class="tab" data-role="guest">Guest</button>
+      </div>
+
       <p class="error" style="display:none">Wrong password</p>
 
       <form method="POST" action="/dev/login">
+        <input type="hidden" name="role" id="role" value="admin" />
         <label for="password">Password</label>
         <input
           type="password"
@@ -23,10 +29,6 @@ import Base from '../layouts/Base.astro';
         />
         <button type="submit">Continue</button>
       </form>
-
-      <p class="hint">
-        Set <code>DEV_PASSWORD</code> in <code>.env</code> to change the password.
-      </p>
     </div>
   </div>
 
@@ -37,6 +39,18 @@ import Base from '../layouts/Base.astro';
       if (el) el.style.display = '';
       document.cookie = 'dev-auth-error=; path=/; max-age=0';
     }
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const role = (tab as HTMLElement).dataset.role!;
+        (document.getElementById('role') as HTMLInputElement).value = role;
+        (document.getElementById('password') as HTMLInputElement).placeholder =
+          role === 'guest' ? 'Enter guest password' : 'Enter password';
+      });
+    });
   </script>
 </Base>
 
@@ -145,6 +159,42 @@ import Base from '../layouts/Base.astro';
 
   button:active {
     opacity: 0.8;
+  }
+
+  .tabs {
+    display: flex;
+    width: 100%;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 0.25rem;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 0.5rem;
+    font-family: var(--font);
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-3);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .tab:not(:last-child) {
+    border-right: 1px solid var(--border);
+  }
+
+  .tab:hover {
+    color: var(--text-2);
+  }
+
+  .tab.active {
+    background: var(--accent-dim);
+    color: var(--accent);
   }
 
   .hint {

@@ -1,5 +1,6 @@
 import type { Plugin } from 'vite';
 import { parse as parseCookie } from 'cookie';
+import { loadEnv } from 'vite';
 
 // Paths as seen by Vite (base path is stripped by Astro)
 const LOGIN_PATH = '/login';
@@ -14,6 +15,11 @@ export default function devAuthPlugin(): Plugin {
   return {
     name: 'dev-auth',
     configureServer(server) {
+      // Load .env vars (Vite doesn't put them in process.env by default)
+      const env = loadEnv('development', process.cwd(), '');
+      const adminPw = env.DEV_PASSWORD ?? 'dev';
+      const guestPw = env.GUEST_PASSWORD ?? 'guest';
+
       server.middlewares.use((req, res, next) => {
         const url = req.url ?? '/';
 
@@ -29,7 +35,7 @@ export default function devAuthPlugin(): Plugin {
         // Login page
         if (url === LOGIN_PATH || url === `${LOGIN_PATH}/` || url.startsWith(`${LOGIN_PATH}?`)) {
           // Already authed — redirect to home
-          if (cookies[COOKIE_NAME] === 'ok') {
+          if (cookies[COOKIE_NAME] === 'ok' || cookies[COOKIE_NAME] === 'guest') {
             res.writeHead(302, { location: '/dev/' });
             return res.end();
           }
@@ -41,12 +47,16 @@ export default function devAuthPlugin(): Plugin {
             req.on('end', () => {
               const params = new URLSearchParams(body);
               const password = params.get('password') ?? '';
-              const expected = process.env.DEV_PASSWORD ?? 'dev';
+              const role = params.get('role') ?? 'admin';
 
-              if (password === expected) {
+              const match = (role === 'guest' && password === guestPw) ? 'guest'
+                          : (role === 'admin' && password === adminPw) ? 'ok'
+                          : null;
+
+              if (match) {
                 res.writeHead(302, {
                   location: '/dev/',
-                  'set-cookie': `${COOKIE_NAME}=ok; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}`,
+                  'set-cookie': `${COOKIE_NAME}=${match}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}`,
                 });
                 return res.end();
               }
@@ -65,8 +75,9 @@ export default function devAuthPlugin(): Plugin {
           return next();
         }
 
-        // All other pages — require auth
-        if (cookies[COOKIE_NAME] !== 'ok') {
+        // All other pages — require auth (full or guest)
+        const auth = cookies[COOKIE_NAME];
+        if (auth !== 'ok' && auth !== 'guest') {
           res.writeHead(302, { location: '/dev/login' });
           return res.end();
         }
