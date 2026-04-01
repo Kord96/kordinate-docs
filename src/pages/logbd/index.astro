@@ -111,20 +111,19 @@ function getTypeStyle(type: string) {
       outline: none; -webkit-appearance: none; appearance: none;
     }
     .jb-select option { background: var(--bg); color: var(--text); }
-    .jb-pos {
-      font-size: .7rem; color: var(--text-3);
-      display: flex; align-items: center; gap: .4rem;
+    .jb-dots {
+      display: flex; align-items: center; gap: 3px;
     }
-    .jb-num { color: var(--accent); font-weight: 600; }
-    .jb-title { color: var(--text-2); font-weight: 500; }
-    .jb-progress {
-      height: 2px; background: var(--border); border-radius: 1px;
-      overflow: hidden;
+    .jb-dot {
+      width: 22px; height: 22px; border-radius: 99px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .6rem; font-weight: 600; color: var(--text-4);
+      background: transparent; border: 1px solid var(--border);
+      cursor: pointer; transition: all .2s; text-decoration: none;
     }
-    .jb-fill {
-      height: 100%; background: var(--accent); border-radius: 1px;
-      transition: width .4s ease; width: 0%;
-    }
+    .jb-dot:hover { color: var(--text-2); border-color: var(--border-hover); background: rgba(39,39,42,0.4); }
+    .jb-dot-active { color: var(--text); background: var(--accent-dim); border-color: var(--accent-border); }
+    .jb-dot-visited { color: var(--text-3); border-color: var(--border-hover); }
 
     /* ─── Sections ─── */
     .snap { min-height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; }
@@ -520,14 +519,14 @@ function getTypeStyle(type: string) {
         ))}
       </select>
     </div>
-    <div class="jb-pos">
-      <span class="jb-num" id="jb-num">1</span>
-      <span>/</span>
-      <span id="jb-total">{totalStories}</span>
-      <span class="jb-title" id="jb-title"></span>
+    <div class="jb-dots" id="jb-dots">
+      {stories.map((_: any, i: number) => (
+        <a class={`jb-dot ${i === 0 ? 'jb-dot-active' : ''}`} data-index={i + 1} title={stories[i]?.title || `Story ${i+1}`}>
+          {i + 1}
+        </a>
+      ))}
     </div>
   </div>
-  <div class="jb-progress"><div class="jb-fill" id="jb-fill"></div></div>
 </div>
 
 <!-- Landing -->
@@ -745,10 +744,7 @@ function getTypeStyle(type: string) {
 
 <script is:inline>
   const journeyBar = document.getElementById('journey-bar');
-  const jbNum = document.getElementById('jb-num');
-  const jbTotal = document.getElementById('jb-total');
-  const jbTitle = document.getElementById('jb-title');
-  const jbFill = document.getElementById('jb-fill');
+  const jbDots = document.getElementById('jb-dots');
   const jbSelect = document.getElementById('jb-select');
   const landing = document.getElementById('s0');
   let cur = 0;
@@ -766,24 +762,38 @@ function getTypeStyle(type: string) {
   }, { threshold: 0.3 });
   landingObs.observe(landing);
 
-  // Track current story
+  // Track current story and update dots
+  function rebuildDots() {
+    const secs = getVisibleSections();
+    const storyCount = secs.length - 1;
+    jbDots.innerHTML = '';
+    for (let i = 1; i <= storyCount; i++) {
+      const dot = document.createElement('a');
+      dot.className = 'jb-dot';
+      dot.dataset.index = i;
+      dot.textContent = i;
+      const sec = secs[i];
+      const titleEl = sec?.querySelector('.story-title');
+      dot.title = titleEl ? titleEl.textContent : 'Story ' + i;
+      dot.addEventListener('click', () => {
+        secs[i]?.scrollIntoView({ behavior: 'smooth' });
+      });
+      jbDots.appendChild(dot);
+    }
+  }
+
   function setupObserver() {
     const secs = getVisibleSections();
-    const storyCount = secs.length - 1; // minus landing
-    jbTotal.textContent = storyCount;
+    rebuildDots();
 
     const obs = new IntersectionObserver(entries => {
       entries.forEach(e => {
         if (e.isIntersecting) {
           cur = secs.indexOf(e.target);
-          if (cur > 0) {
-            jbNum.textContent = cur;
-            const storyEl = e.target.querySelector('.story-title');
-            jbTitle.textContent = storyEl ? '  ' + storyEl.textContent : '';
-            jbFill.style.width = (cur / storyCount * 100) + '%';
-          } else {
-            jbFill.style.width = '0%';
-          }
+          jbDots.querySelectorAll('.jb-dot').forEach((d, i) => {
+            d.classList.toggle('jb-dot-active', i + 1 === cur);
+            if (i + 1 < cur) d.classList.add('jb-dot-visited');
+          });
         }
       });
     }, { threshold: 0.5 });
