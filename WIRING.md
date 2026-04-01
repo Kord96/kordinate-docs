@@ -14,8 +14,7 @@ This script will:
 3. Create manifest and journey placeholder files
 4. Make the project available at:
    - `/dev/<project-name>/` — Journey/guided walkthrough
-   - `/dev/<project-name>/atlas/` — Full architecture reference
-   - `/dev/<project-name>/issues/` — Issues, violations, and gaps
+   - `/dev/<project-name>/atlas/` — Full architecture reference with findings
 
 ## How It Works
 
@@ -58,6 +57,18 @@ src/content/docs/<project-name>/
 - **journeys/** — Story walkthroughs defined in project's journey files
 - **stories/** — Analysis results from augur agent investigations
 - **storyByNode.json** — Maps story IDs to architecture nodes
+
+## Architecture and Findings
+
+The **Atlas page** serves as the single source of truth for architectural information:
+- **Violations & Recommendations** sorted by severity (Critical/High first)
+- **Failure Modes** with trigger conditions, impact, and recovery paths
+- **Architecture Graph** showing components and their relationships
+- **Components** grouped and documented
+- **External Dependencies** and their criticality
+- **Design Patterns** and domain model
+
+This consolidation eliminates redundant "Issues" pages while providing a more complete, actionable reference.
 
 ## Adding a New Project
 

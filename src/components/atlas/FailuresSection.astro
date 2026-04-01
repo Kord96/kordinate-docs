@@ -12,10 +12,19 @@ const { failures, severity } = Astro.props;
         <span class="failure-name">{fm.id.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
         <span class="failure-sev" style={`background: ${severity(fm.severity)}`}>{fm.severity}</span>
       </div>
-      <div class="failure-trigger">▸ {fm.trigger}</div>
+      <div class="failure-trigger">Trigger: {fm.trigger}</div>
+      {fm.impact && <div class="failure-cascade" style="color: var(--text-2); margin: .3rem 0;">Impact: {fm.impact}</div>}
       {fm.cascade && fm.cascade.length > 0 && (
         <div class="failure-cascade">
           Cascade: {fm.cascade.map((c: any) => c.component || c.effect).join(' → ')}
+        </div>
+      )}
+      {fm.recovery && fm.recovery.length > 0 && (
+        <div style="font-size: .78rem; color: var(--accent); margin-top: .3rem; padding-top: .3rem; border-top: 1px solid var(--border);">
+          <div style="font-weight: 500; margin-bottom: .2rem;">Recovery:</div>
+          <div style="display: flex; flex-wrap: wrap; gap: .4rem;">
+            {fm.recovery.map((r: string) => <span style="background: var(--accent-dim); padding: .1rem .4rem; border-radius: 3px; font-size: .7rem;">{r}</span>)}
+          </div>
         </div>
       )}
     </div>

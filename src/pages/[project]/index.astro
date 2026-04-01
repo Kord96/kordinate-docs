@@ -111,7 +111,7 @@ function parseSummary(text: string): string {
 <Base title={defaultJourney.title}>
   <JourneyStyles />
 
-  <Header project={atlas.project || project} badge="dev" links={[{ label: 'Atlas', href: `/dev/${project}/atlas/` }, { label: 'Issues', href: `/dev/${project}/issues/` }]} active="journey" />
+  <Header project={atlas.project || project} badge="dev" links={[{ label: 'Atlas', href: `/dev/${project}/atlas/` }]} active="journey" />
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
 

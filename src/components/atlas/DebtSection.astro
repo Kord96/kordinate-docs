@@ -1,6 +1,16 @@
 ---
 interface Props { debt: any; severity: (s: string) => string; }
 const { debt, severity } = Astro.props;
+
+// Sort violations by severity (critical/high first)
+const sortedViolations = (debt.violations || []).sort((a: any, b: any) => {
+  const sevOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+  return (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9);
+});
+
+// Count by severity
+const criticalCount = sortedViolations.filter((v: any) => v.severity === 'critical').length;
+const highCount = sortedViolations.filter((v: any) => v.severity === 'high').length;
 ---
 
 <div class="section" id="sec-debt">
@@ -14,23 +24,40 @@ const { debt, severity } = Astro.props;
       <div class="debt-score">{debt.interpretation || ''}</div>
     </div>
   </div>
+
+  {(debt.violations || []).length > 0 && (
+    <div style="margin: 1rem 0; padding: 1rem; background: var(--bg-card); border-radius: var(--radius); border-left: 3px solid #ef4444;">
+      <div style="font-size: .7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .5rem; font-weight: 600;">Summary</div>
+      <div style="display: flex; gap: 1.5rem;">
+        {criticalCount > 0 && <div><div style="font-size: 1.1rem; font-weight: 700; color: #ef4444;">{criticalCount}</div><div style="font-size: .7rem; color: var(--text-3);">Critical</div></div>}
+        {highCount > 0 && <div><div style="font-size: 1.1rem; font-weight: 700; color: #f97316;">{highCount}</div><div style="font-size: .7rem; color: var(--text-3);">High</div></div>}
+        <div><div style="font-size: 1.1rem; font-weight: 700; color: var(--text-2);">{sortedViolations.length}</div><div style="font-size: .7rem; color: var(--text-3);">Total</div></div>
+      </div>
+    </div>
+  )}
+
   <div style="font-size: .65rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: .08em; margin: 1rem 0 .4rem;">Violations</div>
-  {(debt.violations || []).map((v: any) => (
+  {sortedViolations.map((v: any) => (
     <div class="violation">
       <div style="display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem;">
-        <span class="violation-sev" style={`color: ${severity(v.severity)}; border: 1px solid ${severity(v.severity)}33; background: ${severity(v.severity)}15; padding: .1rem .4rem; border-radius: 4px;`}>{v.severity}</span>
+        <span class="violation-sev" style={`color: ${severity(v.severity)}; border: 1px solid ${severity(v.severity)}33; background: ${severity(v.severity)}15; padding: .1rem .4rem; border-radius: 4px; font-weight: 600;`}>{v.severity}</span>
         <span style="font-weight: 500; font-size: .82rem;">{v.anti_pattern || v.title || ''}</span>
       </div>
       {v.detail && <div style="font-size: .78rem; color: var(--text-3); line-height: 1.5;">{v.detail}</div>}
       {v.files && v.files.length > 0 && <div style="font-size: .68rem; color: var(--accent); font-family: var(--mono); margin-top: .2rem;">{v.files.join(' · ')}</div>}
     </div>
   ))}
-  <div style="font-size: .65rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: .08em; margin: 1.25rem 0 .4rem;">Recommendations</div>
-  {(debt.recommendations || []).map((r: any) => (
-    <div class="violation" style="border-left: 2px solid var(--accent);">
-      <div style="font-weight: 500; font-size: .82rem; margin-bottom: .2rem;">{r.title || ''}</div>
-      {r.description && <div style="font-size: .78rem; color: var(--text-3); line-height: 1.5;">{r.description}</div>}
-      {r.files && r.files.length > 0 && <div style="font-size: .68rem; color: var(--accent); font-family: var(--mono); margin-top: .2rem;">{r.files.join(' · ')}</div>}
-    </div>
-  ))}
+
+  {(debt.recommendations || []).length > 0 && (
+    <>
+      <div style="font-size: .65rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: .08em; margin: 1.25rem 0 .4rem;">Recommendations ({debt.recommendations.length})</div>
+      {(debt.recommendations || []).map((r: any) => (
+        <div class="violation" style="border-left: 2px solid var(--accent);">
+          <div style="font-weight: 500; font-size: .82rem; margin-bottom: .2rem;">{r.title || ''}</div>
+          {r.description && <div style="font-size: .78rem; color: var(--text-3); line-height: 1.5;">{r.description}</div>}
+          {r.files && r.files.length > 0 && <div style="font-size: .68rem; color: var(--accent); font-family: var(--mono); margin-top: .2rem;">{r.files.join(' · ')}</div>}
+        </div>
+      ))}
+    </>
+  )}
 </div>
