@@ -112,10 +112,11 @@ function getTypeStyle(type: string) {
     .jn-journey:hover { background: var(--accent-dim); }
     .jn-journey::after { content: ' ▾'; font-size: .5rem; opacity: .6; }
     .jn-picker {
-      position: absolute; bottom: calc(100% + 6px); left: 0;
+      position: fixed; z-index: 210;
       background: var(--bg); border: 1px solid var(--border-hover);
-      border-radius: 8px; padding: 4px; min-width: 180px;
+      border-radius: 8px; padding: 4px; min-width: 200px;
       display: none; flex-direction: column; gap: 1px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
     }
     .jn-picker.open { display: flex; }
     .jn-pick {
@@ -125,6 +126,9 @@ function getTypeStyle(type: string) {
     }
     .jn-pick:hover { color: var(--text); background: var(--border); }
     .jn-pick-active { color: var(--accent); }
+    #jb-dots {
+      display: inline-flex; align-items: center; gap: 2px;
+    }
     .jb-dot {
       padding: .3rem .6rem; border-radius: 99px;
       font-size: .65rem; font-weight: 500; color: var(--text-4);
@@ -520,15 +524,15 @@ function getTypeStyle(type: string) {
 <Header project={atlas.project || 'logBD'} badge="dev" links={[{ label: 'Atlas', href: '/dev/logbd/atlas/' }, { label: 'Issues', href: '/dev/logbd/issues/' }]} active="journey" />
 
 <!-- Bottom pill nav — journey selector + story pills -->
+<div class="jn-picker" id="jn-picker">
+  {journeys.map((j: any) => {
+    const label = j.title?.includes(':') ? j.title.split(':')[0].trim() : j.title;
+    return <div class={`jn-pick ${j.id === defaultJourney.id ? 'jn-pick-active' : ''}`} data-journey={j.id}>{label}</div>;
+  })}
+</div>
 <nav class="journey-nav" id="journey-nav">
   <span class="jn-journey" id="jn-journey">
     {defaultJourney.title.includes(':') ? defaultJourney.title.split(':')[0].trim() : defaultJourney.title}
-    <div class="jn-picker" id="jn-picker">
-      {journeys.map((j: any) => {
-        const label = j.title?.includes(':') ? j.title.split(':')[0].trim() : j.title;
-        return <div class={`jn-pick ${j.id === defaultJourney.id ? 'jn-pick-active' : ''}`} data-journey={j.id}>{label}</div>;
-      })}
-    </div>
   </span>
   <span id="jb-dots">
     {stories.map((s: any, i: number) => {
@@ -776,9 +780,12 @@ function getTypeStyle(type: string) {
   }, { threshold: 0.3 });
   landingObs.observe(landing);
 
-  // Journey picker toggle
+  // Journey picker toggle — position above the nav
   jnJourney.addEventListener('click', (e) => {
     e.stopPropagation();
+    const rect = jnJourney.getBoundingClientRect();
+    jnPicker.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+    jnPicker.style.left = rect.left + 'px';
     jnPicker.classList.toggle('open');
   });
   document.addEventListener('click', () => jnPicker.classList.remove('open'));
