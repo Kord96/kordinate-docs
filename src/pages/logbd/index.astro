@@ -112,17 +112,17 @@ function getTypeStyle(type: string) {
     }
     .jb-select option { background: var(--bg); color: var(--text); }
     .jb-dots {
-      display: flex; align-items: center; gap: 3px;
-      overflow-x: auto; scrollbar-width: none;
-      max-width: 70%;
-      background: rgba(9,9,11,0.6);
+      display: inline-flex; align-items: center; gap: 2px;
+      background: rgba(9,9,11,0.92);
       border: 1px solid var(--border);
       border-radius: 99px;
-      padding: 2px;
+      padding: 3px;
+      overflow-x: auto; scrollbar-width: none;
+      max-width: 65%;
     }
     .jb-dots::-webkit-scrollbar { display: none; }
     .jb-dot {
-      padding: .2rem .55rem; border-radius: 99px;
+      padding: .25rem .5rem; border-radius: 99px;
       font-size: .6rem; font-weight: 500; color: var(--text-4);
       cursor: pointer; transition: all .2s; text-decoration: none;
       white-space: nowrap;
