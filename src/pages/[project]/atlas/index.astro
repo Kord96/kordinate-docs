@@ -12,6 +12,15 @@ import DebtSection from '../../../components/atlas/DebtSection.astro';
 import PatternsSection from '../../../components/atlas/PatternsSection.astro';
 import fs from 'node:fs';
 
+export async function getStaticPaths() {
+  const entries = await import.meta.glob('../../../content/docs/*/atlas.json');
+  const projects = Object.keys(entries).map(path => {
+    const match = path.match(/\/docs\/([^/]+)\//);
+    return match ? { params: { project: match[1] } } : null;
+  }).filter(Boolean);
+  return projects;
+}
+
 const { project } = Astro.params;
 const dir = `src/content/docs/${project}`;
 
