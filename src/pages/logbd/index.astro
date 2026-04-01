@@ -1277,7 +1277,7 @@ function getTypeStyle(type: string) {
     currentObs = setupObserver();
 
     // Scroll to landing
-    landing.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('chapter0')?.scrollIntoView({ behavior: 'smooth' });
 
     // Init any graphs that are now visible
     document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"] .struct-graph`).forEach(g => {
