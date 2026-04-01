@@ -86,7 +86,7 @@ function getTypeStyle(type: string) {
 ---
 
 <Base title={defaultJourney.title}>
-  <style slot="head">
+  <style is:global slot="head">
     html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
 
     /* ─── Journey bar (below header, sticky) ─── */
