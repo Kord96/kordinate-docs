@@ -8,7 +8,6 @@ import ComponentsSection from '../../../components/atlas/ComponentsSection.astro
 import FlowsSection from '../../../components/atlas/FlowsSection.astro';
 import ExternalDepsSection from '../../../components/atlas/ExternalDepsSection.astro';
 import FailuresSection from '../../../components/atlas/FailuresSection.astro';
-import DebtSection from '../../../components/atlas/DebtSection.astro';
 import PatternsSection from '../../../components/atlas/PatternsSection.astro';
 import fs from 'node:fs';
 
@@ -73,8 +72,7 @@ function severity(s: string) {
     <FlowsSection flows={flows} />
     <ExternalDepsSection extDeps={extDeps} severity={severity} />
     <FailuresSection failures={failures} severity={severity} />
-    <DebtSection debt={debt} severity={severity} />
-    <PatternsSection concepts={concepts} />
+    <PatternsSection concepts={concepts} debt={debt} severity={severity} />
   </div>
 
   <PillNav sections={[
@@ -84,7 +82,6 @@ function severity(s: string) {
     { id: 'sec-flows', label: 'Flows' },
     { id: 'sec-external', label: 'External' },
     { id: 'sec-failures', label: 'Failures' },
-    { id: 'sec-debt', label: 'Debt' },
     { id: 'sec-patterns', label: 'Patterns' },
   ]} />
 </Base>

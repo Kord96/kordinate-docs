@@ -1,15 +1,33 @@
 ---
-interface Props { concepts: any; }
-const { concepts } = Astro.props;
+interface Props { concepts: any; debt: any; severity: (s: string) => string; }
+const { concepts, debt, severity } = Astro.props;
 
 const patterns = concepts.detected_patterns || [];
 const antiPatterns = concepts.detected_anti_patterns || [];
 const gaps = concepts.gaps || [];
+const recommendations = debt?.recommendations || [];
+
+function gradeColor(grade: string): string {
+  return grade === 'A' ? '#22c55e' : grade === 'B' ? '#f59e0b' : '#ef4444';
+}
 ---
 
 <div class="section" id="sec-patterns">
   <h2 class="section-title">Patterns & Architecture</h2>
   <p class="section-sub">{patterns.length} patterns identified, {antiPatterns.length} anti-patterns detected, {gaps.length} gaps</p>
+
+  {/* Debt Grade Summary */}
+  {debt?.grade && (
+    <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; gap: 1rem;">
+      <div style={`background: ${gradeColor(debt.grade)}; color: white; font-size: 1.5rem; font-weight: 800; width: 56px; height: 56px; border-radius: 8px; display: flex; align-items: center; justify-content: center;`}>
+        {debt.grade}
+      </div>
+      <div>
+        <div style="font-weight: 600; font-size: .9rem;">Architecture Health Score: {debt.score}</div>
+        <div style="font-size: .8rem; color: var(--text-3); margin-top: .2rem;">{debt.interpretation || ''}</div>
+      </div>
+    </div>
+  )}
 
   {/* Positive Patterns */}
   {patterns.length > 0 && (
@@ -68,11 +86,11 @@ const gaps = concepts.gaps || [];
     </div>
   )}
 
-  {/* Gaps */}
-  {gaps.length > 0 && (
+  {/* Gaps & Recommendations */}
+  {(gaps.length > 0 || recommendations.length > 0) && (
     <div>
       <div style="font-size: .7rem; font-weight: 600; color: #f59e0b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .75rem; display: flex; align-items: center; gap: .4rem;">
-        <span style="font-size: .9rem;">◆</span> Architecture Gaps
+        <span style="font-size: .9rem;">◆</span> Gaps & Recommendations
       </div>
       <div style="display: flex; flex-direction: column; gap: .5rem;">
         {gaps.map((g: any) => (
@@ -83,6 +101,17 @@ const gaps = concepts.gaps || [];
               <div style="font-size: .75rem; color: var(--accent); padding: .4rem .6rem; background: var(--accent-dim); border-radius: 4px; border-left: 2px solid var(--accent);">
                 <div style="font-weight: 500; margin-bottom: .2rem;">Recommendation:</div>
                 {g.recommendation}
+              </div>
+            )}
+          </div>
+        ))}
+        {recommendations.map((r: any) => (
+          <div style="background: var(--bg-card); border: 1px solid var(--border); border-left: 2px solid #f59e0b; border-radius: var(--radius); padding: .75rem 1rem;">
+            <div style="font-weight: 600; font-size: .85rem; margin-bottom: .3rem;">{r.title}</div>
+            {r.description && <div style="font-size: .78rem; color: var(--text-3); line-height: 1.5; margin-bottom: .4rem;">{r.description}</div>}
+            {r.files && r.files.length > 0 && (
+              <div style="font-size: .7rem; color: var(--accent); font-family: var(--mono); margin-top: .3rem;">
+                {r.files.slice(0, 2).join(' · ')}{r.files.length > 2 ? ` +${r.files.length - 2}` : ''}
               </div>
             )}
           </div>
