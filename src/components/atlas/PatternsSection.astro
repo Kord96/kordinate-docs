@@ -1,22 +1,93 @@
 ---
 interface Props { concepts: any; }
 const { concepts } = Astro.props;
+
+const patterns = concepts.detected_patterns || [];
+const antiPatterns = concepts.detected_anti_patterns || [];
+const gaps = concepts.gaps || [];
 ---
 
 <div class="section" id="sec-patterns">
-  <h2 class="section-title">Detected Patterns</h2>
-  <p class="section-sub">{(concepts.detected_patterns || []).length} patterns, {(concepts.detected_anti_patterns || []).length} anti-patterns, {(concepts.gaps || []).length} gaps</p>
-  <div style="display: flex; flex-wrap: wrap; gap: .3rem;">
-    {(concepts.detected_patterns || []).map((p: any) => (
-      <span class="card-tag">{p.id || p.name || p}</span>
-    ))}
-  </div>
-  {(concepts.gaps || []).length > 0 && (
-    <div style="margin-top: 1rem;">
-      <div style="font-size: .7rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; margin-bottom: .3rem;">Gaps</div>
-      {(concepts.gaps || []).map((g: any) => (
-        <div style="font-size: .78rem; color: #f59e0b; padding: .2rem 0;">⚠ {g.name || g.id || g}</div>
-      ))}
+  <h2 class="section-title">Patterns & Architecture</h2>
+  <p class="section-sub">{patterns.length} patterns identified, {antiPatterns.length} anti-patterns detected, {gaps.length} gaps</p>
+
+  {/* Positive Patterns */}
+  {patterns.length > 0 && (
+    <div style="margin-bottom: 2rem;">
+      <div style="font-size: .7rem; font-weight: 600; color: #22c55e; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .75rem; display: flex; align-items: center; gap: .4rem;">
+        <span style="font-size: .9rem;">✓</span> Good Patterns
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: .75rem;">
+        {patterns.map((p: any) => (
+          <div style="background: var(--bg-card); border: 1px solid var(--border); border-left: 2px solid #22c55e; border-radius: var(--radius); padding: .75rem 1rem; transition: border-color .2s;">
+            <div style="display: flex; align-items: center; gap: .4rem; margin-bottom: .3rem;">
+              <span style="font-weight: 600; font-size: .85rem;">{p.id}</span>
+              <span style="font-size: .6rem; text-transform: uppercase; background: #22c55e15; color: #22c55e; padding: .1rem .3rem; border-radius: 3px; font-weight: 500;">{p.category}</span>
+              {p.confidence && <span style="font-size: .6rem; color: var(--text-4);">{p.confidence}</span>}
+            </div>
+            {p.components && p.components.length > 0 && (
+              <div style="font-size: .7rem; color: var(--accent); margin-bottom: .3rem;">
+                In: {p.components.slice(0, 3).join(', ')}{p.components.length > 3 ? ` +${p.components.length - 3}` : ''}
+              </div>
+            )}
+            {p.evidence?.note && <div style="font-size: .75rem; color: var(--text-3); line-height: 1.4;">{p.evidence.note}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {/* Anti-Patterns */}
+  {antiPatterns.length > 0 && (
+    <div style="margin-bottom: 2rem;">
+      <div style="font-size: .7rem; font-weight: 600; color: #ef4444; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .75rem; display: flex; align-items: center; gap: .4rem;">
+        <span style="font-size: .9rem;">⚠</span> Anti-Patterns
+      </div>
+      <div style="display: flex; flex-direction: column; gap: .6rem;">
+        {antiPatterns.map((ap: any) => (
+          <div style="background: #ef444415; border: 1px solid #ef444433; border-left: 3px solid #ef4444; border-radius: var(--radius); padding: .75rem 1rem;">
+            <div style="display: flex; align-items: center; gap: .4rem; margin-bottom: .3rem;">
+              <span style="font-weight: 600; font-size: .85rem;">{ap.id}</span>
+              <span style="font-size: .6rem; text-transform: uppercase; background: #ef444430; color: #ef4444; padding: .1rem .3rem; border-radius: 3px; font-weight: 600;">{ap.category}</span>
+              {ap.confidence && <span style="font-size: .6rem; color: var(--text-4);">{ap.confidence}</span>}
+            </div>
+            {ap.components && ap.components.length > 0 && (
+              <div style="font-size: .75rem; color: var(--text-2); margin-bottom: .3rem; font-weight: 500;">
+                Found in: {ap.components.join(', ')}
+              </div>
+            )}
+            {ap.evidence?.note && <div style="font-size: .75rem; color: var(--text-2); line-height: 1.4; margin-bottom: .3rem;">{ap.evidence.note}</div>}
+            {ap.evidence?.files && ap.evidence.files.length > 0 && (
+              <div style="font-size: .7rem; color: var(--accent); font-family: var(--mono);">
+                {ap.evidence.files.slice(0, 2).join(' · ')}{ap.evidence.files.length > 2 ? ` +${ap.evidence.files.length - 2} more` : ''}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {/* Gaps */}
+  {gaps.length > 0 && (
+    <div>
+      <div style="font-size: .7rem; font-weight: 600; color: #f59e0b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .75rem; display: flex; align-items: center; gap: .4rem;">
+        <span style="font-size: .9rem;">◆</span> Architecture Gaps
+      </div>
+      <div style="display: flex; flex-direction: column; gap: .5rem;">
+        {gaps.map((g: any) => (
+          <div style="background: var(--bg-card); border: 1px solid var(--border); border-left: 2px solid #f59e0b; border-radius: var(--radius); padding: .75rem 1rem;">
+            <div style="font-weight: 600; font-size: .85rem; margin-bottom: .3rem;">{g.id}</div>
+            {g.relevance && <div style="font-size: .78rem; color: var(--text-3); line-height: 1.5; margin-bottom: .4rem;">{g.relevance}</div>}
+            {g.recommendation && (
+              <div style="font-size: .75rem; color: var(--accent); padding: .4rem .6rem; background: var(--accent-dim); border-radius: 4px; border-left: 2px solid var(--accent);">
+                <div style="font-weight: 500; margin-bottom: .2rem;">Recommendation:</div>
+                {g.recommendation}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )}
 </div>
