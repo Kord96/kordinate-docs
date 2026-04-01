@@ -6,6 +6,7 @@
  */
 import Base from '../../../layouts/Base.astro';
 import Header from '../../../components/Header.astro';
+import PillNav from '../../../components/PillNav.astro';
 import fs from 'node:fs';
 import yaml from 'js-yaml';
 
@@ -176,7 +177,7 @@ function typeColor(t: string) {
     .comp { font-size: .6rem; padding: .1rem .3rem; border-radius: 3px; background: rgba(99,102,241,0.08); color: var(--accent); border: 1px solid rgba(99,102,241,0.15); }
   </style>
 
-<Header project={atlas.project} badge="issues" links={[{ label: 'Journey', href: '/dev/logbd/' }, { label: 'Atlas', href: '/dev/logbd/atlas/' }]} position="sticky" />
+<Header project={atlas.project} badge="issues" links={[{ label: 'Journey', href: '/dev/logbd/' }, { label: 'Atlas', href: '/dev/logbd/atlas/' }]} position="sticky" active="issues" />
 
 <div class="container">
   <h1 class="page-title">Issues</h1>
@@ -277,4 +278,5 @@ function typeColor(t: string) {
     </div>
   )}
 </div>
+<PillNav project="logbd" active="issues" />
 </Base>

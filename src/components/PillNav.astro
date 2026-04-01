@@ -1,0 +1,72 @@
+---
+/**
+ * Floating pill nav — always-visible quick jump between project pages.
+ * Fixed at bottom center. Highlights the active page.
+ */
+interface Props {
+  project: string;
+  active: 'journey' | 'atlas' | 'issues';
+}
+const { project, active } = Astro.props;
+
+const items = [
+  { id: 'journey', label: 'Journey', href: `/dev/${project}/` },
+  { id: 'atlas', label: 'Atlas', href: `/dev/${project}/atlas/` },
+  { id: 'issues', label: 'Issues', href: `/dev/${project}/issues/` },
+];
+---
+
+<nav class="pill-nav" aria-label="Page navigation">
+  {items.map(item => (
+    <a
+      class:list={['pill', item.id === active && 'pill-active']}
+      href={item.href}
+    >
+      <span class="pill-icon">{item.id === 'journey' ? '◈' : item.id === 'atlas' ? '⬡' : '◉'}</span>
+      <span class="pill-label">{item.label}</span>
+    </a>
+  ))}
+</nav>
+
+<style>
+  .pill-nav {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    gap: 2px;
+    background: rgba(9,9,11,0.9);
+    backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 3px;
+  }
+  .pill {
+    display: flex; align-items: center; gap: .3rem;
+    padding: .35rem .7rem;
+    border-radius: 99px;
+    font-size: .7rem;
+    color: var(--text-4);
+    text-decoration: none;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .pill:hover {
+    color: var(--text-2);
+    background: var(--border);
+  }
+  .pill-active {
+    color: var(--text);
+    background: var(--border);
+  }
+  .pill-icon {
+    font-size: .6rem;
+    opacity: 0.6;
+  }
+  .pill-active .pill-icon {
+    opacity: 1;
+    color: var(--accent);
+  }
+</style>
