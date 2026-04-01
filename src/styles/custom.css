@@ -57,6 +57,7 @@ header.header {
   font-weight: 700 !important;
   letter-spacing: -0.02em !important;
   gap: 0.5rem !important;
+  color: var(--sl-color-white) !important;
 }
 
 /* ── Headings — bolder to match logbd (800 vs default 600) ── */
