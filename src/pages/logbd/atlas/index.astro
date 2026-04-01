@@ -114,7 +114,7 @@ function severity(s: string) {
 <div class="container">
 
   <!-- Purpose + Domain Model -->
-  <div class="section">
+  <div class="section" id="sec-overview">
     <h1 class="section-title">{atlas.project}</h1>
     <p class="section-sub">{atlas.purpose}</p>
     {dm.primary && (
@@ -131,7 +131,7 @@ function severity(s: string) {
   </div>
 
   <!-- Architecture Graph -->
-  <div class="section">
+  <div class="section" id="sec-graph">
     <h2 class="section-title">Architecture Graph</h2>
     <p class="section-sub">Interactive dependency map — click groups to expand, hover nodes for details</p>
     <div class="graph-controls">
@@ -183,7 +183,7 @@ function severity(s: string) {
   </div>
 
   <!-- Flows -->
-  <div class="section">
+  <div class="section" id="sec-flows">
     <h2 class="section-title">Flows</h2>
     <p class="section-sub">{flows.length} typed flows</p>
     {flows.map((f: any) => (
@@ -196,7 +196,7 @@ function severity(s: string) {
   </div>
 
   <!-- External Dependencies -->
-  <div class="section">
+  <div class="section" id="sec-external">
     <h2 class="section-title">External Dependencies</h2>
     <p class="section-sub">{extDeps.length} external dependencies</p>
     <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem 1rem;">
@@ -210,7 +210,7 @@ function severity(s: string) {
   </div>
 
   <!-- Failure Modes -->
-  <div class="section">
+  <div class="section" id="sec-failures">
     <h2 class="section-title">Failure Modes</h2>
     <p class="section-sub">{failures.length} failure scenarios analyzed</p>
     {failures.map((fm: any) => (
@@ -230,7 +230,7 @@ function severity(s: string) {
   </div>
 
   <!-- Debt -->
-  <div class="section">
+  <div class="section" id="sec-debt">
     <h2 class="section-title">Technical Debt</h2>
     <div class="debt-header">
       <div class="debt-grade" style={`background: ${severity(debt.grade === 'A' ? 'low' : debt.grade === 'B' ? 'medium' : 'high')}; color: white;`}>
@@ -263,7 +263,7 @@ function severity(s: string) {
   </div>
 
   <!-- Detected Patterns -->
-  <div class="section">
+  <div class="section" id="sec-patterns">
     <h2 class="section-title">Detected Patterns</h2>
     <p class="section-sub">{(concepts.detected_patterns || []).length} patterns, {(concepts.detected_anti_patterns || []).length} anti-patterns, {(concepts.gaps || []).length} gaps</p>
     <div style="display: flex; flex-wrap: wrap; gap: .3rem;">
@@ -592,5 +592,14 @@ function severity(s: string) {
     });
 })();
 </script>
-<PillNav project="logbd" active="atlas" />
+<PillNav sections={[
+  { id: 'sec-overview', label: 'Overview' },
+  { id: 'sec-graph', label: 'Graph' },
+  { id: 'components-section', label: 'Components' },
+  { id: 'sec-flows', label: 'Flows' },
+  { id: 'sec-external', label: 'External' },
+  { id: 'sec-failures', label: 'Failures' },
+  { id: 'sec-debt', label: 'Debt' },
+  { id: 'sec-patterns', label: 'Patterns' },
+]} />
 </Base>

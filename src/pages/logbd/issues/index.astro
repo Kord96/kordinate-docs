@@ -203,7 +203,7 @@ function typeColor(t: string) {
   </div>
 
   {bugs.length > 0 && (
-    <div class="section">
+    <div class="section" id="sec-bugs">
       <div class="section-header">
         <span class="section-title" style={`color: ${typeColor('bug')}`}>Bugs</span>
         <span class="section-count">{bugs.length}</span>
@@ -232,7 +232,7 @@ function typeColor(t: string) {
   )}
 
   {enhancements.length > 0 && (
-    <div class="section">
+    <div class="section" id="sec-enhancements">
       <div class="section-header">
         <span class="section-title" style={`color: ${typeColor('enhancement')}`}>Enhancements</span>
         <span class="section-count">{enhancements.length}</span>
@@ -261,7 +261,7 @@ function typeColor(t: string) {
   )}
 
   {suggestions.length > 0 && (
-    <div class="section">
+    <div class="section" id="sec-suggestions">
       <div class="section-header">
         <span class="section-title" style={`color: ${typeColor('suggestion')}`}>Suggestions</span>
         <span class="section-count">{suggestions.length}</span>
@@ -278,5 +278,9 @@ function typeColor(t: string) {
     </div>
   )}
 </div>
-<PillNav project="logbd" active="issues" />
+<PillNav sections={[
+  { id: 'sec-bugs', label: `Bugs (${bugs.length})` },
+  { id: 'sec-enhancements', label: `Enhancements (${enhancements.length})` },
+  { id: 'sec-suggestions', label: `Suggestions (${suggestions.length})` },
+]} />
 </Base>

@@ -1,32 +1,57 @@
 ---
 /**
- * Floating pill nav — always-visible quick jump between project pages.
- * Fixed at bottom center. Highlights the active page.
+ * Floating content navigator — jump between sections within a page.
+ * Fixed at bottom center. Highlights the section currently in view.
+ * Uses IntersectionObserver to track scroll position.
  */
 interface Props {
-  project: string;
-  active: 'journey' | 'atlas' | 'issues';
+  sections: { id: string; label: string }[];
 }
-const { project, active } = Astro.props;
-
-const items = [
-  { id: 'journey', label: 'Journey', href: `/dev/${project}/` },
-  { id: 'atlas', label: 'Atlas', href: `/dev/${project}/atlas/` },
-  { id: 'issues', label: 'Issues', href: `/dev/${project}/issues/` },
-];
+const { sections } = Astro.props;
 ---
 
-<nav class="pill-nav" aria-label="Page navigation">
-  {items.map(item => (
-    <a
-      class:list={['pill', item.id === active && 'pill-active']}
-      href={item.href}
-    >
-      <span class="pill-icon">{item.id === 'journey' ? '◈' : item.id === 'atlas' ? '⬡' : '◉'}</span>
-      <span class="pill-label">{item.label}</span>
+<nav class="pill-nav" aria-label="Section navigation" id="pill-nav">
+  {sections.map((s, i) => (
+    <a class:list={['pill', i === 0 && 'pill-active']} href={`#${s.id}`} data-section={s.id}>
+      <span class="pill-label">{s.label}</span>
     </a>
   ))}
 </nav>
+
+<script is:inline>
+(function() {
+  const nav = document.getElementById('pill-nav');
+  if (!nav) return;
+  const pills = nav.querySelectorAll('.pill[data-section]');
+  const ids = Array.from(pills).map(p => p.dataset.section);
+  const targets = ids.map(id => document.getElementById(id)).filter(Boolean);
+  if (!targets.length) return;
+
+  let current = ids[0];
+
+  const obs = new IntersectionObserver(entries => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        current = e.target.id;
+        pills.forEach(p => {
+          p.classList.toggle('pill-active', p.dataset.section === current);
+        });
+      }
+    }
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  targets.forEach(t => obs.observe(t));
+
+  // Smooth scroll on click
+  pills.forEach(p => {
+    p.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.getElementById(p.dataset.section);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+})();
+</script>
 
 <style>
   .pill-nav {
@@ -37,36 +62,32 @@ const items = [
     z-index: 200;
     display: flex;
     gap: 2px;
-    background: rgba(9,9,11,0.9);
+    background: rgba(9,9,11,0.92);
     backdrop-filter: blur(16px) saturate(180%);
     border: 1px solid var(--border);
     border-radius: 99px;
     padding: 3px;
+    max-width: 90vw;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+  .pill-nav::-webkit-scrollbar { display: none; }
   .pill {
-    display: flex; align-items: center; gap: .3rem;
-    padding: .35rem .7rem;
+    padding: .3rem .6rem;
     border-radius: 99px;
-    font-size: .7rem;
+    font-size: .65rem;
     color: var(--text-4);
     text-decoration: none;
     transition: all .2s;
     white-space: nowrap;
+    cursor: pointer;
   }
   .pill:hover {
     color: var(--text-2);
-    background: var(--border);
+    background: rgba(39,39,42,0.6);
   }
   .pill-active {
     color: var(--text);
     background: var(--border);
-  }
-  .pill-icon {
-    font-size: .6rem;
-    opacity: 0.6;
-  }
-  .pill-active .pill-icon {
-    opacity: 1;
-    color: var(--accent);
   }
 </style>
