@@ -9,9 +9,12 @@ import Base from '../layouts/Base.astro';
       <h1>Sign in</h1>
       <p class="subtitle">Dev environment</p>
 
-      <div class="tabs">
-        <button class="tab active" data-role="admin">Admin</button>
-        <button class="tab" data-role="guest">Guest</button>
+      <div class="toggle">
+        <div class="toggle-track">
+          <div class="toggle-indicator"></div>
+          <button class="toggle-opt active" data-role="admin">Admin</button>
+          <button class="toggle-opt" data-role="guest">Guest</button>
+        </div>
       </div>
 
       <p class="error" style="display:none">Wrong password</p>
@@ -40,12 +43,16 @@ import Base from '../layouts/Base.astro';
       document.cookie = 'dev-auth-error=; path=/; max-age=0';
     }
 
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        const role = (tab as HTMLElement).dataset.role!;
+    // Segmented control
+    const indicator = document.querySelector('.toggle-indicator') as HTMLElement;
+    const opts = document.querySelectorAll('.toggle-opt');
+
+    opts.forEach((opt, i) => {
+      opt.addEventListener('click', () => {
+        opts.forEach(o => o.classList.remove('active'));
+        opt.classList.add('active');
+        indicator.style.transform = `translateX(${i * 100}%)`;
+        const role = (opt as HTMLElement).dataset.role!;
         (document.getElementById('role') as HTMLInputElement).value = role;
         (document.getElementById('password') as HTMLInputElement).placeholder =
           role === 'guest' ? 'Enter guest password' : 'Enter password';
@@ -161,39 +168,55 @@ import Base from '../layouts/Base.astro';
     opacity: 0.8;
   }
 
-  .tabs {
-    display: flex;
+  .toggle {
     width: 100%;
-    gap: 0;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
     margin-bottom: 0.25rem;
   }
 
-  .tab {
+  .toggle-track {
+    position: relative;
+    display: flex;
+    padding: 3px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .toggle-indicator {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    height: calc(100% - 6px);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
+    border-radius: 7px;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 12px rgba(129, 140, 248, 0.06);
+  }
+
+  .toggle-opt {
+    position: relative;
+    z-index: 1;
     flex: 1;
-    padding: 0.5rem;
+    padding: 0.4rem 0;
     font-family: var(--font);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
-    color: var(--text-3);
-    background: transparent;
+    letter-spacing: 0.01em;
+    color: var(--text-4);
+    background: none;
     border: none;
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: color 0.2s;
+    margin: 0;
   }
 
-  .tab:not(:last-child) {
-    border-right: 1px solid var(--border);
-  }
-
-  .tab:hover {
+  .toggle-opt:hover {
     color: var(--text-2);
   }
 
-  .tab.active {
-    background: var(--accent-dim);
+  .toggle-opt.active {
     color: var(--accent);
   }
 
