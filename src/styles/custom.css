@@ -76,9 +76,9 @@ h1, h2, h3, h4 {
 [data-has-hero] .hero picture img,
 [data-has-hero] .hero picture,
 .hero img {
-  max-width: 10rem !important;
-  width: 10rem !important;
-  height: 11.6rem !important;
+  max-width: 14rem !important;
+  width: 14rem !important;
+  height: 16rem !important;
   object-fit: contain !important;
 }
 
@@ -142,4 +142,22 @@ header img {
 
 .mermaid .edgeLabel {
   font-size: 0.8rem;
+}
+
+/* ── Dev environment badge on all Starlight pages ── */
+.sl-container::before {
+  content: "DEV";
+  position: fixed;
+  top: 0.55rem;
+  right: 1.5rem;
+  z-index: 200;
+  font-size: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.2);
 }
