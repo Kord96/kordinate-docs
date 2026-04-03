@@ -1,6 +1,5 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
-import starlight from '@astrojs/starlight';
 import devAuthPlugin from './vite-auth-plugin.ts';
 
 export default defineConfig({
@@ -11,52 +10,4 @@ export default defineConfig({
 		server: { allowedHosts: true },
 		plugins: [devAuthPlugin()],
 	},
-	integrations: [
-		starlight({
-			title: 'Docs',
-			description: 'Project documentation',
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/Kord96' }],
-			logo: {
-				light: './src/assets/logo_light.png',
-				dark: './src/assets/logo_dark.png',
-			},
-			customCss: ['./src/styles/custom.css'],
-			head: [
-				{ tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' } },
-				{ tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: true } },
-				{ tag: 'link', attrs: { href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap', rel: 'stylesheet' } },
-				{
-					tag: 'script',
-					attrs: { type: 'module' },
-					content: `
-						import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-						mermaid.initialize({ startOnLoad: false, theme: 'dark' });
-						function renderMermaid() {
-							document.querySelectorAll('[data-language="mermaid"]').forEach((block, i) => {
-								const code = block.querySelector('code') || block;
-								if (block.dataset.rendered) return;
-								block.dataset.rendered = 'true';
-								const pre = block.closest('.expressive-code') || block;
-								const div = document.createElement('div');
-								div.className = 'mermaid';
-								div.textContent = code.textContent;
-								pre.replaceWith(div);
-							});
-							mermaid.run();
-						}
-						renderMermaid();
-						document.addEventListener('astro:page-load', renderMermaid);
-					`,
-				},
-			],
-			sidebar: [
-				{
-					label: 'LogBD',
-					items: [
-						{ label: 'Journey', link: '/logbd/' },
-					],
-				},
-			],
-		}),
-	],
 });

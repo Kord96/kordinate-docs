@@ -10,7 +10,6 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.38.2",
     "astro": "^6.0.1",
     "cookie": "^1.1.1",
     "locomotive-scroll": "^5.0.1",
