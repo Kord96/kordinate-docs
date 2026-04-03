@@ -144,18 +144,26 @@ header img {
   font-size: 0.8rem;
 }
 
-/* ── Dev environment badge on all Starlight pages ── */
-.sl-container::before {
+
+/* ── Starlight header logo — bigger ── */
+.site-title img,
+header .site-title img {
+  height: 2rem !important;
+  width: auto !important;
+}
+
+/* ── DEV badge — fix positioning for Starlight header ── */
+header.header::after {
   content: "DEV";
-  position: fixed;
-  top: 0.55rem;
-  right: 1.5rem;
-  z-index: 200;
-  font-size: 0.5rem;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0.5rem;
+  font-size: 0.55rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 0.1rem 0.35rem;
+  padding: 0.1rem 0.4rem;
   border-radius: 3px;
   background: rgba(251, 191, 36, 0.12);
   color: #fbbf24;
