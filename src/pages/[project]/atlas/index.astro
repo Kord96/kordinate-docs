@@ -67,7 +67,7 @@ function severity(s: string) {
       )}
     </div>
 
-    <ArchGraphSection groups={groups} components={components} extDeps={extDeps} />
+    <ArchGraphSection groups={groups} components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} />
     <ComponentsSection groups={groups} components={components} />
     <FlowsSection flows={flows} />
     <ExternalDepsSection extDeps={extDeps} severity={severity} />
