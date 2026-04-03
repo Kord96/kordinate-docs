@@ -1,0 +1,1334 @@
+{
+  "version": "4",
+  "generated": "2026-04-03",
+  "project": "kordinate",
+
+  "purpose": "Multi-agent orchestration platform running Claude sessions as Kubernetes pods with Kafka-based job distribution",
+
+  "domain_model": {
+    "primary": "catalog",
+    "description": "A registry of agents, skills, guards, and resources that defines the system's capability surface and access control rules",
+    "entities": ["agent", "skill", "guard", "resource", "job", "memory-entry", "component", "pattern"],
+    "relationships": [
+      "agents expose skills",
+      "guards validate tool operations via agent auth",
+      "jobs are routed to agents via Kafka topics",
+      "memory entries are scoped to global or project",
+      "resources are cached and served by owning agents"
+    ],
+    "bounded_contexts": [
+      {
+        "id": "agent-runtime",
+        "name": "Agent Runtime",
+        "description": "Manages Claude session lifecycle, job consumption, and memory persistence per agent pod",
+        "entities": ["job", "memory-entry", "agent"],
+        "modules": ["lib/agent-pod-daemon/daemon.js", "lib/agent-scribe/scribe.js"],
+        "ubiquitous_language": {
+          "job": "A Kafka message containing a prompt and metadata, consumed by an agent pod",
+          "reflection": "Post-job memory persistence prompt injected after successful completion",
+          "preflight": "Optional validation script run before job execution"
+        }
+      },
+      {
+        "id": "routing",
+        "name": "Job Routing",
+        "description": "Publishes jobs to agent topics, serves MCP tools, manages caching and resource registry",
+        "entities": ["skill", "resource", "guard", "job"],
+        "modules": ["lib/job-router/router.js", "lib/webhook-receiver/receiver.js"],
+        "ubiquitous_language": {
+          "route": "A KORD.json skill entry that maps to a Kafka topic and optional cache",
+          "delegate": "Submit a job to an agent and wait for result"
+        }
+      },
+      {
+        "id": "platform-ops",
+        "name": "Platform Operations",
+        "description": "Bootstrap, deploy, scale, and monitor the agent cluster",
+        "entities": ["agent", "component"],
+        "modules": [
+          "agents/charon/skills/bootstrap/",
+          "agents/charon/skills/platform/",
+          "agents/charon/skills/roll/",
+          "installer/kordinate-cli"
+        ],
+        "ubiquitous_language": {
+          "bootstrap": "Initial cluster setup from bare metal to running agent pods",
+          "wrap": "Add deployment manifests and monitoring to a project"
+        }
+      }
+    ]
+  },
+
+  "stack": {
+    "languages": ["JavaScript", "Bash", "Python"],
+    "frameworks": [
+      {"name": "Express", "concepts": ["api-gateway"]},
+      {"name": "KafkaJS", "concepts": ["event-driven", "competing-consumers"]},
+      {"name": "MCP SDK", "concepts": ["adapter"]},
+      {"name": "Strimzi", "concepts": ["message-broker"]},
+      {"name": "KEDA", "concepts": ["autoscaling"]},
+      {"name": "Kustomize", "concepts": ["infrastructure-as-code"]},
+      {"name": "Anthropic SDK", "concepts": ["llm-integration"]}
+    ],
+    "runtime": "Node.js 22 services running as Kubernetes pods on k3s, with Claude Code CLI as subprocess per agent pod. KEDA scales agent pods 0-3 on Kafka consumer lag."
+  },
+
+  "groups": [
+    {
+      "id": "agent-platform",
+      "name": "Agent Platform",
+      "description": "Core runtime services that manage agent lifecycle, job distribution, and memory persistence",
+      "components": ["agent-pod-daemon", "agent-scribe", "job-router", "webhook-receiver"]
+    },
+    {
+      "id": "agent-team",
+      "name": "Agent Team",
+      "description": "Five specialized agents providing architecture, infrastructure, monitoring, config, and security capabilities",
+      "components": ["augur-agent", "charon-agent", "sauron-agent", "alfred-agent", "warden-agent"]
+    },
+    {
+      "id": "infrastructure",
+      "name": "Infrastructure",
+      "description": "Cluster bootstrap, session management, and deployment tooling",
+      "components": ["bootstrap-cli", "session-manager", "guard-system"]
+    }
+  ],
+
+  "actors": [
+    {
+      "id": "operator",
+      "type": "user",
+      "description": "Human user interacting via workstation pod and tmux sessions"
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "description": "Sends push webhook events that trigger agent jobs"
+    },
+    {
+      "id": "keda",
+      "type": "service",
+      "description": "Monitors Kafka consumer lag and scales agent pod replicas"
+    }
+  ],
+
+  "components": [
+    {
+      "id": "agent-pod-daemon",
+      "name": "Agent Pod Daemon",
+      "description": "Long-lived bridge that spawns a persistent Claude CLI process, consumes jobs from Kafka, and manages memory change detection",
+      "type": "service",
+      "group": "agent-platform",
+      "modules": ["lib/agent-pod-daemon/daemon.js", "lib/agent-pod-daemon/package.json"],
+      "depends_on": ["job-router"],
+      "abstraction": ["process", "messaging"],
+      "patterns": ["event-driven", "adapter", "correlation-id", "structured-logging", "health-check"],
+      "deployment": {
+        "namespace": "dev",
+        "kind": "Deployment",
+        "replicas": "0 (KEDA-scaled 0-3)",
+        "node": "any"
+      },
+      "children": []
+    },
+    {
+      "id": "agent-scribe",
+      "name": "Agent Scribe",
+      "description": "Consumes memory update events from Kafka, deduplicates via Claude Haiku, and persists to agent memory directories",
+      "type": "worker",
+      "group": "agent-platform",
+      "modules": ["lib/agent-scribe/scribe.js", "lib/agent-scribe/package.json"],
+      "depends_on": ["agent-pod-daemon"],
+      "abstraction": ["process", "data"],
+      "patterns": ["event-driven", "batch-processing", "structured-logging"],
+      "deployment": {
+        "namespace": "dev",
+        "kind": "Deployment",
+        "replicas": "1 per agent (5 total)",
+        "node": "any"
+      },
+      "children": []
+    },
+    {
+      "id": "job-router",
+      "name": "Job Router",
+      "description": "HTTP/MCP gateway that loads skill registry from KORD.json, publishes jobs to Kafka, manages response correlation, and serves cached resources",
+      "type": "gateway",
+      "group": "agent-platform",
+      "modules": ["lib/job-router/router.js", "lib/job-router/package.json"],
+      "depends_on": [],
+      "abstraction": ["network", "data"],
+      "patterns": ["api-gateway", "adapter", "cache-aside", "correlation-id", "structured-logging", "health-check"],
+      "deployment": {
+        "namespace": "dev",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "any"
+      },
+      "children": []
+    },
+    {
+      "id": "webhook-receiver",
+      "name": "Webhook Receiver",
+      "description": "GitHub push-event gateway that verifies HMAC signatures, applies gate filters, and delegates dependency-change jobs to agents",
+      "type": "service",
+      "group": "agent-platform",
+      "modules": ["lib/webhook-receiver/receiver.js", "lib/webhook-receiver/package.json"],
+      "depends_on": ["job-router"],
+      "abstraction": ["network"],
+      "patterns": ["adapter", "api-key-auth", "structured-logging", "health-check"],
+      "deployment": {
+        "namespace": "dev",
+        "kind": "Deployment",
+        "replicas": "1",
+        "node": "any"
+      },
+      "children": []
+    },
+    {
+      "id": "augur-agent",
+      "name": "Augur Agent",
+      "description": "Architecture review and pattern authority — analyzes project structure, detects patterns, assesses debt, and composes stories",
+      "type": "service",
+      "group": "agent-team",
+      "modules": [
+        "agents/augur/IDENTITY.md",
+        "agents/augur/skills/analyze/SKILL.md",
+        "agents/augur/skills/design/SKILL.md",
+        "agents/augur/memory/concepts.md",
+        "agents/augur/memory/anti-patterns.md"
+      ],
+      "depends_on": ["agent-pod-daemon", "warden-agent"],
+      "abstraction": ["knowledge"],
+      "patterns": [],
+      "deployment": {
+        "namespace": "dev",
+        "kind": "Deployment",
+        "replicas": "0 (KEDA-scaled 0-3)",
+        "node": "any"
+      },
+      "children": []
+    },
+    {
+      "id": "charon-agent",
+      "name": "Charon Agent",
+      "description": "Infrastructure operations — bootstraps clusters, deploys services, manages nodes, wraps projects for deployment",
+      "type": "service",
+      "group": "agent-team",
+      "modules": [
+        "agents/charon/IDENTITY.md",
+        "agents/charon/skills/bootstrap/SKILL.md",
+        "agents/charon/skills/roll/SKILL.md",
+        "agents/charon/skills/migrate/SKILL.md",
+        "agents/charon/skills/add-node/SKILL.md",
+        "agents/charon/skills/survey/SKILL.md",
+        "agents/charon/skills/wrap/SKILL.md",
+        "agents/charon/skills/platform/SKILL.md",
+        "agents/charon/skills/bootstrap/manifests/"
+      ],
+      "depends_on": ["agent-pod-daemon", "augur-agent", "warden-agent", "alfred-agent"],
+      "abstraction": ["process", "network"],
+      "patterns": ["infrastructure-as-code"],
+      "deployment": {
+        "namespace": "dev",
+        "kind": "Deployment",
+        "replicas": "0 (KEDA-scaled 0-3)",
+        "node": "any"
+      },
+      "children": []
+    },
+    {
+      "id": "sauron-agent",
+      "name": "Sauron Agent",
+      "description": "Monitoring and observability — scans for signals, diagnoses issues, designs and implements monitoring systems",
+      "type": "service",
+      "group": "agent-team",
+      "modules": [
+        "agents/sauron/IDENTITY.md",
+        "agents/sauron/skills/monitor/SKILL.md",
+        "agents/sauron/skills/design-monitoring/SKILL.md"
+      ],
+      "depends_on": ["agent-pod-daemon", "augur-agent", "charon-agent", "warden-agent"],
+      "abstraction": ["knowledge"],
+      "patterns": [],
+      "deployment": {
+        "namespace": "dev",
+        "kind": "Deployment",
+        "replicas": "0 (KEDA-scaled 0-3)",
+        "node": "any"
+      },
+      "children": []
+    },
+    {
+      "id": "alfred-agent",
+      "name": "Alfred Agent",
+      "description": "Configuration and credential management — retrieves and stores config, credentials, and kustomize overlays",
+      "type": "service",
+      "group": "agent-team",
+      "modules": [
+        "agents/alfred/IDENTITY.md",
+        "agents/alfred/skills/get/SKILL.md",
+        "agents/alfred/skills/store/SKILL.md"
+      ],
+      "depends_on": ["agent-pod-daemon"],
+      "abstraction": ["data"],
+      "patterns": ["config-management"],
+      "deployment": {
+        "namespace": "dev",
+        "kind": "Deployment",
+        "replicas": "0 (KEDA-scaled 0-3)",
+        "node": "any"
+      },
+      "children": []
+    },
+    {
+      "id": "warden-agent",
+      "name": "Warden Agent",
+      "description": "Security scanning and output validation — scans for secrets, validates agent output, classifies content",
+      "type": "service",
+      "group": "agent-team",
+      "modules": [
+        "agents/warden/IDENTITY.md",
+        "agents/warden/skills/scan-secrets/SKILL.md",
+        "agents/warden/skills/validate-output/SKILL.md",
+        "agents/warden/skills/sanitize/SKILL.md"
+      ],
+      "depends_on": ["agent-pod-daemon"],
+      "abstraction": ["security"],
+      "patterns": ["input-validation", "audit-logging"],
+      "deployment": {
+        "namespace": "dev",
+        "kind": "Deployment",
+        "replicas": "0 (KEDA-scaled 0-3)",
+        "node": "any"
+      },
+      "children": []
+    },
+    {
+      "id": "bootstrap-cli",
+      "name": "Bootstrap CLI",
+      "description": "Cluster initialization tool — installs k3s, deploys workstation pod, sets up auth and networking",
+      "type": "cli",
+      "group": "infrastructure",
+      "modules": [
+        "installer/kordinate-cli",
+        "installer/setup-shell.sh",
+        "installer/lib.sh",
+        "installer/auth-check.sh"
+      ],
+      "depends_on": [],
+      "abstraction": ["process"],
+      "patterns": ["infrastructure-as-code"],
+      "children": []
+    },
+    {
+      "id": "session-manager",
+      "name": "Session Manager",
+      "description": "Tmux-based session isolation using git worktrees with parallel memory branches per session",
+      "type": "cli",
+      "group": "infrastructure",
+      "modules": [
+        "bin/claude-session",
+        "bin/tmux-session.bash",
+        "bin/tmux-new-window",
+        "bin/tmux-save",
+        "bin/tmux-restore"
+      ],
+      "depends_on": [],
+      "abstraction": ["process"],
+      "patterns": [],
+      "children": []
+    },
+    {
+      "id": "guard-system",
+      "name": "Guard System",
+      "description": "Data-driven access control via KORD.json guards, PreToolUse/PostToolUse hooks, and auth lock files",
+      "type": "library",
+      "group": "infrastructure",
+      "modules": [
+        "team/hooks/kord-guard.sh",
+        "team/hooks/auto-merge.sh",
+        "team/hooks/runtime-sync.sh",
+        "team/hooks/validate-lock-hook.sh",
+        "team/hooks/validate-post-hook.sh",
+        "lib/hooks/memory-intercept.py",
+        "hooks/guard.sh",
+        "hooks/subagent-invocation-gate.sh"
+      ],
+      "depends_on": [],
+      "abstraction": ["security"],
+      "patterns": ["chain-of-responsibility", "input-validation", "api-key-auth"],
+      "children": []
+    }
+  ],
+
+  "flows": [
+    {
+      "id": "job-execution",
+      "type": "data",
+      "name": "Job Execution Pipeline",
+      "description": "A job is submitted via HTTP/MCP, published to Kafka, consumed by an agent pod, executed by Claude, and the result returned",
+      "trigger": "HTTP POST to /api/delegate or MCP delegate tool call",
+      "actors": ["operator"],
+      "grounded_in": ["lib/job-router/router.js:574", "lib/agent-pod-daemon/daemon.js:291"],
+      "steps": [
+        {"component": "job-router", "action": "validates request and publishes job", "data": "job JSON with prompt, agent, correlation_id", "to": "agent-pod-daemon", "technology": "Kafka (jobs.<agent> topic)"},
+        {"component": "agent-pod-daemon", "action": "consumes job, runs preflight, injects memory context", "data": "enriched prompt with memory paths", "to": "agent-pod-daemon", "technology": "stdin (stream-json)"},
+        {"component": "agent-pod-daemon", "action": "Claude processes prompt and produces result", "data": "assistant response text", "to": "job-router", "technology": "Kafka (jobs.result topic)"},
+        {"component": "job-router", "action": "correlates result and returns to caller", "data": "result JSON", "to": "job-router", "technology": "HTTP response"}
+      ]
+    },
+    {
+      "id": "memory-persistence",
+      "type": "data",
+      "name": "Memory Persistence Pipeline",
+      "description": "Agents post memory updates via HTTP, which are queued in Kafka, batched, deduplicated by Haiku, and written to the filesystem",
+      "trigger": "Agent calls POST /memory-update during or after job execution",
+      "actors": [],
+      "grounded_in": ["lib/agent-pod-daemon/daemon.js:484", "lib/agent-scribe/scribe.js:91"],
+      "steps": [
+        {"component": "agent-pod-daemon", "action": "receives memory update HTTP POST from Claude process", "data": "path, content, scope, project", "to": "agent-scribe", "technology": "Kafka (memory.updates.<agent> topic)"},
+        {"component": "agent-scribe", "action": "batches updates (30s window), deduplicates via Haiku API", "data": "deduplicated content", "to": "agent-scribe", "technology": "Anthropic API (claude-haiku-4-5)"},
+        {"component": "agent-scribe", "action": "writes merged content to memory directory", "data": "markdown files", "to": "agent-scribe", "technology": "filesystem (/kord/agents/<name>/memory/)"}
+      ]
+    },
+    {
+      "id": "webhook-ci",
+      "type": "control",
+      "name": "Webhook CI Pipeline",
+      "description": "GitHub push events are filtered through gates and dependency-change pushes trigger agent jobs",
+      "trigger": "GitHub push webhook to main branch",
+      "actors": ["github"],
+      "grounded_in": ["lib/webhook-receiver/receiver.js:103"],
+      "steps": [
+        {"component": "webhook-receiver", "action": "verifies HMAC signature", "condition": "X-Hub-Signature-256 valid", "branch": "true", "gate": "auth"},
+        {"component": "webhook-receiver", "action": "filters by branch (main only)", "condition": "ref == refs/heads/main", "branch": "true", "gate": "validation"},
+        {"component": "webhook-receiver", "action": "checks for docs-only changes", "condition": "non-docs files changed", "branch": "true", "gate": "validation"},
+        {"component": "webhook-receiver", "action": "applies cooldown (2min per repo)", "condition": "cooldown expired", "branch": "true", "gate": "rate-limit"},
+        {"component": "webhook-receiver", "action": "detects dependency file changes", "condition": "package.json|go.mod|Dockerfile changed", "branch": "true", "gate": "validation"},
+        {"component": "webhook-receiver", "action": "delegates to charon agent via job-router", "to": "job-router", "condition": "deps changed", "branch": "true"}
+      ]
+    },
+    {
+      "id": "guard-enforcement",
+      "type": "control",
+      "name": "Guard Enforcement Chain",
+      "description": "PreToolUse hooks validate operations against KORD.json guards, checking auth locks and file ownership",
+      "trigger": "Claude attempts a Write, Edit, Bash, or MCP tool call",
+      "actors": ["operator"],
+      "grounded_in": ["team/hooks/kord-guard.sh:36", "lib/hooks/memory-intercept.py:43"],
+      "steps": [
+        {"component": "guard-system", "action": "memory-intercept blocks /memory/ path writes", "condition": "path contains /memory/ and not /.claude/", "branch": "deny", "gate": "validation"},
+        {"component": "guard-system", "action": "kord-guard matches KORD.json guard entries", "condition": "tool+path matches guard pattern", "branch": "check-auth", "gate": "auth"},
+        {"component": "guard-system", "action": "validates auth lock file matches profile lock", "condition": "/tmp/.<agent>-auth == profile/locks/<agent>", "branch": "allow", "gate": "auth"}
+      ]
+    }
+  ],
+
+  "state": [
+    {
+      "id": "agent-memory",
+      "concept": "filesystem",
+      "technology": "Markdown files on Longhorn RWX PVC",
+      "component": "agent-scribe",
+      "stores": "Agent knowledge — global insights, project-specific findings, scratchpads",
+      "purpose": "source-of-truth",
+      "persistence": "persistent",
+      "readers": ["agent-pod-daemon", "augur-agent", "charon-agent", "sauron-agent", "alfred-agent", "warden-agent"],
+      "writers": ["agent-scribe"],
+      "grounded_in": ["lib/agent-scribe/scribe.js:103", "lib/agent-pod-daemon/daemon.js:54"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "append-only",
+        "tools": null
+      },
+      "concurrency": {
+        "strategy": "single-writer",
+        "mechanism": "one scribe instance per agent (replicas=1)",
+        "conflicts": "last-write-wins with semantic deduplication"
+      }
+    },
+    {
+      "id": "kord-registry",
+      "concept": "filesystem",
+      "technology": "JSON file (KORD.json)",
+      "component": "guard-system",
+      "stores": "Skill, guard, resource, and file registry for the entire agent team",
+      "purpose": "source-of-truth",
+      "persistence": "persistent",
+      "readers": ["job-router", "guard-system"],
+      "writers": ["guard-system"],
+      "grounded_in": ["lib/job-router/router.js:100", "team/scripts/assemble-kord.py:30"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "versioned",
+        "tools": "assemble-kord.py"
+      },
+      "concurrency": {
+        "strategy": "single-writer",
+        "mechanism": "assembled by assemble-kord.py from agent manifests",
+        "conflicts": "regenerated on every commit via runtime-sync hook"
+      }
+    },
+    {
+      "id": "route-cache",
+      "concept": "filesystem",
+      "technology": "JSON files in ~/.kord/cache/",
+      "component": "job-router",
+      "stores": "Cached route responses with ETag and TTL metadata",
+      "purpose": "cache",
+      "persistence": "ephemeral",
+      "readers": ["job-router"],
+      "writers": ["job-router"],
+      "grounded_in": ["lib/job-router/router.js:253"],
+      "schema_evolution": {
+        "migrations": null,
+        "strategy": "none",
+        "tools": null
+      },
+      "concurrency": {
+        "strategy": "single-writer",
+        "mechanism": null,
+        "conflicts": "last-write-wins"
+      }
+    }
+  ],
+
+  "events": [
+    {
+      "id": "job-submitted",
+      "type": "topic",
+      "name": "jobs.<agent>",
+      "producer": "job-router",
+      "consumers": ["agent-pod-daemon"],
+      "data": "Job JSON: {id, correlation_id, agent, prompt, project, repo, timeout}"
+    },
+    {
+      "id": "job-result",
+      "type": "topic",
+      "name": "jobs.result",
+      "producer": "agent-pod-daemon",
+      "consumers": ["job-router"],
+      "data": "Result JSON: {job_id, correlation_id, agent, status, output, error}"
+    },
+    {
+      "id": "memory-update",
+      "type": "topic",
+      "name": "memory.updates.<agent>",
+      "producer": "agent-pod-daemon",
+      "consumers": ["agent-scribe"],
+      "data": "Memory JSON: {path, content, scope, project, agent}"
+    },
+    {
+      "id": "github-push",
+      "type": "webhook",
+      "name": "GitHub push event",
+      "producer": "github",
+      "consumers": ["webhook-receiver"],
+      "data": "Push payload: ref, commits, repository, sender"
+    }
+  ],
+
+  "external_dependencies": [
+    {
+      "id": "kafka",
+      "name": "Kafka (Strimzi)",
+      "concept": "message-broker",
+      "technology": "Kafka 4.2.0 via Strimzi KRaft",
+      "components": ["agent-pod-daemon", "agent-scribe", "job-router"],
+      "purpose": "Durable job distribution, result correlation, and memory update streaming",
+      "criticality": "critical",
+      "resilience": {
+        "timeout": false,
+        "retry": true,
+        "circuit_breaker": false,
+        "fallback": null
+      }
+    },
+    {
+      "id": "claude-api",
+      "name": "Anthropic Claude API",
+      "concept": "http-api",
+      "technology": "Claude CLI (stream-json) and Anthropic SDK",
+      "components": ["agent-pod-daemon", "agent-scribe"],
+      "purpose": "Agent reasoning (CLI subprocess) and memory deduplication (Haiku API)",
+      "criticality": "critical",
+      "resilience": {
+        "timeout": true,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "Scribe falls back to append-all on Haiku failure"
+      }
+    },
+    {
+      "id": "github-webhooks",
+      "name": "GitHub Webhooks",
+      "concept": "http-api",
+      "technology": "GitHub webhook API",
+      "components": ["webhook-receiver"],
+      "purpose": "Push event notifications for CI/CD triggers",
+      "criticality": "optional",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": "Manual delegation via /api/delegate"
+      }
+    },
+    {
+      "id": "kubernetes",
+      "name": "Kubernetes (k3s)",
+      "concept": "http-api",
+      "technology": "k3s with Longhorn storage, KEDA autoscaler",
+      "components": ["bootstrap-cli", "charon-agent"],
+      "purpose": "Container orchestration, storage, and autoscaling for agent pods",
+      "criticality": "critical",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": null
+      }
+    },
+    {
+      "id": "pass-store",
+      "name": "Pass (Password Store)",
+      "concept": "auth-provider",
+      "technology": "pass with GPG encryption",
+      "components": ["alfred-agent", "warden-agent", "bootstrap-cli"],
+      "purpose": "Credential storage and retrieval for all services",
+      "criticality": "important",
+      "resilience": {
+        "timeout": false,
+        "retry": false,
+        "circuit_breaker": false,
+        "fallback": null
+      }
+    }
+  ],
+
+  "failure_modes": [
+    {
+      "id": "kafka-unavailable",
+      "trigger": "Kafka broker becomes unreachable",
+      "cascade": [
+        {"component": "job-router", "effect": "Cannot publish jobs or receive results; all delegation calls timeout"},
+        {"component": "agent-pod-daemon", "effect": "Cannot consume new jobs or publish results"},
+        {"component": "agent-scribe", "effect": "Memory updates queue in-flight but cannot be consumed"}
+      ],
+      "impact": "Complete platform halt — no agent jobs can be submitted or completed",
+      "detection": ["Kafka connection retry logs in all services", "KEDA unable to query consumer lag"],
+      "recovery": ["Restart Kafka pod", "Messages are durable — will be consumed on recovery"],
+      "severity": "critical",
+      "grounded_in": ["lib/agent-pod-daemon/daemon.js:282", "lib/job-router/router.js:43"]
+    },
+    {
+      "id": "claude-process-crash",
+      "trigger": "Claude CLI subprocess exits unexpectedly",
+      "cascade": [
+        {"component": "agent-pod-daemon", "effect": "Current job fails with error; daemon respawns Claude after 3s delay"}
+      ],
+      "impact": "Single job failure; subsequent jobs process normally after respawn",
+      "detection": ["Structured log: {event: 'claude_exited', code: N}"],
+      "recovery": ["Automatic: daemon respawns Claude process after 3s"],
+      "severity": "medium",
+      "grounded_in": ["lib/agent-pod-daemon/daemon.js:206"]
+    },
+    {
+      "id": "haiku-api-failure",
+      "trigger": "Anthropic Haiku API returns error or is unavailable",
+      "cascade": [
+        {"component": "agent-scribe", "effect": "Deduplication bypassed — all content appended without filtering"}
+      ],
+      "impact": "Memory files grow with duplicate entries; no data loss but degraded quality",
+      "detection": ["Structured log: {event: 'dedup_error'}"],
+      "recovery": ["Manual: re-run deduplication when API recovers"],
+      "severity": "low",
+      "grounded_in": ["lib/agent-scribe/scribe.js:84"]
+    },
+    {
+      "id": "job-timeout",
+      "trigger": "Agent job exceeds timeout (default 30 minutes)",
+      "cascade": [
+        {"component": "agent-pod-daemon", "effect": "Job marked as timeout, error published to jobs.result"},
+        {"component": "job-router", "effect": "Returns timeout error to caller"}
+      ],
+      "impact": "Single job failure; caller receives timeout error",
+      "detection": ["Structured log: {event: 'job_timeout', job_id}"],
+      "recovery": ["Manual: resubmit job or increase timeout"],
+      "severity": "medium",
+      "grounded_in": ["lib/agent-pod-daemon/daemon.js:399"]
+    },
+    {
+      "id": "pvc-full",
+      "trigger": "Longhorn PVC runs out of space (agent-runtime or kord PVC)",
+      "cascade": [
+        {"component": "agent-scribe", "effect": "Cannot write memory updates; filesystem errors"},
+        {"component": "agent-pod-daemon", "effect": "Cannot clone repos or write temp files"},
+        {"component": "session-manager", "effect": "Cannot create worktrees"}
+      ],
+      "impact": "Agent jobs fail on write; memory updates lost",
+      "detection": ["Filesystem error logs", "Longhorn volume health alerts"],
+      "recovery": ["Expand PVC via Longhorn", "Clean old project memory"],
+      "severity": "high",
+      "grounded_in": ["lib/agent-scribe/scribe.js:103"]
+    },
+    {
+      "id": "webhook-secret-missing",
+      "trigger": "WEBHOOK_SECRET environment variable not set",
+      "cascade": [
+        {"component": "webhook-receiver", "effect": "Accepts all webhook payloads without signature verification"}
+      ],
+      "impact": "Unauthorized webhook submissions could trigger unwanted agent jobs",
+      "detection": ["Log: 'WEBHOOK_SECRET not set — accepting unsigned webhooks'"],
+      "recovery": ["Set WEBHOOK_SECRET in deployment manifest"],
+      "severity": "high",
+      "grounded_in": ["lib/webhook-receiver/receiver.js:49"]
+    }
+  ],
+
+  "concepts": {
+    "detected_patterns": [
+      {
+        "id": "event-driven",
+        "category": "integration",
+        "confidence": "high",
+        "components": ["agent-pod-daemon", "agent-scribe", "job-router", "webhook-receiver"],
+        "evidence": {
+          "files": ["lib/agent-pod-daemon/daemon.js", "lib/agent-scribe/scribe.js", "lib/job-router/router.js"],
+          "method": "grep",
+          "note": "All core services use KafkaJS producer/consumer for job distribution and memory updates"
+        }
+      },
+      {
+        "id": "adapter",
+        "category": "structural",
+        "confidence": "high",
+        "components": ["job-router", "agent-pod-daemon", "webhook-receiver"],
+        "evidence": {
+          "files": ["lib/job-router/router.js", "lib/agent-pod-daemon/daemon.js", "lib/webhook-receiver/receiver.js"],
+          "method": "manual",
+          "note": "Job-router adapts HTTP/MCP to Kafka; daemon adapts Kafka to Claude stdin/stdout; webhook-receiver adapts GitHub to job-router"
+        }
+      },
+      {
+        "id": "api-gateway",
+        "category": "architecture",
+        "confidence": "high",
+        "components": ["job-router"],
+        "evidence": {
+          "files": ["lib/job-router/router.js"],
+          "method": "grep",
+          "note": "Express + MCP server with route registry, dynamic tool registration, and caching"
+        }
+      },
+      {
+        "id": "correlation-id",
+        "category": "observability",
+        "confidence": "high",
+        "components": ["agent-pod-daemon", "job-router"],
+        "evidence": {
+          "files": ["lib/agent-pod-daemon/daemon.js", "lib/job-router/router.js"],
+          "method": "grep",
+          "note": "correlation_id generated per job for request-response tracing across Kafka topics"
+        }
+      },
+      {
+        "id": "structured-logging",
+        "category": "observability",
+        "confidence": "high",
+        "components": ["agent-pod-daemon", "agent-scribe", "job-router", "webhook-receiver"],
+        "evidence": {
+          "files": ["lib/agent-pod-daemon/daemon.js", "lib/agent-scribe/scribe.js", "lib/job-router/router.js"],
+          "method": "grep",
+          "note": "All services emit JSON logs with level, agent, job_id, correlation_id, event, timestamp"
+        }
+      },
+      {
+        "id": "health-check",
+        "category": "lifecycle",
+        "confidence": "high",
+        "components": ["agent-pod-daemon", "job-router", "webhook-receiver"],
+        "evidence": {
+          "files": ["lib/agent-pod-daemon/daemon.js", "lib/job-router/router.js", "lib/webhook-receiver/receiver.js"],
+          "method": "grep",
+          "note": "All HTTP services expose /health endpoints for K8s readiness/liveness probes"
+        }
+      },
+      {
+        "id": "cache-aside",
+        "category": "data",
+        "confidence": "high",
+        "components": ["job-router"],
+        "evidence": {
+          "files": ["lib/job-router/router.js"],
+          "method": "grep",
+          "note": "File-based cache with ETag, TTL, hash-based invalidation, and threshold-based freshness scoring"
+        }
+      },
+      {
+        "id": "chain-of-responsibility",
+        "category": "behavioral",
+        "confidence": "medium",
+        "components": ["guard-system", "webhook-receiver"],
+        "evidence": {
+          "files": ["team/hooks/kord-guard.sh", "lib/webhook-receiver/receiver.js"],
+          "method": "manual",
+          "note": "Webhook gates (branch, docs, cooldown, deps) and hook chain (memory-intercept → kord-guard) process sequentially"
+        }
+      },
+      {
+        "id": "config-management",
+        "category": "lifecycle",
+        "confidence": "high",
+        "components": ["alfred-agent", "guard-system"],
+        "evidence": {
+          "files": ["agents/alfred/skills/get/SKILL.md", "agents/alfred/skills/store/SKILL.md", "profile/"],
+          "method": "manual",
+          "note": "Alfred manages config.yaml, overlays, and credentials via pass store with validation"
+        }
+      },
+      {
+        "id": "infrastructure-as-code",
+        "category": "lifecycle",
+        "confidence": "high",
+        "components": ["charon-agent", "bootstrap-cli"],
+        "evidence": {
+          "files": ["agents/charon/skills/bootstrap/manifests/", "profile/overlays/", "installer/kordinate-cli"],
+          "method": "grep",
+          "note": "All K8s resources in YAML manifests, Kustomize overlays for environment differentiation, KEDA ScaledObjects"
+        }
+      },
+      {
+        "id": "batch-processing",
+        "category": "data",
+        "confidence": "medium",
+        "components": ["agent-scribe"],
+        "evidence": {
+          "files": ["lib/agent-scribe/scribe.js"],
+          "method": "grep",
+          "note": "Scribe batches memory updates in a 30-second window before processing"
+        }
+      },
+      {
+        "id": "api-key-auth",
+        "category": "security",
+        "confidence": "high",
+        "components": ["webhook-receiver", "guard-system"],
+        "evidence": {
+          "files": ["lib/webhook-receiver/receiver.js", "team/hooks/kord-guard.sh"],
+          "method": "grep",
+          "note": "HMAC webhook verification and file-based auth lock system for guarded operations"
+        }
+      },
+      {
+        "id": "input-validation",
+        "category": "security",
+        "confidence": "high",
+        "components": ["job-router", "guard-system"],
+        "evidence": {
+          "files": ["lib/job-router/router.js", "team/hooks/kord-guard.sh", "lib/hooks/memory-intercept.py"],
+          "method": "grep",
+          "note": "Zod schemas for MCP parameters, agent name regex validation, KORD.json pattern matching"
+        }
+      },
+      {
+        "id": "competing-consumers",
+        "category": "messaging",
+        "confidence": "medium",
+        "components": ["agent-pod-daemon"],
+        "evidence": {
+          "files": ["lib/agent-pod-daemon/daemon.js", "agents/charon/skills/platform/manifests/"],
+          "method": "manual",
+          "note": "KEDA scales 0-3 agent pods per topic; multiple pods in same consumer group compete for messages"
+        }
+      }
+    ],
+    "detected_anti_patterns": [
+      {
+        "id": "hardcoded-urls",
+        "category": "operations",
+        "confidence": "medium",
+        "components": ["agent-pod-daemon", "job-router", "webhook-receiver"],
+        "evidence": {
+          "files": ["lib/agent-pod-daemon/daemon.js", "lib/job-router/router.js", "lib/webhook-receiver/receiver.js"],
+          "method": "grep",
+          "note": "Kafka broker URL, job-router URL, and Claude model names hardcoded as defaults (overridable via env vars)"
+        }
+      }
+    ],
+    "gaps": [
+      {
+        "id": "circuit-breaker",
+        "relevance": "External HTTP calls to Claude API and job-router delegation have no circuit breaker",
+        "recommendation": "Add circuit breaker around Claude API calls in scribe and job-router delegation timeout handling"
+      },
+      {
+        "id": "retry",
+        "relevance": "Kafka has retry but Claude API calls and webhook delegation have no retry logic",
+        "recommendation": "Add exponential backoff retry for Haiku dedup calls and webhook-to-router delegation"
+      },
+      {
+        "id": "rate-limiting",
+        "relevance": "Job-router /api/delegate has no rate limiting on unauthenticated endpoint",
+        "recommendation": "Add rate limiting middleware to Express routes, especially /api/delegate"
+      },
+      {
+        "id": "distributed-tracing",
+        "relevance": "Correlation IDs exist but no OpenTelemetry or distributed tracing spans",
+        "recommendation": "Instrument with OpenTelemetry to connect Kafka, HTTP, and Claude processing spans"
+      },
+      {
+        "id": "backpressure",
+        "relevance": "Kafka consumer pauses during job processing but no explicit backpressure mechanism for memory updates or job submission rate",
+        "recommendation": "Add explicit backpressure signaling when agent pods are saturated"
+      }
+    ],
+    "scan_metadata": {
+      "catalog_size": {"patterns": "170", "anti_patterns": "22"},
+      "tools_used": ["grep"],
+      "categories_scanned": ["resilience", "messaging", "structural", "security", "data", "lifecycle", "behavioral", "observability", "architecture"]
+    }
+  },
+
+  "module_graph": {
+    "modules": [
+      {
+        "id": "lib/agent-pod-daemon/daemon.js",
+        "imports": ["kafkajs", "child_process", "http", "readline", "crypto", "fs", "path"],
+        "imported_by": [],
+        "role": "standard"
+      },
+      {
+        "id": "lib/job-router/router.js",
+        "imports": ["express", "@modelcontextprotocol/sdk", "kafkajs", "js-yaml", "zod", "child_process", "fs", "path", "crypto"],
+        "imported_by": [],
+        "role": "hub"
+      },
+      {
+        "id": "lib/agent-scribe/scribe.js",
+        "imports": ["kafkajs", "@anthropic-ai/sdk", "fs", "path"],
+        "imported_by": [],
+        "role": "standard"
+      },
+      {
+        "id": "lib/webhook-receiver/receiver.js",
+        "imports": ["express", "crypto"],
+        "imported_by": [],
+        "role": "standard"
+      },
+      {
+        "id": "lib/hooks/memory-intercept.py",
+        "imports": ["json", "sys", "os"],
+        "imported_by": [],
+        "role": "leaf"
+      },
+      {
+        "id": "team/hooks/kord-guard.sh",
+        "imports": ["jq"],
+        "imported_by": [],
+        "role": "standard"
+      },
+      {
+        "id": "team/scripts/assemble-kord.py",
+        "imports": ["json", "sys", "pathlib"],
+        "imported_by": [],
+        "role": "standard"
+      },
+      {
+        "id": "lib/manifest.sh",
+        "imports": ["jq", "sha256sum"],
+        "imported_by": ["lib/scripts/deploy-runtime.sh"],
+        "role": "shared"
+      }
+    ],
+    "circular_dependencies": [],
+    "hub_modules": ["lib/job-router/router.js"],
+    "infrastructure": [
+      {"resource": "agent-runtime", "kind": "PVC", "source": "dev", "notes": "RWX Longhorn PVC shared by all agent pods and scribes, mounted at /kord"},
+      {"resource": "kord", "kind": "PVC", "source": "master", "notes": "20Gi RWX PVC for workstation: pass store, SSH keys, kordinate runtime, repos"},
+      {"resource": "kafka-kafka", "kind": "Kafka", "source": "dev (Strimzi)", "notes": "Single-node KRaft Kafka 4.2.0 with 10Gi storage"},
+      {"resource": "anthropic-api", "kind": "Secret", "source": "dev", "notes": "API key for Claude agent sessions and Haiku scribe dedup"},
+      {"resource": "github-webhook", "kind": "Secret", "source": "dev", "notes": "HMAC secret for webhook signature verification"},
+      {"resource": "prometheus", "kind": "Deployment", "source": "monitor", "notes": "Prometheus TSDB with emptyDir (7-day retention)"},
+      {"resource": "loki", "kind": "Deployment", "source": "monitor", "notes": "Log aggregation with 50Gi PVC, 30-day retention"},
+      {"resource": "grafana", "kind": "Deployment", "source": "master", "notes": "Visualization with 5Gi PVC and image renderer sidecar"},
+      {"resource": "alloy", "kind": "Deployment", "source": "monitor", "notes": "Central metrics and log collector (Grafana Alloy)"},
+      {"resource": "minio", "kind": "Deployment", "source": "gateway", "notes": "S3 object storage for Loki chunks, 10Gi PVC"},
+      {"resource": "gateway", "kind": "Deployment", "source": "gateway", "notes": "Tailscale gateway for remote access"},
+      {"resource": "node-exporter", "kind": "DaemonSet", "source": "monitor", "notes": "Host-level metrics on all nodes"},
+      {"resource": "kube-state-metrics", "kind": "Deployment", "source": "monitor", "notes": "Kubernetes object state exporter"},
+      {"resource": "workstation", "kind": "Deployment", "source": "master", "notes": "Interactive Claude Code CLI with tmux, SSH, and Caddy"},
+      {"resource": "agent-augur-scaledobject", "kind": "ScaledObject", "source": "dev (KEDA)", "notes": "Scales augur pods 0-3 on Kafka lag"},
+      {"resource": "agent-charon-scaledobject", "kind": "ScaledObject", "source": "dev (KEDA)", "notes": "Scales charon pods 0-3 on Kafka lag"},
+      {"resource": "agent-sauron-scaledobject", "kind": "ScaledObject", "source": "dev (KEDA)", "notes": "Scales sauron pods 0-3 on Kafka lag"},
+      {"resource": "agent-warden-scaledobject", "kind": "ScaledObject", "source": "dev (KEDA)", "notes": "Scales warden pods 0-3 on Kafka lag"},
+      {"resource": "agent-alfred-scaledobject", "kind": "ScaledObject", "source": "dev (KEDA)", "notes": "Scales alfred pods 0-3 on Kafka lag"}
+    ],
+    "inter_service": [
+      {"service": "kafka-kafka-bootstrap", "discovered_in": "lib/agent-pod-daemon/daemon.js", "pattern": "KAFKA_BROKERS env", "value": "kafka-kafka-bootstrap.dev.svc.cluster.local:9092"},
+      {"service": "job-router", "discovered_in": "lib/webhook-receiver/receiver.js", "pattern": "JOB_ROUTER_URL env", "value": "http://job-router.kord.svc.cluster.local:3100"},
+      {"service": "prometheus", "discovered_in": "agents/charon/skills/bootstrap/manifests/", "pattern": "Service reference", "value": "prometheus.monitor.svc.cluster.local:9090"},
+      {"service": "loki", "discovered_in": "agents/charon/skills/bootstrap/manifests/", "pattern": "Service reference", "value": "loki.monitor.svc.cluster.local:3100"},
+      {"service": "grafana", "discovered_in": "agents/charon/skills/bootstrap/manifests/", "pattern": "Service reference", "value": "grafana.master.svc.cluster.local:3000"},
+      {"service": "minio", "discovered_in": "agents/charon/skills/bootstrap/manifests/", "pattern": "Service reference", "value": "minio.gateway.svc.cluster.local:9000"}
+    ],
+    "ci_cd": [
+      {
+        "platform": "custom",
+        "file": "lib/webhook-receiver/receiver.js",
+        "triggers": ["push"],
+        "stages": ["filter", "delegate"],
+        "deploys_to": "dev (via charon agent)"
+      },
+      {
+        "platform": "custom",
+        "file": "team/hooks/runtime-sync.sh",
+        "triggers": ["push"],
+        "stages": ["sync"],
+        "deploys_to": "local runtime (~/.kord/)"
+      }
+    ],
+    "iac": [
+      {
+        "tool": "kustomize",
+        "files": ["profile/overlays/platform/dev/kustomization.yaml", "profile/overlays/platform/kord/kustomization.yaml", "profile/overlays/platform/master/kustomization.yaml"],
+        "resources": ["ScaledObject", "Deployment"],
+        "environment": "dev, kord, master"
+      },
+      {
+        "tool": "kustomize",
+        "files": ["agents/charon/skills/platform/manifests/base/"],
+        "resources": ["Deployment", "Service", "ScaledObject", "Kafka", "KafkaNodePool", "KafkaTopic"],
+        "environment": "shared"
+      },
+      {
+        "tool": "kustomize",
+        "files": ["agents/charon/skills/bootstrap/manifests/"],
+        "resources": ["Namespace", "Deployment", "Service", "PVC", "DaemonSet", "ConfigMap", "Secret", "ClusterRole", "ClusterRoleBinding", "ServiceAccount"],
+        "environment": "shared"
+      }
+    ],
+    "risks": {
+      "hardcoded_endpoints": [
+        "lib/agent-pod-daemon/daemon.js:32 (Kafka broker default)",
+        "lib/webhook-receiver/receiver.js:18 (job-router URL default)"
+      ],
+      "missing_resilience": [
+        {"file": "lib/agent-scribe/scribe.js", "service_type": "http-api", "missing": ["retry", "circuit_breaker"]},
+        {"file": "lib/webhook-receiver/receiver.js", "service_type": "http-api", "missing": ["retry", "timeout", "circuit_breaker"]}
+      ],
+      "unversioned_deps": []
+    }
+  },
+
+  "observability": {
+    "logging": {
+      "format": "json",
+      "levels_used": ["info", "warn", "error", "debug"],
+      "correlation_id": true,
+      "libraries": ["console.log with JSON.stringify"],
+      "grounded_in": ["lib/agent-pod-daemon/daemon.js:97", "lib/agent-scribe/scribe.js:43", "lib/job-router/router.js:86"]
+    },
+    "metrics": {
+      "format": "prometheus",
+      "endpoint": "/metrics (Alloy scrape, not app-emitted)",
+      "key_metrics": ["kafka_consumer_lag", "node_cpu_seconds_total", "kube_pod_status_phase"],
+      "grounded_in": ["agents/charon/skills/bootstrap/manifests/monitor-alloy-config.yaml"]
+    },
+    "tracing": {
+      "enabled": false,
+      "provider": "none",
+      "propagation": "none",
+      "grounded_in": []
+    },
+    "gaps": [
+      "No application-level metrics emitted (only infrastructure metrics via Alloy/node-exporter)",
+      "No distributed tracing despite correlation IDs — spans not propagated",
+      "No error tracking service (Sentry, Bugsnag)"
+    ]
+  },
+
+  "security": {
+    "authentication": {
+      "methods": ["api-key", "hmac"],
+      "default_deny": false,
+      "identity_provider": "custom (file-based auth locks)",
+      "grounded_in": ["team/hooks/kord-guard.sh:29", "lib/webhook-receiver/receiver.js:48"]
+    },
+    "authorization": {
+      "model": "rbac",
+      "enforcement": "manual-check",
+      "grounded_in": ["team/hooks/kord-guard.sh:36", "KORD.json"]
+    },
+    "secrets_management": {
+      "strategy": "k8s-secrets",
+      "hardcoded_secrets": [],
+      "rotation": "manual",
+      "grounded_in": ["shared/credentials-protocol.md", "installer/auth-check.sh"]
+    },
+    "threat_surface": [
+      {
+        "entry_point": "/api/delegate",
+        "type": "api",
+        "authentication": "none",
+        "validation": "manual",
+        "rate_limited": false
+      },
+      {
+        "entry_point": "/webhook",
+        "type": "webhook",
+        "authentication": "hmac",
+        "validation": "manual",
+        "rate_limited": false
+      },
+      {
+        "entry_point": "/mcp",
+        "type": "api",
+        "authentication": "none",
+        "validation": "framework-native",
+        "rate_limited": false
+      }
+    ]
+  },
+
+  "developer_experience": {
+    "testing": {
+      "frameworks": [],
+      "strategy": {
+        "unit": "none",
+        "integration": "none",
+        "e2e": "installer/test/install.sh"
+      },
+      "coverage": "unknown",
+      "grounded_in": ["installer/test/install.sh"]
+    },
+    "linting": [],
+    "documentation": {
+      "readme": true,
+      "adrs": null,
+      "api_docs": null,
+      "inline_coverage": "low"
+    }
+  },
+
+  "api_surface": {
+    "style": "REST",
+    "frameworks": [
+      {"name": "Express", "version": "5.1.0"}
+    ],
+    "endpoints": [
+      {"method": "GET", "path": "/status", "handler": "statusServer handler", "file": "lib/agent-pod-daemon/daemon.js:473", "auth": "no", "validation": "no"},
+      {"method": "GET", "path": "/health", "handler": "statusServer handler", "file": "lib/agent-pod-daemon/daemon.js:480", "auth": "no", "validation": "no"},
+      {"method": "POST", "path": "/memory-update", "handler": "statusServer handler", "file": "lib/agent-pod-daemon/daemon.js:484", "auth": "no", "validation": "partial"},
+      {"method": "GET", "path": "/health", "handler": "Express app.get", "file": "lib/job-router/router.js:567", "auth": "no", "validation": "no"},
+      {"method": "POST", "path": "/api/delegate", "handler": "Express app.post", "file": "lib/job-router/router.js:574", "auth": "no", "validation": "partial"},
+      {"method": "GET", "path": "/api/agents", "handler": "Express app.get", "file": "lib/job-router/router.js:627", "auth": "no", "validation": "no"},
+      {"method": "POST", "path": "/mcp", "handler": "MCP server handler", "file": "lib/job-router/router.js:641", "auth": "no", "validation": "yes"},
+      {"method": "GET", "path": "/health", "handler": "Express app.get", "file": "lib/webhook-receiver/receiver.js:95", "auth": "no", "validation": "no"},
+      {"method": "GET", "path": "/status", "handler": "Express app.get", "file": "lib/webhook-receiver/receiver.js:99", "auth": "no", "validation": "no"},
+      {"method": "POST", "path": "/webhook", "handler": "Express app.post", "file": "lib/webhook-receiver/receiver.js:103", "auth": "yes", "validation": "partial"}
+    ],
+    "findings": {
+      "critical": [
+        {"description": "No default-deny auth layer — all endpoints except /webhook are unauthenticated. New routes are exposed by default", "files": ["lib/job-router/router.js", "lib/agent-pod-daemon/daemon.js"], "count": "9"}
+      ],
+      "recommended": [
+        {"description": "No rate limiting on any endpoint, including public-facing /api/delegate", "files": ["lib/job-router/router.js:574"], "count": "1"},
+        {"description": "No API versioning — all routes served at root path", "files": ["lib/job-router/router.js", "lib/agent-pod-daemon/daemon.js"], "count": "10"},
+        {"description": "No global error handler or shared error schema — errors returned as ad-hoc JSON", "files": ["lib/job-router/router.js", "lib/agent-pod-daemon/daemon.js"], "count": "3"}
+      ],
+      "minor": [
+        {"description": "Inconsistent health endpoint naming — /health (all) vs /status (daemon, receiver)", "files": ["lib/agent-pod-daemon/daemon.js:473", "lib/webhook-receiver/receiver.js:99"], "count": "2"}
+      ]
+    },
+    "compliance": {
+      "gateway": {"status": "non-compliant", "notes": "No service layer — route handlers contain inline Kafka operations, cache logic, and business rules directly"},
+      "hexagonal": {"status": "non-compliant", "notes": "Handlers import kafkajs, child_process, and fs directly — no port/adapter abstraction"},
+      "external_gateway": null
+    }
+  },
+
+  "debt": {
+    "score": 22,
+    "grade": "C",
+    "grade_capped": true,
+    "interpretation": "Moderate debt driven by one critical auth finding and several recommended resilience gaps — the system works reliably but lacks defense-in-depth",
+    "by_category": [
+      {"category": "Resilience", "points": 7, "violations": 3},
+      {"category": "Structural", "points": 4, "violations": 2},
+      {"category": "Integration", "points": 4, "violations": 2},
+      {"category": "Lifecycle", "points": 4, "violations": 2},
+      {"category": "Data", "points": 3, "violations": 2}
+    ],
+    "violations": [
+      {
+        "severity": "CRITICAL",
+        "category": "Integration",
+        "pattern": "api-gateway",
+        "anti_pattern": "No default-deny auth on API endpoints",
+        "components": ["job-router", "agent-pod-daemon"],
+        "files": ["lib/job-router/router.js:574", "lib/agent-pod-daemon/daemon.js:473"],
+        "detail": "All endpoints except /webhook are unauthenticated — any pod in the cluster can submit jobs or read status",
+        "points": 5
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "pattern": "event-driven",
+        "anti_pattern": "No circuit breaker on external API calls",
+        "components": ["agent-scribe"],
+        "files": ["lib/agent-scribe/scribe.js:63"],
+        "detail": "Haiku API calls for deduplication have no circuit breaker — repeated failures cause latency spikes",
+        "points": 2
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "pattern": "adapter",
+        "anti_pattern": "Webhook delegation has no retry or timeout",
+        "components": ["webhook-receiver"],
+        "files": ["lib/webhook-receiver/receiver.js:171"],
+        "detail": "HTTP fetch to job-router has no retry, timeout, or fallback — transient failures drop webhook events",
+        "points": 2
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "pattern": "api-gateway",
+        "anti_pattern": "No rate limiting on public endpoints",
+        "components": ["job-router"],
+        "files": ["lib/job-router/router.js:574"],
+        "detail": "POST /api/delegate accepts unlimited requests — could be used to saturate agent pods",
+        "points": 2
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Integration",
+        "pattern": "health-check",
+        "anti_pattern": "Webhook secret allows unsigned payloads when unset",
+        "components": ["webhook-receiver"],
+        "files": ["lib/webhook-receiver/receiver.js:49"],
+        "detail": "Missing WEBHOOK_SECRET env var silently disables signature verification instead of failing closed",
+        "points": 2
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Structural",
+        "pattern": "api-gateway",
+        "anti_pattern": "Business logic in route handlers",
+        "components": ["job-router"],
+        "files": ["lib/job-router/router.js"],
+        "detail": "Route handlers contain inline Kafka operations, cache logic, and response assembly — no service layer",
+        "points": 2
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Structural",
+        "pattern": "adapter",
+        "anti_pattern": "Infrastructure imports in handlers",
+        "components": ["job-router", "agent-pod-daemon"],
+        "files": ["lib/job-router/router.js", "lib/agent-pod-daemon/daemon.js"],
+        "detail": "Handlers import kafkajs, child_process, and fs directly instead of through abstractions",
+        "points": 2
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Lifecycle",
+        "pattern": "cross-cutting",
+        "anti_pattern": "No test framework or test suite",
+        "components": ["agent-pod-daemon", "agent-scribe", "job-router", "webhook-receiver"],
+        "files": ["lib/"],
+        "detail": "No unit or integration tests exist for any core runtime module",
+        "points": 2
+      },
+      {
+        "severity": "RECOMMENDED",
+        "category": "Lifecycle",
+        "pattern": "cross-cutting",
+        "anti_pattern": "No linting or code formatting configured",
+        "components": ["agent-pod-daemon", "agent-scribe", "job-router", "webhook-receiver"],
+        "files": ["lib/"],
+        "detail": "No ESLint, Prettier, or other linting tools configured for JavaScript source",
+        "points": 2
+      },
+      {
+        "severity": "MINOR",
+        "category": "Data",
+        "pattern": "cache-aside",
+        "anti_pattern": "Unbounded in-memory state",
+        "components": ["webhook-receiver", "agent-pod-daemon"],
+        "files": ["lib/webhook-receiver/receiver.js:27", "lib/agent-pod-daemon/daemon.js:139"],
+        "detail": "Cooldown map and result buffer grow unbounded — no LRU eviction or size limit",
+        "points": 2
+      },
+      {
+        "severity": "MINOR",
+        "category": "Data",
+        "pattern": "cross-cutting",
+        "anti_pattern": "Hardcoded default values",
+        "components": ["agent-pod-daemon", "job-router", "webhook-receiver"],
+        "files": ["lib/agent-pod-daemon/daemon.js:32", "lib/webhook-receiver/receiver.js:18"],
+        "detail": "Kafka broker URLs and service endpoints hardcoded as fallback defaults",
+        "points": 1
+      }
+    ],
+    "recommendations": [
+      {
+        "priority": "1",
+        "title": "Add authentication to internal API endpoints",
+        "severity": "CRITICAL",
+        "category": "Integration",
+        "files": ["lib/job-router/router.js", "lib/agent-pod-daemon/daemon.js"],
+        "description": "Add a default-deny auth middleware (e.g., shared secret or mTLS) to job-router and daemon status endpoints. Even cluster-internal services benefit from auth to prevent lateral movement if a pod is compromised.",
+        "fixes": ["No default-deny auth on API endpoints"]
+      },
+      {
+        "priority": "2",
+        "title": "Add resilience wrappers for external calls",
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "files": ["lib/agent-scribe/scribe.js", "lib/webhook-receiver/receiver.js"],
+        "description": "Wrap Haiku API calls and webhook-to-router delegation with retry (exponential backoff) and circuit breaker. The scribe already has a fallback — add retry before falling back. The webhook receiver should retry once before dropping the event.",
+        "fixes": ["No circuit breaker on external API calls", "Webhook delegation has no retry or timeout"]
+      },
+      {
+        "priority": "3",
+        "title": "Add rate limiting to public endpoints",
+        "severity": "RECOMMENDED",
+        "category": "Resilience",
+        "files": ["lib/job-router/router.js"],
+        "description": "Add Express rate limiting middleware (e.g., express-rate-limit) to /api/delegate and /mcp endpoints. Even modest limits (e.g., 10 req/s per source IP) prevent accidental or malicious flood.",
+        "fixes": ["No rate limiting on public endpoints"]
+      },
+      {
+        "priority": "4",
+        "title": "Fail closed when webhook secret is missing",
+        "severity": "RECOMMENDED",
+        "category": "Integration",
+        "files": ["lib/webhook-receiver/receiver.js"],
+        "description": "Change the missing WEBHOOK_SECRET behavior from 'accept all' to 'reject all'. This prevents unauthorized webhook submissions in misconfigured deployments.",
+        "fixes": ["Webhook secret allows unsigned payloads when unset"]
+      },
+      {
+        "priority": "5",
+        "title": "Add test framework and core tests",
+        "severity": "RECOMMENDED",
+        "category": "Lifecycle",
+        "files": ["lib/"],
+        "description": "Add Jest or Vitest with unit tests for job correlation logic, cache scoring, webhook gate filtering, and memory dedup routing. These are the highest-value test targets for preventing regressions.",
+        "fixes": ["No test framework or test suite", "No linting or code formatting configured"]
+      }
+    ]
+  },
+
+  "metadata": {
+    "story_ids": [],
+    "analyzed_at_sha": "1738536bc49332b9f20a0433aeded8f464fb5d43",
+    "analysis_mode": "full",
+    "affected_components": [],
+    "flags": {
+      "detect_only": true
+    }
+  }
+}
