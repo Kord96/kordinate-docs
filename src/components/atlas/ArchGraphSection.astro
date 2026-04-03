@@ -1,32 +1,143 @@
 ---
 /**
  * Architecture graph section — Cytoscape interactive dependency map
- * with expand/collapse groups, hover tooltips, click-to-scroll.
+ * with expand/collapse groups, hover tooltips, click for details, fullscreen.
  */
-interface Props { groups: any[]; components: any[]; extDeps: any[]; }
-const { groups, components, extDeps } = Astro.props;
+interface Props { groups: any[]; components: any[]; extDeps: any[]; patterns?: any[]; }
+const { groups, components, extDeps, patterns = [] } = Astro.props;
 ---
 
 <div class="section" id="sec-graph">
   <h2 class="section-title">Architecture Graph</h2>
-  <p class="section-sub">Interactive dependency map — click groups to expand, hover nodes for details</p>
+  <p class="section-sub">Click nodes for details — groups expand/collapse, components show info panel</p>
   <div class="graph-controls">
     <button class="graph-btn" id="btn-expand-all">Expand All</button>
     <button class="graph-btn" id="btn-collapse-all">Collapse All</button>
     <button class="graph-btn" id="btn-fit">Fit View</button>
+    <button class="graph-btn graph-btn-accent" id="btn-fullscreen">⛶ Fullscreen</button>
   </div>
-  <div style="position: relative;">
+  <div class="graph-wrap" id="graph-wrap">
     <div id="cy-container"></div>
     <div id="cy-tooltip">
       <div class="tt-name"></div>
       <div class="tt-type"></div>
       <div class="tt-desc"></div>
     </div>
+    <!-- Detail panel — shown on node click -->
+    <div id="detail-panel" class="detail-panel">
+      <button class="detail-close" id="detail-close">✕</button>
+      <h3 class="detail-name"></h3>
+      <span class="detail-type"></span>
+      <p class="detail-desc"></p>
+      <div class="detail-deps"></div>
+      <div class="detail-patterns"></div>
+      <div class="detail-files"></div>
+    </div>
   </div>
   <div class="graph-counter" id="graph-counter"></div>
 </div>
 
-<script is:inline define:vars={{ groups, components, extDeps }}>
+<style>
+  .graph-wrap {
+    position: relative;
+  }
+  #cy-container {
+    width: 100%;
+    height: 520px;
+    border-radius: 12px;
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    background: rgba(9,9,11,0.6);
+    transition: all 0.3s ease;
+  }
+  .graph-wrap.fullscreen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999;
+    background: #09090b;
+    padding: 1rem;
+  }
+  .graph-wrap.fullscreen #cy-container {
+    height: calc(100vh - 5rem);
+    border-radius: 8px;
+  }
+  .graph-wrap.fullscreen .graph-controls {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 10000;
+  }
+  .graph-controls {
+    display: flex; gap: 0.4rem; margin-bottom: 0.75rem;
+  }
+  .graph-btn {
+    font-size: 0.65rem; padding: 0.25rem 0.6rem; border-radius: 4px;
+    border: 1px solid var(--border, rgba(255,255,255,0.1)); background: transparent;
+    color: var(--text-3, #888); cursor: pointer; transition: all 0.2s;
+  }
+  .graph-btn:hover { color: #fff; border-color: rgba(255,255,255,0.25); }
+  .graph-btn-accent { color: #818cf8; border-color: rgba(129,140,248,0.3); }
+  .graph-btn-accent:hover { background: rgba(129,140,248,0.1); }
+
+  /* Detail panel */
+  .detail-panel {
+    display: none;
+    position: absolute;
+    top: 1rem; right: 1rem;
+    width: 320px; max-height: calc(100% - 2rem);
+    overflow-y: auto;
+    background: rgba(18,18,24,0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(129,140,248,0.2);
+    border-radius: 10px;
+    padding: 1.2rem;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .detail-panel.visible { display: block; }
+  .detail-close {
+    position: absolute; top: 0.6rem; right: 0.8rem;
+    background: none; border: none; color: #888; cursor: pointer;
+    font-size: 1rem; padding: 0.2rem;
+  }
+  .detail-close:hover { color: #fff; }
+  .detail-name { font-size: 1rem; font-weight: 700; color: #fff; margin: 0 0 0.3rem; }
+  .detail-type {
+    display: inline-block; font-size: 0.6rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 0.1rem 0.4rem; border-radius: 3px;
+    background: rgba(129,140,248,0.15); color: #818cf8;
+    margin-bottom: 0.6rem;
+  }
+  .detail-desc { font-size: 0.75rem; color: #a1a1aa; line-height: 1.5; margin: 0.5rem 0; }
+  .detail-deps, .detail-patterns, .detail-files {
+    margin-top: 0.6rem; font-size: 0.7rem;
+  }
+  .detail-deps h4, .detail-patterns h4, .detail-files h4 {
+    font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #71717a; margin: 0 0 0.3rem;
+  }
+  .detail-deps ul, .detail-patterns ul, .detail-files ul {
+    list-style: none; padding: 0; margin: 0;
+  }
+  .detail-deps li, .detail-patterns li, .detail-files li {
+    padding: 0.15rem 0; color: #d4d4d8;
+  }
+
+  /* Tooltip */
+  #cy-tooltip {
+    display: none; position: absolute; z-index: 50;
+    background: rgba(18,18,24,0.95); border: 1px solid rgba(129,140,248,0.25);
+    border-radius: 8px; padding: 0.6rem 0.8rem; pointer-events: none;
+    max-width: 260px; backdrop-filter: blur(8px);
+  }
+  .tt-name { font-weight: 700; font-size: 0.8rem; color: #fff; }
+  .tt-type { font-size: 0.6rem; color: #818cf8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.15rem; }
+  .tt-desc { font-size: 0.7rem; color: #a1a1aa; margin-top: 0.3rem; line-height: 1.4; }
+
+  .graph-counter { font-size: 0.65rem; color: #52525b; margin-top: 0.5rem; text-align: right; }
+</style>
+
+<script is:inline define:vars={{ groups, components, extDeps, patterns }}>
 (function() {
   function loadScript(src) {
     return new Promise(function(resolve, reject) {
@@ -101,6 +212,66 @@ const { groups, components, extDeps } = Astro.props;
 
   function rebuildGraph(cy, animate) { var result = buildElements(); cy.elements().remove(); cy.add(result.elements); updateCounter(result.visibleCount); runLayout(cy, animate); }
 
+  function showDetail(nodeId, nodeType) {
+    var panel = document.getElementById('detail-panel');
+    var nameEl = panel.querySelector('.detail-name');
+    var typeEl = panel.querySelector('.detail-type');
+    var descEl = panel.querySelector('.detail-desc');
+    var depsEl = panel.querySelector('.detail-deps');
+    var patsEl = panel.querySelector('.detail-patterns');
+    var filesEl = panel.querySelector('.detail-files');
+
+    var comp = components.find(function(c) { return c.id === nodeId; });
+    var ext = extDeps.find(function(e) { return e.id === nodeId; });
+    var grp = groups.find(function(g) { return g.id === nodeId; });
+    var item = comp || ext || grp;
+    if (!item) return;
+
+    nameEl.textContent = item.name || item.id;
+    typeEl.textContent = nodeType;
+    descEl.textContent = item.description || item.purpose || '';
+
+    // Dependencies
+    if (comp && comp.depends_on && comp.depends_on.length) {
+      depsEl.innerHTML = '<h4>Dependencies</h4><ul>' + comp.depends_on.map(function(d) {
+        var target = components.find(function(c) { return c.id === d; }) || extDeps.find(function(e) { return e.id === d; });
+        return '<li>→ ' + (target ? (target.name || target.id) : d) + '</li>';
+      }).join('') + '</ul>';
+    } else if (grp) {
+      var kids = components.filter(function(c) { return c.group === nodeId; });
+      depsEl.innerHTML = '<h4>Components (' + kids.length + ')</h4><ul>' + kids.map(function(k) {
+        return '<li>' + k.name + ' <span style="color:#71717a">(' + (k.type || 'worker') + ')</span></li>';
+      }).join('') + '</ul>';
+    } else if (ext && ext.components) {
+      depsEl.innerHTML = '<h4>Used by</h4><ul>' + ext.components.map(function(cid) {
+        var c = components.find(function(x) { return x.id === cid; });
+        return '<li>' + (c ? c.name : cid) + '</li>';
+      }).join('') + '</ul>';
+    } else {
+      depsEl.innerHTML = '';
+    }
+
+    // Patterns on this component
+    if (comp && patterns.length) {
+      var compPats = patterns.filter(function(p) { return p.components && p.components.indexOf(nodeId) !== -1; });
+      if (compPats.length) {
+        patsEl.innerHTML = '<h4>Patterns</h4><ul>' + compPats.map(function(p) {
+          return '<li>◆ ' + p.id + ' <span style="color:#71717a">(' + (p.confidence || 'detected') + ')</span></li>';
+        }).join('') + '</ul>';
+      } else { patsEl.innerHTML = ''; }
+    } else { patsEl.innerHTML = ''; }
+
+    // Files
+    if (comp && comp.modules && comp.modules.length) {
+      var shown = comp.modules.slice(0, 5);
+      filesEl.innerHTML = '<h4>Files</h4><ul>' + shown.map(function(f) {
+        return '<li style="font-family:var(--sl-font-mono,monospace);font-size:0.65rem;color:#a1a1aa">' + f + '</li>';
+      }).join('') + (comp.modules.length > 5 ? '<li style="color:#52525b">+' + (comp.modules.length - 5) + ' more</li>' : '') + '</ul>';
+    } else { filesEl.innerHTML = ''; }
+
+    panel.classList.add('visible');
+  }
+
   function initGraph() {
     var cy = cytoscape({
       container: document.getElementById('cy-container'), elements: [], minZoom: 0.2, maxZoom: 4, wheelSensitivity: 0.3,
@@ -118,8 +289,11 @@ const { groups, components, extDeps } = Astro.props;
       ]
     });
     rebuildGraph(cy, false);
+
     var tooltip = document.getElementById('cy-tooltip');
     var ttName = tooltip.querySelector('.tt-name'), ttType = tooltip.querySelector('.tt-type'), ttDesc = tooltip.querySelector('.tt-desc');
+
+    // Hover: tooltip + highlight
     cy.on('mouseover', 'node', function(e) {
       var node = e.target; node.addClass('hover-glow');
       cy.elements().addClass('dimmed'); node.removeClass('dimmed');
@@ -133,16 +307,50 @@ const { groups, components, extDeps } = Astro.props;
       tooltip.style.left = Math.min(pos.x + 12, container.width - 270) + 'px'; tooltip.style.top = Math.min(pos.y + 12, container.height - 80) + 'px';
     });
     cy.on('mouseout', 'node', function() { cy.elements().removeClass('dimmed highlighted hover-glow'); tooltip.style.display = 'none'; });
+
+    // Click: groups toggle, components show detail panel
     cy.on('tap', 'node', function(e) {
-      var node = e.target, id = node.data('id');
-      if (node.data('nodeType') === 'group') { if (expandedGroups[id]) delete expandedGroups[id]; else expandedGroups[id] = true; rebuildGraph(cy, true); return; }
-      var card = document.getElementById('card-' + id);
-      if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('card-highlight'); setTimeout(function() { card.classList.remove('card-highlight'); }, 2000); }
+      var node = e.target, id = node.data('id'), nodeType = node.data('nodeType');
+      if (nodeType === 'group') {
+        if (expandedGroups[id]) delete expandedGroups[id]; else expandedGroups[id] = true;
+        rebuildGraph(cy, true);
+        return;
+      }
+      showDetail(id, nodeType);
     });
+
+    // Click background: hide detail panel
+    cy.on('tap', function(e) {
+      if (e.target === cy) document.getElementById('detail-panel').classList.remove('visible');
+    });
+
+    // Close detail panel button
+    document.getElementById('detail-close').addEventListener('click', function() {
+      document.getElementById('detail-panel').classList.remove('visible');
+    });
+
+    // Controls
     document.getElementById('btn-expand-all').addEventListener('click', function() { groups.forEach(function(g) { expandedGroups[g.id] = true; }); rebuildGraph(cy, false); });
     document.getElementById('btn-collapse-all').addEventListener('click', function() { expandedGroups = {}; rebuildGraph(cy, true); });
     document.getElementById('btn-fit').addEventListener('click', function() { cy.fit(undefined, 60); });
+
+    // Fullscreen toggle
+    var wrap = document.getElementById('graph-wrap');
+    var fsBtn = document.getElementById('btn-fullscreen');
+    fsBtn.addEventListener('click', function() {
+      wrap.classList.toggle('fullscreen');
+      fsBtn.textContent = wrap.classList.contains('fullscreen') ? '✕ Exit' : '⛶ Fullscreen';
+      setTimeout(function() { cy.resize(); cy.fit(undefined, 60); }, 350);
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && wrap.classList.contains('fullscreen')) {
+        wrap.classList.remove('fullscreen');
+        fsBtn.textContent = '⛶ Fullscreen';
+        setTimeout(function() { cy.resize(); cy.fit(undefined, 60); }, 350);
+      }
+    });
   }
+
   loadScript('https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js')
     .then(function() { return loadScript('https://unpkg.com/layout-base@2.0.1/layout-base.js'); })
     .then(function() { return loadScript('https://unpkg.com/cose-base@2.2.0/cose-base.js'); })
