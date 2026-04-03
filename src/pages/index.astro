@@ -19,7 +19,7 @@ const projects = projectDirs.map(name => {
   <Header project="Docs" badge="DEV"  />
   <main class="home">
     <section class="hero">
-      <img src="/dev/logo_dark.png" alt="Logo" class="hero-logo" />
+      <img src="/dev/logo_dark.png" alt="Logo" class="hero-logo logo-dark" /><img src="/dev/logo_light.png" alt="Logo" class="hero-logo logo-light" />
       <h1>Khaled Kord</h1>
       <p class="subtitle">Projects and architecture documentation.</p>
     </section>
@@ -47,6 +47,9 @@ const projects = projectDirs.map(name => {
     padding: 4rem 1.5rem 3rem;
     background: var(--bg);
   }
+  .logo-light { display: none; }
+  :global([data-theme="light"]) .logo-dark { display: none; }
+  :global([data-theme="light"]) .logo-light { display: block; }
   .hero-logo {
     width: 120px;
     height: auto;
