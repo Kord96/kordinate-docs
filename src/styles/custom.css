@@ -49,3 +49,33 @@ h1, h2, h3, h4 {
 .mermaid .edgeLabel {
   font-size: 0.8rem;
 }
+
+/* Light mode — softer background, better contrast */
+:root[data-theme='light'] {
+  --bg: #fafaf9;
+  --bg-card: #f4f4f5;
+  --text-1: #09090b;
+  --text-2: #18181b;
+  --text-3: #3f3f46;
+  --text-4: #52525b;
+  --border: #e4e4e7;
+  --border-hover: #a1a1aa;
+}
+
+[data-theme='light'] body {
+  background: var(--bg, #fafaf9);
+  color: var(--text-1, #09090b);
+}
+
+[data-theme='light'] .hero h1 { color: #09090b; }
+[data-theme='light'] .hero .subtitle { color: #52525b; }
+[data-theme='light'] .project-card {
+  background: #f4f4f5;
+  border-color: #e4e4e7;
+}
+[data-theme='light'] .project-card:hover {
+  border-color: #a1a1aa;
+}
+[data-theme='light'] .project-card h3 { color: #18181b; }
+[data-theme='light'] .project-card p { color: #3f3f46; }
+[data-theme='light'] .project-card .meta { color: #71717a; }

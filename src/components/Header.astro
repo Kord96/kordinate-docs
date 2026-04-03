@@ -16,7 +16,7 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
 <header class:list={['site-header', position === 'sticky' && 'sticky']}>
   <div class="h-left">
     <a class="h-home-icon" href="/dev/" title="Home">
-      <img src="/dev/logo_dark.png" alt="" />
+      <img src="/dev/logo_dark.png" alt="" class="logo-dark" /><img src="/dev/logo_light.png" alt="" class="logo-light" />
     </a>
     <span class="h-sep"></span>
     <span class="h-logo">{project}</span>
@@ -96,6 +96,9 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
     transition: opacity .2s;
   }
   .h-home-icon:hover img { opacity: 1; }
+  .logo-light { display: none; }
+  :global([data-theme='light']) .logo-dark { display: none; }
+  :global([data-theme='light']) .logo-light { display: block; }
 
   /* Theme toggle button */
   .h-theme-toggle {
@@ -121,4 +124,38 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
     transition: color .2s;
   }
   .h-gh:hover { color: var(--text-2); }
+
+  /* Light mode header */
+  :global([data-theme='light']) .site-header {
+    background: rgba(255,255,255,0.9);
+    border-bottom-color: #e4e4e7;
+  }
+  :global([data-theme='light']) .h-logo { color: #18181b; }
+  :global([data-theme='light']) .h-env {
+    background: rgba(251,191,36,0.15);
+    color: #92400e;
+    border-color: rgba(251,191,36,0.3);
+  }
+  :global([data-theme='light']) .h-sep { background: #d4d4d8; }
+  :global([data-theme='light']) .h-link {
+    color: #3f3f46;
+    border-color: #d4d4d8;
+  }
+  :global([data-theme='light']) .h-link:hover,
+  :global([data-theme='light']) .h-link-active {
+    color: #18181b;
+    border-color: #a1a1aa;
+  }
+  :global([data-theme='light']) .h-theme-toggle {
+    color: #52525b;
+    border-color: #d4d4d8;
+  }
+  :global([data-theme='light']) .h-theme-toggle:hover {
+    color: #18181b;
+    border-color: #a1a1aa;
+  }
+  :global([data-theme='light']) .h-gh {
+    color: #52525b;
+  }
+  :global([data-theme='light']) .h-gh:hover { color: #18181b; }
 </style>
