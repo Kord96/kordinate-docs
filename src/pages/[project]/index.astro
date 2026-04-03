@@ -5,6 +5,7 @@
  */
 import Base from '../../layouts/Base.astro';
 import Header from '../../components/Header.astro';
+import PageNav from '../../components/PageNav.astro';
 import JourneyStyles from '../../components/journey/JourneyStyles.astro';
 import JourneyNav from '../../components/journey/JourneyNav.astro';
 import LandingSection from '../../components/journey/LandingSection.astro';
@@ -111,7 +112,8 @@ function parseSummary(text: string): string {
 <Base title={defaultJourney.title}>
   <JourneyStyles />
 
-  <Header project={atlas.project || project} badge="dev" links={[{ label: 'Atlas', href: `/dev/${project}/atlas/` }]} active="journey" />
+  <Header project={atlas.project || project} badge="dev" />
+  <PageNav tabs={[{label: "Journey", href: `/dev/${project}/`, active: true}, {label: "Atlas", href: `/dev/${project}/atlas/`}]} />
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
 

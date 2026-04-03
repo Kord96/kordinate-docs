@@ -1,0 +1,51 @@
+---
+interface Props {
+  tabs: { label: string; href: string; active?: boolean }[];
+}
+const { tabs } = Astro.props;
+---
+
+<nav class="page-nav">
+  {tabs.map(tab => (
+    <a class:list={['page-tab', tab.active && 'page-tab-active']} href={tab.href}>
+      {tab.label}
+    </a>
+  ))}
+</nav>
+
+<style>
+  .page-nav {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem 1.5rem;
+    margin-top: 40px; /* below fixed header */
+    background: var(--bg, #09090b);
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.06));
+  }
+  .page-tab {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-4, #52525b);
+    text-decoration: none;
+    padding: 0.35rem 0.8rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .page-tab:hover {
+    color: var(--text-2, #d4d4d8);
+    background: rgba(255,255,255,0.04);
+  }
+  .page-tab-active {
+    color: var(--text, #fafafa);
+    background: rgba(129,140,248,0.1);
+    border: 1px solid rgba(129,140,248,0.2);
+  }
+
+  :global([data-theme='light']) .page-nav {
+    background: var(--bg, #fafaf9);
+    border-bottom-color: #e4e4e7;
+  }
+  :global([data-theme='light']) .page-tab { color: #71717a; }
+  :global([data-theme='light']) .page-tab:hover { color: #18181b; background: rgba(0,0,0,0.04); }
+  :global([data-theme='light']) .page-tab-active { color: #18181b; background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.2); }
+</style>
