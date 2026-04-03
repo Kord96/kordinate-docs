@@ -86,8 +86,8 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
     padding: .2rem .5rem; border: 1px solid var(--border); border-radius: 4px;
     transition: all .2s;
   }
-  .h-link:hover { color: var(--text-2); border-color: var(--border-hover); }
-  .h-link-active { color: var(--text-2); border-color: var(--border-hover); }
+  .h-link:hover { color: var(--text-2); }
+  .h-link-active { color: var(--text-2); }
   .h-home-icon {
     display: flex; align-items: center;
   }
@@ -104,12 +104,12 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
   .h-theme-toggle {
     display: flex; align-items: center; justify-content: center;
     width: 28px; height: 28px;
-    background: none; border: 1px solid var(--border); border-radius: 4px;
+    background: none; border: none;
     color: var(--text-3); cursor: pointer;
     transition: all .2s;
   }
   .h-theme-toggle:hover {
-    color: var(--text-2); border-color: var(--border-hover);
+    color: var(--text-2);
   }
   /* In dark mode (default): show sun, hide moon */
   .icon-moon { display: none; }
