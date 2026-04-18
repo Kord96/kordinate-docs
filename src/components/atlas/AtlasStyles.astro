@@ -75,7 +75,10 @@
   }
   .violation-sev { font-size: .6rem; font-weight: 600; text-transform: uppercase; margin-right: .4rem; }
 
-  .dep { padding: 1rem 0; border-bottom: 1px solid var(--border); }
+  .dep {
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+  }
   .dep:last-child { border-bottom: none; }
   .dep-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .5rem; gap: 1rem; }
   .dep-name { font-weight: 600; font-size: .95rem; }
@@ -84,6 +87,9 @@
   .dep-components { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .5rem; }
   .dep-comp-link { font-size: .75rem; padding: .25rem .6rem; border-radius: 5px; background: var(--accent-dim); color: var(--accent); text-decoration: none; transition: all .2s; border: 1px solid rgba(129,140,248,0.2); font-weight: 500; }
   .dep-comp-link:hover { background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 2px 8px rgba(129,140,248,0.2); }
+  .dep > .detail-grid:first-of-type {
+    margin-top: .85rem;
+  }
 
   .flow-card {
     background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
