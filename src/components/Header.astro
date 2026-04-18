@@ -71,15 +71,29 @@ const displayProject = displayProjectTitle(project);
         <button class="project-switcher-close" id="project-switcher-close" type="button" aria-label="Close project switcher">✕</button>
       </div>
       <div class="project-switcher-list">
-        {projects.map((entry) => (
-          <a class:list={['project-switcher-item', currentProject === entry.slug && 'project-switcher-item-active']} href={`/${entry.slug}/`}>
-            <div class="project-switcher-row">
-              <span class="project-switcher-name">{entry.title}</span>
-              {typeof entry.componentCount === 'number' && entry.componentCount > 0 && <span class="project-switcher-count">{entry.componentCount}</span>}
-            </div>
-            {entry.purpose && <div class="project-switcher-purpose">{entry.purpose}</div>}
-          </a>
-        ))}
+        {projects.map((entry) => {
+          const displayTitle = displayProjectTitle(entry.slug, entry.title);
+          const isCurrent = currentProject === entry.slug;
+          return (
+            <details class:list={['project-switcher-item', isCurrent && 'project-switcher-item-active']} open={isCurrent}>
+              <summary class="project-switcher-summary">
+                <div class="project-switcher-row">
+                  <span class="project-switcher-name">{displayTitle}</span>
+                  <div class="project-switcher-summary-right">
+                    {typeof entry.componentCount === 'number' && entry.componentCount > 0 && <span class="project-switcher-count">{entry.componentCount}</span>}
+                    <span class="project-switcher-chevron">▾</span>
+                  </div>
+                </div>
+                {entry.purpose && <div class="project-switcher-purpose">{entry.purpose}</div>}
+              </summary>
+              <div class="project-switcher-links">
+                <a class="project-switcher-link" href={`/${entry.slug}/`}>Journey</a>
+                <a class="project-switcher-link" href={`/${entry.slug}/atlas/`}>Atlas</a>
+                <a class="project-switcher-link" href={`/${entry.slug}/analyses/`}>History</a>
+              </div>
+            </details>
+          );
+        })}
       </div>
     </aside>
   </>
@@ -300,25 +314,38 @@ const displayProject = displayProjectTitle(project);
     overflow: auto;
   }
   .project-switcher-item {
-    display: grid;
-    gap: .35rem;
-    padding: .85rem .9rem;
-    text-decoration: none;
-    color: inherit;
+    display: block;
     border: 1px solid var(--border);
     border-radius: 10px;
     background: rgba(255,255,255,.02);
+    overflow: hidden;
   }
   .project-switcher-item:hover,
   .project-switcher-item-active {
     border-color: var(--border-hover);
     background: rgba(255,255,255,.04);
   }
+  .project-switcher-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: .85rem .9rem;
+    display: grid;
+    gap: .35rem;
+  }
+  .project-switcher-summary::-webkit-details-marker {
+    display: none;
+  }
   .project-switcher-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: .75rem;
+  }
+  .project-switcher-summary-right {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    flex-shrink: 0;
   }
   .project-switcher-name {
     font-weight: 700;
@@ -332,6 +359,38 @@ const displayProject = displayProjectTitle(project);
     color: var(--text-3);
     font-size: .78rem;
     line-height: 1.45;
+  }
+  .project-switcher-chevron {
+    color: var(--text-4);
+    font-size: .8rem;
+    transition: transform .18s ease;
+  }
+  .project-switcher-item[open] .project-switcher-chevron {
+    transform: rotate(180deg);
+  }
+  .project-switcher-links {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    padding: 0 .9rem .9rem;
+    border-top: 1px solid var(--border);
+    margin-top: .1rem;
+    padding-top: .8rem;
+  }
+  .project-switcher-link {
+    text-decoration: none;
+    font-size: .74rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
+    border-radius: 999px;
+    padding: .25rem .65rem;
+    transition: all .18s;
+  }
+  .project-switcher-link:hover {
+    background: var(--accent);
+    color: #fff;
   }
   :global(body.project-switcher-active) {
     overflow: hidden;
@@ -348,5 +407,17 @@ const displayProject = displayProjectTitle(project);
   :global([data-theme='light']) .project-switcher-item-active {
     border-color: #a1a1aa;
     background: #fafafa;
+  }
+  :global([data-theme='light']) .project-switcher-links {
+    border-top-color: #e4e4e7;
+  }
+  :global([data-theme='light']) .project-switcher-link {
+    color: #3730a3;
+    background: rgba(79,70,229,0.08);
+    border-color: rgba(79,70,229,0.18);
+  }
+  :global([data-theme='light']) .project-switcher-link:hover {
+    color: #fff;
+    background: #4f46e5;
   }
 </style>
