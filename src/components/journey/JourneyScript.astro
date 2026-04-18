@@ -389,7 +389,8 @@
       focusContent.querySelectorAll('.struct-graph').forEach(g => {
         if (!g._cy) return;
         g._cy.resize();
-        g._cy.fit(undefined, 30);
+        g._cy.center();
+        g._cy.fit(undefined, 20);
       });
     };
 
@@ -413,7 +414,7 @@
           initGraph(g);
           refreshFocusGraphs();
         }
-      }, 200);
+      }, 100);
     });
     focusPos.textContent = (focusIndex + 1) + ' / ' + focusSections.length;
     focusPrev.disabled = focusIndex === 0;

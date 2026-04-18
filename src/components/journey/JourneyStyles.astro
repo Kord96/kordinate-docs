@@ -368,7 +368,10 @@
 
     /* Focus content — wider, two-column for graphs */
     .focus-content {
-      max-width: min(1440px, calc(100vw - 3rem)); margin: 0 auto; padding: 2.5rem 2.5rem 4rem;
+      width: min(1680px, calc(100vw - 2rem));
+      max-width: none;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
     }
     .focus-content .story-num { font-size: .7rem; }
     .focus-content .story-title { font-size: 1.8rem; margin-bottom: .75rem; }
@@ -377,6 +380,14 @@
     .focus-content .anchor-desc { font-size: .82rem; }
     .focus-content .summary { font-size: .95rem; line-height: 1.8; margin-bottom: 1.5rem; }
     .focus-content .struct { margin-bottom: 1.5rem; }
+    .focus-content .struct,
+    .focus-content .ch0-text,
+    .focus-content .flow,
+    .focus-content .obs,
+    .focus-content .rat {
+      width: 100%;
+      max-width: none;
+    }
     .focus-content .flow { padding: 1.25rem; margin-bottom: 1.5rem; }
     .focus-content .flow-head { font-size: .85rem; }
     .focus-content .flow-step { font-size: .88rem; padding: .5rem 0; }
@@ -387,6 +398,37 @@
     .focus-content .struct-graph {
       height: min(72vh, 860px);
       min-height: 540px;
+    }
+    .focus-content .ch0 {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+      gap: 1.5rem 2rem;
+      align-items: start;
+      justify-content: stretch;
+      padding-top: 0;
+      min-height: auto;
+    }
+    .focus-content .ch0-header,
+    .focus-content .next {
+      grid-column: 1 / -1;
+    }
+    .focus-content .ch0-header {
+      margin-bottom: 0;
+    }
+    .focus-content .ch0-text {
+      margin-top: 0;
+      align-self: stretch;
+    }
+    .focus-content .ch0-journey-overview {
+      position: sticky;
+      top: 0;
+    }
+    .focus-content .struct-hint {
+      padding-top: .55rem;
+      padding-bottom: .55rem;
+    }
+    .focus-content .flow {
+      max-width: 1100px;
     }
 
     /* Bridge in focus mode */
@@ -407,8 +449,15 @@
       header { padding: 0 1rem; }
       .landing-stats { flex-wrap: wrap; gap: .75rem; }
       .focus-content {
-        max-width: calc(100vw - 1rem);
+        width: calc(100vw - 1rem);
         padding: 1.25rem 1rem 3rem;
+      }
+      .focus-content .ch0 {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .focus-content .ch0-journey-overview {
+        position: static;
       }
       .focus-content .struct-graph {
         height: min(62vh, 640px);
