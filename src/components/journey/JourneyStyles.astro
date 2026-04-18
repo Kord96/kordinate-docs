@@ -368,10 +368,10 @@
 
     /* Focus content — wider, two-column for graphs */
     .focus-content {
-      width: min(1680px, calc(100vw - 2rem));
+      width: min(1840px, calc(100vw - 1rem));
       max-width: none;
       margin: 0 auto;
-      padding: 2rem 1.5rem 4rem;
+      padding: 1.5rem 1rem 4rem;
     }
     .focus-content .story-num { font-size: .7rem; }
     .focus-content .story-title { font-size: 1.8rem; margin-bottom: .75rem; }
@@ -396,13 +396,13 @@
     .focus-content .rat { padding: .85rem 1rem; font-size: .85rem; margin-bottom: .75rem; }
     .focus-content .next { display: none; }
     .focus-content .struct-graph {
-      height: min(72vh, 860px);
-      min-height: 540px;
+      height: min(78vh, 980px);
+      min-height: 620px;
     }
     .focus-content .ch0 {
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
-      gap: 1.5rem 2rem;
+      grid-template-columns: minmax(0, 1.9fr) minmax(300px, 0.65fr);
+      gap: 1.25rem 1.5rem;
       align-items: start;
       justify-content: stretch;
       padding-top: 0;
@@ -418,6 +418,9 @@
     .focus-content .ch0-text {
       margin-top: 0;
       align-self: stretch;
+    }
+    .focus-content .ch0 .struct {
+      margin-bottom: 0;
     }
     .focus-content .ch0-journey-overview {
       position: sticky;

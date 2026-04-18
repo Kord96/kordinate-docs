@@ -408,6 +408,9 @@
     focusContent.innerHTML = inner.innerHTML;
     focusContent.querySelectorAll('.focus-btn').forEach(b => b.remove());
     focusContent.querySelectorAll('.struct-graph').forEach(g => {
+      g.innerHTML = '';
+      delete g._cy;
+      g.removeAttribute('style');
       g.id = 'focus-' + g.id;
       setTimeout(() => {
         if (typeof cytoscape !== 'undefined') {
