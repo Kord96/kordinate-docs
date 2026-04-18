@@ -16,7 +16,7 @@ spec:
       containers:
       - name: docs
         image: localhost:30500/docs:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
         - -c
@@ -61,7 +61,7 @@ spec:
         workingDir: /app
       - name: docs-api
         image: localhost:30500/docs:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
         - -c
