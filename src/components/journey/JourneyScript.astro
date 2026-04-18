@@ -192,10 +192,24 @@
 
     const elements = [];
     data.nodes.forEach(n => {
-      elements.push({ group: 'nodes', data: { id: n.id, label: n.name, nodeType: n.type, ...n } });
+      elements.push({ group: 'nodes', data: { id: n.id, label: n.name, nodeType: n.type, childCount: (n.children || []).length, ...n } });
     });
     data.edges.forEach(e => {
-      elements.push({ group: 'edges', data: { source: e.from, target: e.to, label: e.label || '' } });
+      elements.push({ group: 'edges', data: { source: e.from, target: e.to, label: e.label || '', edgeKind: 'explicit' } });
+    });
+    data.nodes.forEach(n => {
+      (n.children || []).forEach(childId => {
+        if (!data.nodes.some(candidate => candidate.id === childId)) return;
+        elements.push({
+          group: 'edges',
+          data: {
+            source: n.id,
+            target: childId,
+            label: 'contains',
+            edgeKind: 'contains',
+          }
+        });
+      });
     });
 
     container._cy = null;
@@ -225,6 +239,14 @@
           'text-margin-y': -8,
           'transition-property': 'opacity, width, line-color, target-arrow-color',
           'transition-duration': '0.2s',
+        }},
+        { selector: 'edge[edgeKind = "contains"]', style: {
+          'line-style': 'dashed',
+          'line-color': 'rgba(196,181,253,0.45)',
+          'target-arrow-color': 'rgba(196,181,253,0.45)',
+          'target-arrow-shape': 'none',
+          'width': 1.8,
+          'color': 'rgba(228,228,231,0.75)',
         }},
         { selector: 'node.selected', style: { 'border-width': 2.5, 'border-opacity': 1, 'overlay-color': '#818cf8', 'overlay-padding': 8, 'overlay-opacity': 0.12 }},
         { selector: 'edge.highlighted', style: { 'width': 2.5, 'line-color': 'rgba(129,140,248,0.6)', 'target-arrow-color': 'rgba(129,140,248,0.6)', 'color': 'rgba(255,255,255,0.8)' }},
@@ -261,9 +283,12 @@
       n.removeClass('dimmed').addClass('hovered');
       neighbors.removeClass('dimmed');
       connected.removeClass('dimmed').addClass('hover-connected');
+      const childCount = Number(n.data('childCount') || 0);
       const desc = n.data('description') || n.data('role') || n.data('nodeType') || '';
       if (desc) {
-        graphTooltip.innerHTML = '<strong style="color:#c4b5fd">' + n.data('label') + '</strong><br>' + desc;
+        graphTooltip.innerHTML = '<strong style="color:#c4b5fd">' + n.data('label') + '</strong>'
+          + (childCount ? '<br><span style="color:#a1a1aa">contains ' + childCount + ' subcomponent' + (childCount === 1 ? '' : 's') + '</span>' : '')
+          + '<br>' + desc;
         graphTooltip.style.opacity = '1';
       }
     });

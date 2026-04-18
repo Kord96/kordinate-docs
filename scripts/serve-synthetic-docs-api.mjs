@@ -11,6 +11,23 @@ const kordApiKey = (process.env.KORD_API_KEY || process.env.KORD_API_KEYS || '')
 const sourceMode = process.env.DOCS_SOURCE_MODE || 'hybrid';
 const port = Number(process.env.SYNTHETIC_DOCS_PORT || 4010);
 
+function slugFromParts(owner, repo) {
+  return owner && repo ? `${owner}--${repo}` : owner || repo || '';
+}
+
+function resolveProjectPath(parts, startIndex = 1) {
+  if (parts[startIndex] && parts[startIndex + 1] && !['current', 'analyses', 'overlays'].includes(parts[startIndex + 1])) {
+    return {
+      project: slugFromParts(parts[startIndex], parts[startIndex + 1]),
+      nextIndex: startIndex + 2,
+    };
+  }
+  return {
+    project: parts[startIndex],
+    nextIndex: startIndex + 1,
+  };
+}
+
 function sendJson(res, status, payload) {
   const body = JSON.stringify(payload, null, 2);
   res.writeHead(status, {
@@ -305,26 +322,30 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && parts.length === 1 && parts[0] === 'projects') {
       return await handleProjects(req, res);
     }
-    if (req.method === 'GET' && parts.length === 2 && parts[0] === 'projects') {
-      return await handleProject(req, res, parts[1]);
-    }
-    if (req.method === 'GET' && parts.length === 3 && parts[0] === 'projects' && parts[2] === 'current') {
-      return await handleProjectCurrent(req, res, parts[1]);
-    }
-    if (req.method === 'GET' && parts.length === 3 && parts[0] === 'projects' && parts[2] === 'analyses') {
-      return await handleProjectAnalyses(req, res, parts[1]);
-    }
-    if (req.method === 'GET' && parts.length === 4 && parts[0] === 'projects' && parts[2] === 'analyses') {
-      return await handleProjectAnalysis(req, res, parts[1], parts[3]);
-    }
-    if (req.method === 'GET' && parts.length === 5 && parts[0] === 'projects' && parts[2] === 'analyses' && parts[4] === 'view') {
-      return await handleProjectAnalysisView(req, res, parts[1], parts[3], url);
-    }
-    if (req.method === 'GET' && parts.length === 3 && parts[0] === 'projects' && parts[2] === 'overlays') {
-      return handleProjectOverlays(req, res, parts[1]);
-    }
-    if (req.method === 'GET' && parts.length === 4 && parts[0] === 'projects' && parts[2] === 'overlays') {
-      return handleProjectOverlay(req, res, parts[1], parts[3]);
+    if (req.method === 'GET' && parts[0] === 'projects' && parts.length >= 2) {
+      const { project, nextIndex } = resolveProjectPath(parts, 1);
+      if (!project) return sendJson(res, 404, { error: 'project_not_found' });
+      if (parts.length === nextIndex) {
+        return await handleProject(req, res, project);
+      }
+      if (parts.length === nextIndex + 1 && parts[nextIndex] === 'current') {
+        return await handleProjectCurrent(req, res, project);
+      }
+      if (parts.length === nextIndex + 1 && parts[nextIndex] === 'analyses') {
+        return await handleProjectAnalyses(req, res, project);
+      }
+      if (parts.length === nextIndex + 2 && parts[nextIndex] === 'analyses') {
+        return await handleProjectAnalysis(req, res, project, parts[nextIndex + 1]);
+      }
+      if (parts.length === nextIndex + 3 && parts[nextIndex] === 'analyses' && parts[nextIndex + 2] === 'view') {
+        return await handleProjectAnalysisView(req, res, project, parts[nextIndex + 1], url);
+      }
+      if (parts.length === nextIndex + 1 && parts[nextIndex] === 'overlays') {
+        return handleProjectOverlays(req, res, project);
+      }
+      if (parts.length === nextIndex + 2 && parts[nextIndex] === 'overlays') {
+        return handleProjectOverlay(req, res, project, parts[nextIndex + 1]);
+      }
     }
     return sendJson(res, 404, { error: 'not_found' });
   } catch (error) {

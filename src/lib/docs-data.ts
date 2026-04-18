@@ -33,6 +33,18 @@ export function projectRoutePath(project: string) {
   return `/${project}/`;
 }
 
+export function projectApiPath(project: string) {
+  const { owner, repo } = splitProjectSlug(project);
+  if (owner && repo) return `/projects/${owner}/${repo}`;
+  return `/projects/${project}`;
+}
+
+export function projectApiPathCandidates(project: string) {
+  const canonical = projectApiPath(project);
+  const legacy = `/projects/${project}`;
+  return canonical === legacy ? [canonical] : [canonical, legacy];
+}
+
 export function projectAtlasRoutePath(project: string) {
   return `${projectRoutePath(project)}atlas/`;
 }
@@ -209,8 +221,23 @@ async function fetchJson(url: string) {
   return response.json();
 }
 
+async function fetchJsonWithFallback(urls: string[]) {
+  let lastError: unknown = null;
+  for (const url of urls) {
+    try {
+      return await fetchJson(url);
+    } catch (error: any) {
+      lastError = error;
+      if (!String(error?.message || '').includes('404')) throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('All fetch attempts failed');
+}
+
 async function fetchProjectCurrent(project: string): Promise<ProjectCurrentView> {
-  return fetchJson(`${remoteBaseUrl}/projects/${project}/current`);
+  return fetchJsonWithFallback(
+    projectApiPathCandidates(project).map((basePath) => `${remoteBaseUrl}${basePath}/current`),
+  );
 }
 
 export async function getProjectIndex(): Promise<ProjectSummary[]> {
@@ -263,7 +290,9 @@ function normalizeAnalysisSummary(item: any): AnalysisSummary | null {
 }
 
 export async function getProjectAnalyses(project: string): Promise<AnalysisSummary[]> {
-  const payload = await fetchJson(`${remoteBaseUrl}/projects/${project}/analyses`);
+  const payload = await fetchJsonWithFallback(
+    projectApiPathCandidates(project).map((basePath) => `${remoteBaseUrl}${basePath}/analyses`),
+  );
   if (!Array.isArray(payload)) return [];
 
   return payload
@@ -272,10 +301,12 @@ export async function getProjectAnalyses(project: string): Promise<AnalysisSumma
 }
 
 export async function getProjectAnalysisBundle(project: string, analysisId: string, overlayId?: string | null): Promise<ProjectBundle> {
-  const url = new URL(`${remoteBaseUrl}/projects/${project}/analyses/${analysisId}/view`);
-  if (overlayId) url.searchParams.set('overlayId', overlayId);
-
-  const view = await fetchJson(url.toString());
+  const urls = projectApiPathCandidates(project).map((basePath) => {
+    const url = new URL(`${remoteBaseUrl}${basePath}/analyses/${analysisId}/view`);
+    if (overlayId) url.searchParams.set('overlayId', overlayId);
+    return url.toString();
+  });
+  const view = await fetchJsonWithFallback(urls);
   const atlas = view?.atlas || {};
   const stories = Array.isArray(view?.stories) ? view.stories : [];
   const narratives = normalizeNarratives(view?.narratives);
