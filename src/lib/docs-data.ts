@@ -13,6 +13,42 @@ export interface ProjectSummary {
   currentOverlayId?: string | null;
 }
 
+export function splitProjectSlug(project: string) {
+  const candidate = (project || '').trim();
+  const parts = candidate.split('--');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return { owner: parts[0], repo: parts[1] };
+  }
+  return { owner: '', repo: candidate };
+}
+
+export function slugFromRouteParts(owner?: string | null, repo?: string | null) {
+  if (owner && repo) return `${owner}--${repo}`;
+  return repo || owner || '';
+}
+
+export function projectRoutePath(project: string) {
+  const { owner, repo } = splitProjectSlug(project);
+  if (owner && repo) return `/${owner}/${repo}/`;
+  return `/${project}/`;
+}
+
+export function projectAtlasRoutePath(project: string) {
+  return `${projectRoutePath(project)}atlas/`;
+}
+
+export function projectAnalysesRoutePath(project: string) {
+  return `${projectRoutePath(project)}analyses/`;
+}
+
+export function projectAnalysisRoutePath(project: string, analysisId: string) {
+  return `${projectAnalysesRoutePath(project)}${analysisId}/`;
+}
+
+export function projectAnalysisAtlasRoutePath(project: string, analysisId: string) {
+  return `${projectAnalysisRoutePath(project, analysisId)}atlas/`;
+}
+
 export function displayProjectTitle(project: string, title?: string | null) {
   const candidate = (title || project || '').trim();
   if (!candidate) return project;

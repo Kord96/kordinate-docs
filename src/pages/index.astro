@@ -1,5 +1,5 @@
 ---
-import { getProjectIndex } from '../lib/docs-data';
+import { getProjectIndex, projectRoutePath } from '../lib/docs-data';
 
 const projects = await getProjectIndex();
 const fallback = projects[0]?.slug;
@@ -8,5 +8,5 @@ if (!fallback) {
   throw new Error('No projects available for docs redirect.');
 }
 
-return Astro.redirect(`/${fallback}/`);
+return Astro.redirect(projectRoutePath(fallback));
 ---

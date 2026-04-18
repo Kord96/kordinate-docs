@@ -1,17 +1,5 @@
 ---
-import Base from '../../../../layouts/Base.astro';
-import Header from '../../../../components/Header.astro';
-import PageNav from '../../../../components/PageNav.astro';
-import JourneyStyles from '../../../../components/journey/JourneyStyles.astro';
-import JourneyNav from '../../../../components/journey/JourneyNav.astro';
-import LandingSection from '../../../../components/journey/LandingSection.astro';
-import OverviewSection from '../../../../components/journey/OverviewSection.astro';
-import StorySection from '../../../../components/journey/StorySection.astro';
-import FocusOverlay from '../../../../components/journey/FocusOverlay.astro';
-import Drawer from '../../../../components/journey/Drawer.astro';
-import JourneyData from '../../../../components/journey/JourneyData.astro';
-import JourneyScript from '../../../../components/journey/JourneyScript.astro';
-import { getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex } from '../../../../lib/docs-data';
+import { getProjectAnalyses, getProjectIndex, projectAnalysisRoutePath } from '../../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
@@ -23,73 +11,5 @@ export async function getStaticPaths() {
 }
 
 const { project, analysis } = Astro.params;
-const { atlas, storyByNode, journeys, storyMap, analysisId } = await getProjectAnalysisBundle(project, analysis);
-
-const defaultJourney = journeys.find((j: any) => j.id === 'getting-started') || journeys[0] || { id: 'default', title: 'Journey', stories: [] };
-const journeyData: Record<string, { stories: any[]; bridgeMap: Record<string, any>; total: number }> = {};
-for (const j of journeys) {
-  const jStories = (j.stories || []).map((sid: string) => storyMap[sid]).filter(Boolean);
-  const jBridges: Record<string, any> = {};
-  for (const b of (j.bridges || [])) {
-    if (b && typeof b === 'object') jBridges[b.to] = b;
-  }
-  journeyData[j.id] = { stories: jStories, bridgeMap: jBridges, total: jStories.length };
-}
-
-const stories = journeyData[defaultJourney.id]?.stories || [];
-const compMap: Record<string, any> = {};
-for (const c of (atlas.components || [])) compMap[c.id] = c;
-for (const e of (atlas.external_dependencies || [])) compMap[e.id] = e;
-
-function parseSummary(text: string): string {
-  return text
-    .replace(/\*\*([^*]+?)\*\*/gs, (_: string, name: string) =>
-      `<span class="ref" data-id="${name.toLowerCase().replace(/\s+/g, '-')}">${name}</span>`)
-    .replace(/\n\n/g, '<br><br>')
-    .replace(/\n/g, ' ');
-}
+return Astro.redirect(projectAnalysisRoutePath(project, analysis));
 ---
-
-<Base title={`${defaultJourney.title} — ${analysisId}`}>
-  <JourneyStyles />
-  <Header project={atlas.project || project} currentProject={project} badge="snapshot" />
-  <PageNav tabs={[
-    { label: 'Journey', href: `/${project}/analyses/${analysis}/`, active: true },
-    { label: 'Atlas', href: `/${project}/analyses/${analysis}/atlas/` },
-    { label: 'History', href: `/${project}/analyses/` },
-  ]} />
-
-  <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
-  <LandingSection
-    project={`${atlas.project || project} · ${analysisId}`}
-    purpose={atlas.purpose || ''}
-    journeys={journeys}
-    defaultJourney={defaultJourney}
-    totalStories={stories.length}
-    domainModel={atlas.domain_model}
-    componentCount={atlas.components?.length}
-    flowCount={atlas.flows?.length}
-  />
-  <OverviewSection atlas={atlas} journeys={journeys} defaultJourney={defaultJourney} storyByNode={storyByNode} />
-  {journeys.map((journey: any) => {
-    const jd = journeyData[journey.id];
-    const isDefault = journey.id === defaultJourney.id;
-    return jd.stories.map((story: any, i: number) => (
-      <StorySection
-        story={story}
-        index={i}
-        total={jd.total}
-        journeyId={journey.id}
-        isDefault={isDefault}
-        bridge={jd.bridgeMap[story.id]}
-        compMap={compMap}
-        storyByNode={storyByNode}
-        parseSummary={parseSummary}
-      />
-    ));
-  })}
-  <FocusOverlay />
-  <JourneyData atlas={atlas} storyByNode={storyByNode} />
-  <Drawer project={atlas.project || project} />
-  <JourneyScript />
-</Base>

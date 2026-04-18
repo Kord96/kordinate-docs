@@ -1,0 +1,76 @@
+---
+interface Props { metadata: any; components?: any[]; flows?: any[]; state?: any[]; extDeps?: any[]; }
+const { metadata = {}, components = [], flows = [], state = [], extDeps = [] } = Astro.props;
+
+const frameworks = Array.isArray(metadata.frameworks) ? metadata.frameworks : [];
+const technologies = Array.isArray(metadata.technologies) ? metadata.technologies : [];
+const languages = Array.isArray(metadata.languages) ? metadata.languages : [];
+const affected = Array.isArray(metadata.affected_components) ? metadata.affected_components : [];
+---
+
+<div class="section" id="sec-atlas-overview">
+  <h2 class="section-title">Atlas Overview</h2>
+  <p class="section-sub">Execution stack, scope, and what this atlas currently covers.</p>
+
+  <div class="root-summary-grid">
+    <div class="summary-block">
+      <div class="summary-label">Coverage</div>
+      <div class="summary-bullets">
+        <div>{components.length} components</div>
+        <div>{flows.length} flows</div>
+        <div>{state.length} state entries</div>
+        <div>{extDeps.length} external dependencies</div>
+      </div>
+    </div>
+
+    {metadata.stack_summary && (
+      <div class="summary-block">
+        <div class="summary-label">Stack Summary</div>
+        <div class="signal-text">{metadata.stack_summary}</div>
+      </div>
+    )}
+
+    {languages.length > 0 && (
+      <div class="summary-block">
+        <div class="summary-label">Languages</div>
+        <div class="summary-list">
+          {languages.map((language: string) => <span class="summary-pill">{language}</span>)}
+        </div>
+      </div>
+    )}
+
+    {frameworks.length > 0 && (
+      <div class="summary-block">
+        <div class="summary-label">Frameworks</div>
+        <div class="signal-list">
+          {frameworks.map((framework: any) => (
+            <div class="signal-item">
+              <div class="signal-title">{framework.name}</div>
+              <div class="signal-text">
+                {[framework.language, framework.framework_kind, framework.scope, framework.status].filter(Boolean).join(' · ')}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {technologies.length > 0 && (
+      <div class="summary-block">
+        <div class="summary-label">Technologies</div>
+        <div class="summary-list">
+          {technologies.map((technology: string) => <span class="summary-pill">{technology}</span>)}
+        </div>
+      </div>
+    )}
+
+    {affected.length > 0 && (
+      <div class="summary-block">
+        <div class="summary-label">Affected Components</div>
+        <div class="summary-list">
+          {affected.map((componentId: string) => <a href={`#card-${componentId}`} class="summary-link">{componentId}</a>)}
+        </div>
+      </div>
+    )}
+  </div>
+</div>

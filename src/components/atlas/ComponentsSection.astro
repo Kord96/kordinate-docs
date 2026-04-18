@@ -20,6 +20,11 @@ function groundedRefs(component: any) {
   const values = component?.grounded_in || component?.modules || [];
   return Array.isArray(values) ? values.slice(0, 4) : [];
 }
+
+function severityLabel(severity?: string) {
+  if (!severity) return null;
+  return severity.toUpperCase();
+}
 ---
 
 <div class="section" id="components-section">
@@ -37,7 +42,13 @@ function groundedRefs(component: any) {
       <section class="component-root" id={`card-${root.id}`}>
         <div class="group-header">
           <div class="group-name-row">
-            <div class="group-name">{root.name}</div>
+            <div class="group-name-block">
+              <div class="group-name">{root.name}</div>
+              <div class="group-kicker">
+                Top-level component
+                {children.length > 0 ? ` · ${children.length} subcomponent${children.length === 1 ? '' : 's'}` : ' · standalone'}
+              </div>
+            </div>
             <div class="group-pill">{root.type}</div>
           </div>
           <div class="group-desc">{root.description}</div>
@@ -91,8 +102,21 @@ function groundedRefs(component: any) {
                 <div class="signal-list">
                   {failureModes.map((failure: any) => (
                     <div class="signal-item">
-                      <div class="signal-title">{failure.id}</div>
+                      <div class="signal-title">
+                        {failure.id}
+                        {failure.severity && <span class="signal-severity"> · {severityLabel(failure.severity)}</span>}
+                      </div>
                       <div class="signal-text">{failure.trigger}</div>
+                      {failure.signals && failure.signals.length > 0 && (
+                        <div class="card-meta">
+                          {failure.signals.map((signal: string) => <span class="card-tag">{signal}</span>)}
+                        </div>
+                      )}
+                      {failure.recovery && failure.recovery.length > 0 && (
+                        <ul class="summary-bullets">
+                          {failure.recovery.map((step: string) => <li>{step}</li>)}
+                        </ul>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -112,7 +136,7 @@ function groundedRefs(component: any) {
 
         {children.length > 0 ? (
           <div class="component-children">
-            <div class="children-title">Subcomponents</div>
+            <div class="children-title">Subcomponents ({children.length})</div>
             <div class="card-grid">
               {children.map((child: any) => {
                 const childDependencies = linkedComponents(child.depends_on || []);
@@ -169,11 +193,27 @@ function groundedRefs(component: any) {
                       <div class="meta-block">
                         <div class="meta-label">Health</div>
                         {childFailures.length > 0 && (
-                          <ul class="summary-bullets">
+                          <div class="signal-list">
                             {childFailures.slice(0, 2).map((failure: any) => (
-                              <li><strong>{failure.id}:</strong> {failure.trigger}</li>
+                              <div class="signal-item">
+                                <div class="signal-title">
+                                  {failure.id}
+                                  {failure.severity && <span class="signal-severity"> · {severityLabel(failure.severity)}</span>}
+                                </div>
+                                <div class="signal-text">{failure.trigger}</div>
+                                {failure.signals && failure.signals.length > 0 && (
+                                  <div class="card-meta">
+                                    {failure.signals.slice(0, 4).map((signal: string) => <span class="card-tag">{signal}</span>)}
+                                  </div>
+                                )}
+                                {failure.recovery && failure.recovery.length > 0 && (
+                                  <ul class="summary-bullets">
+                                    {failure.recovery.slice(0, 2).map((step: string) => <li>{step}</li>)}
+                                  </ul>
+                                )}
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                         )}
                         {childGaps.length > 0 && (
                           <ul class="summary-bullets">
@@ -198,7 +238,7 @@ function groundedRefs(component: any) {
           </div>
         ) : (
           <div class="component-children">
-            <div class="children-title">This is a standalone top-level component.</div>
+            <div class="children-title">This top-level component has no subcomponents.</div>
           </div>
         )}
       </section>

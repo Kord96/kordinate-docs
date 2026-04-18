@@ -1,0 +1,93 @@
+---
+import Base from '../../../../../../layouts/Base.astro';
+import Header from '../../../../../../components/Header.astro';
+import PageNav from '../../../../../../components/PageNav.astro';
+import PillNav from '../../../../../../components/PillNav.astro';
+import AtlasStyles from '../../../../../../components/atlas/AtlasStyles.astro';
+import MetadataSection from '../../../../../../components/atlas/MetadataSection.astro';
+import ArchGraphSection from '../../../../../../components/atlas/ArchGraphSection.astro';
+import ComponentsSection from '../../../../../../components/atlas/ComponentsSection.astro';
+import FlowsSection from '../../../../../../components/atlas/FlowsSection.astro';
+import StateSection from '../../../../../../components/atlas/StateSection.astro';
+import ExternalDepsSection from '../../../../../../components/atlas/ExternalDepsSection.astro';
+import PatternsSection from '../../../../../../components/atlas/PatternsSection.astro';
+import TensionsSection from '../../../../../../components/atlas/TensionsSection.astro';
+import { displayProjectTitle, getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex, projectAnalysesRoutePath, projectAnalysisAtlasRoutePath, projectAnalysisRoutePath, slugFromRouteParts } from '../../../../../../lib/docs-data';
+
+export async function getStaticPaths() {
+  const projects = await getProjectIndex();
+  const paths = await Promise.all(projects.map(async ({ slug }) => {
+    const analyses = await getProjectAnalyses(slug);
+    const [owner, repo] = slug.split('--');
+    return analyses.map((analysis) => ({ params: { owner, repo, analysis: analysis.analysisId } }));
+  }));
+  return paths.flat();
+}
+
+const { owner, repo, analysis } = Astro.params;
+const project = slugFromRouteParts(owner, repo);
+const { atlas, analysisId } = await getProjectAnalysisBundle(project, analysis);
+
+const metadata = atlas.metadata || {};
+const components = atlas.components || [];
+const flows = atlas.flows || [];
+const stateEntries = atlas.state || [];
+const extDeps = atlas.external_dependencies || [];
+const dm = atlas.domain_model || {};
+const concepts = atlas.concepts || {};
+const tensions = atlas.tensions || [];
+
+function severity(s: string) {
+  const colors: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#22c55e' };
+  return colors[s] || '#64748b';
+}
+---
+
+<Base title={`${displayProjectTitle(project, atlas.project)} — Atlas Snapshot`}>
+  <AtlasStyles />
+  <Header project={`${atlas.project} · ${analysisId}`} currentProject={project} badge="snapshot" position="sticky" />
+  <PageNav tabs={[
+    { label: 'Journey', href: projectAnalysisRoutePath(project, analysis) },
+    { label: 'Atlas', href: projectAnalysisAtlasRoutePath(project, analysis), active: true },
+    { label: 'History', href: projectAnalysesRoutePath(project) },
+  ]} />
+
+  <div class="container">
+    <div class="section" id="sec-overview">
+      <h1 class="section-title">{displayProjectTitle(project, atlas.project)}</h1>
+      <p class="section-sub">{atlas.purpose}</p>
+      {dm.primary && (
+        <div>
+          <div class="dm-badge">◆ {dm.primary}</div>
+          {dm.description && <p style="font-size: .82rem; color: var(--text-2); margin-bottom: .5rem;">{dm.description}</p>}
+          {dm.entities && (
+            <div class="dm-entities">
+              {dm.entities.map((e: string) => <span class="dm-entity">{e}</span>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+
+    <MetadataSection metadata={metadata} components={components} flows={flows} state={stateEntries} extDeps={extDeps} />
+    <ArchGraphSection components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} />
+    <ComponentsSection components={components} />
+    <FlowsSection flows={flows} components={components} />
+    <StateSection stateEntries={stateEntries} components={components} />
+    <ExternalDepsSection extDeps={extDeps} severity={severity} />
+    <PatternsSection concepts={concepts} debt={{}} severity={severity} components={components} flows={flows} />
+    <TensionsSection tensions={tensions} components={components} />
+  </div>
+
+  <PillNav sections={[
+    { id: 'sec-overview', label: 'Overview' },
+    { id: 'sec-atlas-overview', label: 'Stack' },
+    { id: 'sec-graph', label: 'Graph' },
+    { id: 'components-section', label: 'Components' },
+    { id: 'sec-flows', label: 'Flows' },
+    { id: 'sec-state', label: 'State' },
+    { id: 'sec-external', label: 'External' },
+    { id: 'sec-patterns', label: 'Patterns' },
+    { id: 'sec-tensions', label: 'Tensions' },
+  ]} />
+</Base>

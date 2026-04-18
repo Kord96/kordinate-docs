@@ -5,7 +5,7 @@ const { extDeps, severity } = Astro.props;
 
 <div class="section" id="sec-external">
   <h2 class="section-title">External Dependencies</h2>
-  <p class="section-sub">{extDeps.length} external dependencies</p>
+  <p class="section-sub">{extDeps.length} external systems and what the atlas says about their operational risk</p>
   <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem 1rem;">
     {extDeps.map((e: any) => (
       <div class="dep">
@@ -21,6 +21,40 @@ const { extDeps, severity } = Astro.props;
           </div>
         )}
         {e.purpose && <p class="dep-purpose">{e.purpose}</p>}
+
+        {(e.health?.failure_modes?.length > 0 || e.health?.gaps?.length > 0) && (
+          <div class="meta-block">
+            <div class="meta-label">Monitoring &amp; Health</div>
+            {e.health?.failure_modes?.length > 0 && (
+              <div class="signal-list">
+                {e.health.failure_modes.map((failure: any) => (
+                  <div class="signal-item">
+                    <div class="signal-title">
+                      {failure.id}
+                      {failure.severity && <span class="signal-severity"> · {String(failure.severity).toUpperCase()}</span>}
+                    </div>
+                    <div class="signal-text">{failure.trigger}</div>
+                    {failure.signals && failure.signals.length > 0 && (
+                      <div class="card-meta">
+                        {failure.signals.map((signal: string) => <span class="card-tag">{signal}</span>)}
+                      </div>
+                    )}
+                    {failure.recovery && failure.recovery.length > 0 && (
+                      <ul class="summary-bullets">
+                        {failure.recovery.map((step: string) => <li>{step}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {e.health?.gaps?.length > 0 && (
+              <ul class="summary-bullets">
+                {e.health.gaps.map((gap: string) => <li>{gap}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
     ))}
   </div>

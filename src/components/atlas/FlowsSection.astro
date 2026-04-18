@@ -71,12 +71,20 @@ function componentLabel(id: string) {
               <div class="signal-list">
                 {failureModes.map((failure: any) => (
                   <div class="signal-item">
-                    <div class="signal-title">{failure.id}</div>
+                    <div class="signal-title">
+                      {failure.id}
+                      {failure.severity && <span class="signal-severity"> · {String(failure.severity).toUpperCase()}</span>}
+                    </div>
                     <div class="signal-text">{failure.trigger}</div>
                     {failure.signals && failure.signals.length > 0 && (
                       <div class="card-meta">
                         {failure.signals.map((signal: string) => <span class="card-tag">{signal}</span>)}
                       </div>
+                    )}
+                    {failure.recovery && failure.recovery.length > 0 && (
+                      <ul class="summary-bullets">
+                        {failure.recovery.map((step: string) => <li>{step}</li>)}
+                      </ul>
                     )}
                   </div>
                 ))}
