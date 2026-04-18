@@ -1,11 +1,18 @@
 ---
-interface Props { concepts: any; debt: any; severity: (s: string) => string; }
-const { concepts, debt, severity } = Astro.props;
+interface Props { concepts: any; debt: any; severity: (s: string) => string; components?: any[]; flows?: any[]; }
+const { concepts, debt, severity, components = [], flows = [] } = Astro.props;
 
 const patterns = concepts.detected_patterns || [];
 const antiPatterns = concepts.detected_anti_patterns || [];
 const gaps = concepts.gaps || [];
 const recommendations = debt?.recommendations || [];
+
+const componentNames = new Map<string, string>(
+  components.filter((component: any) => component?.id).map((component: any) => [component.id, component.name || component.id]),
+);
+const flowNames = new Map<string, string>(
+  flows.filter((flow: any) => flow?.id).map((flow: any) => [flow.id, flow.name || flow.id]),
+);
 
 function gradeColor(grade: string): string {
   return grade === 'A' ? '#22c55e' : grade === 'B' ? '#f59e0b' : '#ef4444';
@@ -43,9 +50,25 @@ function gradeColor(grade: string): string {
               <span style="font-size: .6rem; text-transform: uppercase; background: #22c55e15; color: #22c55e; padding: .1rem .3rem; border-radius: 3px; font-weight: 500;">{p.category}</span>
               {p.confidence && <span style="font-size: .6rem; color: var(--text-4);">{p.confidence}</span>}
             </div>
+            {p.summary && <div style="font-size: .78rem; color: var(--text-2); line-height: 1.45; margin-bottom: .35rem;">{p.summary}</div>}
+            {p.why_it_matters && <div style="font-size: .74rem; color: var(--text-3); line-height: 1.45; margin-bottom: .35rem;">{p.why_it_matters}</div>}
             {p.components && p.components.length > 0 && (
-              <div style="font-size: .7rem; color: var(--accent); margin-bottom: .3rem;">
-                In: {p.components.slice(0, 3).join(', ')}{p.components.length > 3 ? ` +${p.components.length - 3}` : ''}
+              <div style="font-size: .7rem; color: var(--accent); margin-bottom: .3rem; display: flex; gap: .3rem; flex-wrap: wrap;">
+                {p.components.slice(0, 4).map((componentId: string) => (
+                  <a href={`#card-${componentId}`} class="dep-comp-link" style="padding: .15rem .45rem;">
+                    {componentNames.get(componentId) || componentId}
+                  </a>
+                ))}
+                {p.components.length > 4 && <span style="font-size: .68rem; color: var(--text-4);">+{p.components.length - 4} more</span>}
+              </div>
+            )}
+            {p.flows && p.flows.length > 0 && (
+              <div style="font-size: .7rem; color: var(--accent); margin-bottom: .3rem; display: flex; gap: .3rem; flex-wrap: wrap;">
+                {p.flows.slice(0, 3).map((flowId: string) => (
+                  <a href={`#flow-${flowId}`} class="dep-comp-link" style="padding: .15rem .45rem;">
+                    {flowNames.get(flowId) || flowId}
+                  </a>
+                ))}
               </div>
             )}
             {p.evidence?.note && <div style="font-size: .75rem; color: var(--text-3); line-height: 1.4;">{p.evidence.note}</div>}
@@ -70,8 +93,12 @@ function gradeColor(grade: string): string {
               {ap.confidence && <span style="font-size: .6rem; color: var(--text-4);">{ap.confidence}</span>}
             </div>
             {ap.components && ap.components.length > 0 && (
-              <div style="font-size: .75rem; color: var(--text-2); margin-bottom: .3rem; font-weight: 500;">
-                Found in: {ap.components.join(', ')}
+              <div style="font-size: .75rem; color: var(--text-2); margin-bottom: .3rem; font-weight: 500; display: flex; gap: .3rem; flex-wrap: wrap;">
+                {ap.components.map((componentId: string) => (
+                  <a href={`#card-${componentId}`} class="dep-comp-link" style="padding: .15rem .45rem;">
+                    {componentNames.get(componentId) || componentId}
+                  </a>
+                ))}
               </div>
             )}
             {ap.evidence?.note && <div style="font-size: .75rem; color: var(--text-2); line-height: 1.4; margin-bottom: .3rem;">{ap.evidence.note}</div>}
@@ -96,7 +123,17 @@ function gradeColor(grade: string): string {
         {gaps.map((g: any) => (
           <div style="background: var(--bg-card); border: 1px solid var(--border); border-left: 2px solid #f59e0b; border-radius: var(--radius); padding: .75rem 1rem;">
             <div style="font-weight: 600; font-size: .85rem; margin-bottom: .3rem;">{g.id}</div>
+            {g.summary && <div style="font-size: .78rem; color: var(--text-2); line-height: 1.45; margin-bottom: .35rem;">{g.summary}</div>}
             {g.relevance && <div style="font-size: .78rem; color: var(--text-3); line-height: 1.5; margin-bottom: .4rem;">{g.relevance}</div>}
+            {g.components && g.components.length > 0 && (
+              <div style="display: flex; gap: .3rem; flex-wrap: wrap; margin-bottom: .4rem;">
+                {g.components.map((componentId: string) => (
+                  <a href={`#card-${componentId}`} class="dep-comp-link" style="padding: .15rem .45rem;">
+                    {componentNames.get(componentId) || componentId}
+                  </a>
+                ))}
+              </div>
+            )}
             {g.recommendation && (
               <div style="font-size: .75rem; color: var(--accent); padding: .4rem .6rem; background: var(--accent-dim); border-radius: 4px; border-left: 2px solid var(--accent);">
                 <div style="font-weight: 500; margin-bottom: .2rem;">Recommendation:</div>

@@ -1,15 +1,19 @@
 ---
 /**
  * Architecture graph section — Cytoscape interactive dependency map
- * with expand/collapse groups, hover tooltips, click for details, fullscreen.
+ * with expand/collapse roots, hover tooltips, click for details, fullscreen.
  */
-interface Props { groups: any[]; components: any[]; extDeps: any[]; patterns?: any[]; }
-const { groups, components, extDeps, patterns = [] } = Astro.props;
+interface Props { components: any[]; extDeps: any[]; patterns?: any[]; }
+const { components, extDeps, patterns = [] } = Astro.props;
+
+const rootComponents = components.filter((component: any) => !component.parent);
+const groupedRoots = rootComponents.filter((component: any) => Array.isArray(component.children) && component.children.length > 0);
+const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray(component.children) || component.children.length === 0);
 ---
 
 <div class="section" id="sec-graph">
   <h2 class="section-title">Architecture Graph</h2>
-  <p class="section-sub">Click nodes for details — groups expand/collapse, components show info panel</p>
+  <p class="section-sub">Click nodes for details — architecture roots expand or collapse into child components</p>
   <div class="graph-controls">
     <button class="graph-btn" id="btn-expand-all">Expand All</button>
     <button class="graph-btn" id="btn-collapse-all">Collapse All</button>
@@ -23,7 +27,6 @@ const { groups, components, extDeps, patterns = [] } = Astro.props;
       <div class="tt-type"></div>
       <div class="tt-desc"></div>
     </div>
-    <!-- Detail panel — shown on node click -->
     <div id="detail-panel" class="detail-panel">
       <button class="detail-close" id="detail-close">✕</button>
       <h3 class="detail-name"></h3>
@@ -78,7 +81,6 @@ const { groups, components, extDeps, patterns = [] } = Astro.props;
   .graph-btn-accent { color: #818cf8; border-color: rgba(129,140,248,0.3); }
   .graph-btn-accent:hover { background: rgba(129,140,248,0.1); }
 
-  /* Detail panel */
   .detail-panel {
     display: none;
     position: absolute;
@@ -108,22 +110,21 @@ const { groups, components, extDeps, patterns = [] } = Astro.props;
     background: rgba(129,140,248,0.15); color: #818cf8;
     margin-bottom: 0.6rem;
   }
-  .detail-desc { font-size: 0.75rem; color: #a1a1aa; line-height: 1.5; margin: 0.5rem 0; }
+  .detail-desc { font-size: 0.75rem; color: #d4d4d8; line-height: 1.5; margin: 0.5rem 0; }
   .detail-deps, .detail-patterns, .detail-files {
     margin-top: 0.6rem; font-size: 0.7rem;
   }
   .detail-deps h4, .detail-patterns h4, .detail-files h4 {
     font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
-    color: #71717a; margin: 0 0 0.3rem;
+    color: #a1a1aa; margin: 0 0 0.3rem;
   }
   .detail-deps ul, .detail-patterns ul, .detail-files ul {
     list-style: none; padding: 0; margin: 0;
   }
   .detail-deps li, .detail-patterns li, .detail-files li {
-    padding: 0.15rem 0; color: #d4d4d8;
+    padding: 0.15rem 0; color: #e4e4e7;
   }
 
-  /* Tooltip */
   #cy-tooltip {
     display: none; position: absolute; z-index: 50;
     background: rgba(18,18,24,0.95); border: 1px solid rgba(129,140,248,0.25);
@@ -131,13 +132,13 @@ const { groups, components, extDeps, patterns = [] } = Astro.props;
     max-width: 260px; backdrop-filter: blur(8px);
   }
   .tt-name { font-weight: 700; font-size: 0.8rem; color: #fff; }
-  .tt-type { font-size: 0.6rem; color: #818cf8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.15rem; }
-  .tt-desc { font-size: 0.7rem; color: #a1a1aa; margin-top: 0.3rem; line-height: 1.4; }
+  .tt-type { font-size: 0.6rem; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.15rem; }
+  .tt-desc { font-size: 0.7rem; color: #d4d4d8; margin-top: 0.3rem; line-height: 1.4; }
 
-  .graph-counter { font-size: 0.65rem; color: #52525b; margin-top: 0.5rem; text-align: right; }
+  .graph-counter { font-size: 0.65rem; color: #71717a; margin-top: 0.5rem; text-align: right; }
 </style>
 
-<script is:inline define:vars={{ groups, components, extDeps, patterns }}>
+<script is:inline define:vars={{ groupedRoots, standaloneRoots, components, extDeps, patterns }}>
 (function() {
   function loadScript(src) {
     return new Promise(function(resolve, reject) {
@@ -152,65 +153,106 @@ const { groups, components, extDeps, patterns = [] } = Astro.props;
     cli: '#64748b', scheduler: '#a855f7', external: '#ef4444'
   };
 
-  var totalNodes = components.length + groups.length + extDeps.length;
+  var totalNodes = components.length + extDeps.length;
   var expandedGroups = {};
+  var componentById = {};
+  components.forEach(function(component) { componentById[component.id] = component; });
+
+  function resolveVisibleNode(componentId) {
+    var component = componentById[componentId];
+    if (!component) return componentId;
+    if (component.parent && !expandedGroups[component.parent]) return component.parent;
+    return component.id;
+  }
 
   function buildElements() {
     var els = [], vis = new Set();
-    groups.forEach(function(g) {
-      var kids = components.filter(function(c) { return c.group === g.id; });
-      var expanded = !!expandedGroups[g.id];
-      var label = expanded ? g.name : g.name + '  [' + kids.length + ']';
-      vis.add(g.id);
-      els.push({ group: 'nodes', data: { id: g.id, label: label, nodeType: 'group', description: g.description || '', hasChildren: true, collapsed: !expanded }});
+    groupedRoots.forEach(function(root) {
+      var kids = (root.children || []).map(function(id) { return componentById[id]; }).filter(Boolean);
+      var expanded = !!expandedGroups[root.id];
+      var label = expanded ? root.name : root.name + '  [' + kids.length + ']';
+      vis.add(root.id);
+      els.push({ group: 'nodes', data: { id: root.id, label: label, nodeType: root.type || 'service', description: root.description || '', hasChildren: true, collapsed: !expanded }});
       if (expanded) {
-        kids.forEach(function(c) {
-          vis.add(c.id);
-          els.push({ group: 'nodes', data: { id: c.id, label: c.name, nodeType: c.type || 'worker', description: c.description || '', parent: g.id, hasChildren: false, collapsed: false }});
+        kids.forEach(function(component) {
+          vis.add(component.id);
+          els.push({ group: 'nodes', data: { id: component.id, label: component.name, nodeType: component.type || 'worker', description: component.description || '', parent: root.id, hasChildren: false, collapsed: false }});
         });
       }
     });
-    extDeps.forEach(function(e) {
-      vis.add(e.id);
-      els.push({ group: 'nodes', data: { id: e.id, label: e.name || e.id, nodeType: 'external', description: e.purpose || e.technology || '', hasChildren: false, collapsed: false }});
+    standaloneRoots.forEach(function(component) {
+      vis.add(component.id);
+      els.push({ group: 'nodes', data: { id: component.id, label: component.name, nodeType: component.type || 'worker', description: component.description || '', hasChildren: false, collapsed: false }});
     });
+    extDeps.forEach(function(dep) {
+      vis.add(dep.id);
+      els.push({ group: 'nodes', data: { id: dep.id, label: dep.name || dep.id, nodeType: 'external', description: dep.purpose || dep.technology || '', hasChildren: false, collapsed: false }});
+    });
+
     var edgeSet = {};
-    components.forEach(function(c) {
-      if (!c.depends_on) return;
-      c.depends_on.forEach(function(dep) {
-        var src = vis.has(c.id) ? c.id : c.group;
-        var tgt = vis.has(dep) ? dep : (function() { var dc = components.find(function(x) { return x.id === dep; }); return dc ? dc.group : dep; })();
+    components.forEach(function(component) {
+      if (!component.depends_on) return;
+      component.depends_on.forEach(function(depId) {
+        var src = resolveVisibleNode(component.id);
+        var tgt = vis.has(depId) ? depId : resolveVisibleNode(depId);
         if (!vis.has(src) || !vis.has(tgt) || src === tgt) return;
-        var ek = src + '->' + tgt;
-        if (edgeSet[ek]) return;
-        edgeSet[ek] = true;
-        var srcGroup = c.group;
-        var tgtComp = components.find(function(x) { return x.id === dep; });
-        var tgtGroup = tgtComp ? tgtComp.group : null;
-        var crossGroup = srcGroup !== tgtGroup;
+        var edgeKey = src + '->' + tgt;
+        if (edgeSet[edgeKey]) return;
+        edgeSet[edgeKey] = true;
+        var sourceGroup = component.parent;
+        var targetComponent = componentById[depId];
+        var targetGroup = targetComponent ? targetComponent.parent : null;
+        var crossGroup = sourceGroup !== targetGroup;
         els.push({ group: 'edges', data: { id: 'e-' + src + '-' + tgt, source: src, target: tgt, label: 'depends_on', edgeStyle: crossGroup ? 'dashed' : 'solid' }});
       });
     });
-    extDeps.forEach(function(e) {
-      if (!e.components) return;
-      var targets = {};
-      e.components.forEach(function(cid) {
-        var tgt = vis.has(cid) ? cid : (function() { var cc = components.find(function(x) { return x.id === cid; }); return cc ? cc.group : null; })();
-        if (!tgt || !vis.has(tgt) || targets[tgt]) return;
-        targets[tgt] = true;
-        els.push({ group: 'edges', data: { id: 'e-ext-' + e.id + '-' + tgt, source: tgt, target: e.id, label: 'uses', edgeStyle: 'dashed' }});
+
+    extDeps.forEach(function(dep) {
+      if (!dep.components) return;
+      var seenTargets = {};
+      dep.components.forEach(function(componentId) {
+        var tgt = resolveVisibleNode(componentId);
+        if (!tgt || !vis.has(tgt) || seenTargets[tgt]) return;
+        seenTargets[tgt] = true;
+        els.push({ group: 'edges', data: { id: 'e-ext-' + dep.id + '-' + tgt, source: tgt, target: dep.id, label: 'uses', edgeStyle: 'dashed' }});
       });
     });
+
     return { elements: els, visibleCount: vis.size };
   }
 
-  function updateCounter(n) { document.getElementById('graph-counter').textContent = 'Showing ' + n + ' of ' + totalNodes + ' nodes'; }
-
-  function runLayout(cy, animate) {
-    cy.layout({ name: 'cose-bilkent', quality: 'proof', nodeDimensionsIncludeLabels: true, idealEdgeLength: 160, nodeRepulsion: 15000, edgeElasticity: 0.4, nestingFactor: 0.12, gravity: 0.2, numIter: 2500, tile: true, tilingPaddingVertical: 16, tilingPaddingHorizontal: 16, animate: animate ? 'end' : false, animationDuration: animate ? 400 : 0, fit: true, padding: 60 }).run();
+  function updateCounter(count) {
+    document.getElementById('graph-counter').textContent = 'Showing ' + count + ' of ' + totalNodes + ' nodes';
   }
 
-  function rebuildGraph(cy, animate) { var result = buildElements(); cy.elements().remove(); cy.add(result.elements); updateCounter(result.visibleCount); runLayout(cy, animate); }
+  function runLayout(cy, animate) {
+    cy.layout({
+      name: 'cose-bilkent',
+      quality: 'proof',
+      nodeDimensionsIncludeLabels: true,
+      idealEdgeLength: 160,
+      nodeRepulsion: 15000,
+      edgeElasticity: 0.4,
+      nestingFactor: 0.12,
+      gravity: 0.2,
+      numIter: 2500,
+      tile: true,
+      tilingPaddingVertical: 16,
+      tilingPaddingHorizontal: 16,
+      animate: animate ? 'end' : false,
+      animationDuration: animate ? 400 : 0,
+      fit: true,
+      padding: 60
+    }).run();
+  }
+
+  function rebuildGraph(cy, animate) {
+    var result = buildElements();
+    cy.elements().remove();
+    cy.add(result.elements);
+    updateCounter(result.visibleCount);
+    runLayout(cy, animate);
+  }
 
   function showDetail(nodeId, nodeType) {
     var panel = document.getElementById('detail-panel');
@@ -221,64 +263,71 @@ const { groups, components, extDeps, patterns = [] } = Astro.props;
     var patsEl = panel.querySelector('.detail-patterns');
     var filesEl = panel.querySelector('.detail-files');
 
-    var comp = components.find(function(c) { return c.id === nodeId; });
-    var ext = extDeps.find(function(e) { return e.id === nodeId; });
-    var grp = groups.find(function(g) { return g.id === nodeId; });
-    var item = comp || ext || grp;
+    var component = componentById[nodeId];
+    var dep = extDeps.find(function(item) { return item.id === nodeId; });
+    var root = groupedRoots.find(function(item) { return item.id === nodeId; });
+    var item = component || dep || root;
     if (!item) return;
 
     nameEl.textContent = item.name || item.id;
     typeEl.textContent = nodeType;
     descEl.textContent = item.description || item.purpose || '';
 
-    // Dependencies
-    if (comp && comp.depends_on && comp.depends_on.length) {
-      depsEl.innerHTML = '<h4>Dependencies</h4><ul>' + comp.depends_on.map(function(d) {
-        var target = components.find(function(c) { return c.id === d; }) || extDeps.find(function(e) { return e.id === d; });
-        return '<li>→ ' + (target ? (target.name || target.id) : d) + '</li>';
+    if (component && component.depends_on && component.depends_on.length) {
+      depsEl.innerHTML = '<h4>Dependencies</h4><ul>' + component.depends_on.map(function(depId) {
+        var target = componentById[depId] || extDeps.find(function(item) { return item.id === depId; });
+        return '<li>→ ' + (target ? (target.name || target.id) : depId) + '</li>';
       }).join('') + '</ul>';
-    } else if (grp) {
-      var kids = components.filter(function(c) { return c.group === nodeId; });
-      depsEl.innerHTML = '<h4>Components (' + kids.length + ')</h4><ul>' + kids.map(function(k) {
-        return '<li>' + k.name + ' <span style="color:#71717a">(' + (k.type || 'worker') + ')</span></li>';
+    } else if (root) {
+      var kids = components.filter(function(item) { return item.parent === nodeId; });
+      depsEl.innerHTML = '<h4>Subcomponents (' + kids.length + ')</h4><ul>' + kids.map(function(kid) {
+        return '<li>' + kid.name + ' <span style="color:#a1a1aa">(' + (kid.type || 'worker') + ')</span></li>';
       }).join('') + '</ul>';
-    } else if (ext && ext.components) {
-      depsEl.innerHTML = '<h4>Used by</h4><ul>' + ext.components.map(function(cid) {
-        var c = components.find(function(x) { return x.id === cid; });
-        return '<li>' + (c ? c.name : cid) + '</li>';
+    } else if (dep && dep.components) {
+      depsEl.innerHTML = '<h4>Used by</h4><ul>' + dep.components.map(function(componentId) {
+        var comp = componentById[componentId];
+        return '<li>' + (comp ? comp.name : componentId) + '</li>';
       }).join('') + '</ul>';
     } else {
       depsEl.innerHTML = '';
     }
 
-    // Patterns on this component
-    if (comp && patterns.length) {
-      var compPats = patterns.filter(function(p) { return p.components && p.components.indexOf(nodeId) !== -1; });
-      if (compPats.length) {
-        patsEl.innerHTML = '<h4>Patterns</h4><ul>' + compPats.map(function(p) {
-          return '<li>◆ ' + p.id + ' <span style="color:#71717a">(' + (p.confidence || 'detected') + ')</span></li>';
+    if (component && patterns.length) {
+      var componentPatterns = patterns.filter(function(pattern) { return pattern.components && pattern.components.indexOf(nodeId) !== -1; });
+      if (componentPatterns.length) {
+        patsEl.innerHTML = '<h4>Patterns</h4><ul>' + componentPatterns.map(function(pattern) {
+          return '<li>◆ ' + pattern.id + ' <span style="color:#a1a1aa">(' + (pattern.confidence || 'detected') + ')</span></li>';
         }).join('') + '</ul>';
-      } else { patsEl.innerHTML = ''; }
-    } else { patsEl.innerHTML = ''; }
+      } else {
+        patsEl.innerHTML = '';
+      }
+    } else {
+      patsEl.innerHTML = '';
+    }
 
-    // Files
-    if (comp && comp.modules && comp.modules.length) {
-      var shown = comp.modules.slice(0, 5);
-      filesEl.innerHTML = '<h4>Files</h4><ul>' + shown.map(function(f) {
-        return '<li style="font-family:var(--sl-font-mono,monospace);font-size:0.65rem;color:#a1a1aa">' + f + '</li>';
-      }).join('') + (comp.modules.length > 5 ? '<li style="color:#52525b">+' + (comp.modules.length - 5) + ' more</li>' : '') + '</ul>';
-    } else { filesEl.innerHTML = ''; }
+    if (component && component.modules && component.modules.length) {
+      var shown = component.modules.slice(0, 5);
+      filesEl.innerHTML = '<h4>Files</h4><ul>' + shown.map(function(file) {
+        return '<li style="font-family:var(--sl-font-mono,monospace);font-size:0.65rem;color:#d4d4d8">' + file + '</li>';
+      }).join('') + (component.modules.length > 5 ? '<li style="color:#a1a1aa">+' + (component.modules.length - 5) + ' more</li>' : '') + '</ul>';
+    } else {
+      filesEl.innerHTML = '';
+    }
 
     panel.classList.add('visible');
   }
 
   function initGraph() {
     var cy = cytoscape({
-      container: document.getElementById('cy-container'), elements: [], minZoom: 0.2, maxZoom: 4, wheelSensitivity: 0.3,
+      container: document.getElementById('cy-container'),
+      elements: [],
+      minZoom: 0.2,
+      maxZoom: 4,
+      wheelSensitivity: 0.3,
       style: [
-        { selector: 'node[nodeType="group"][?collapsed]', style: { 'shape': 'roundrectangle', 'width': function(e) { return Math.max(180, 140 + e.data('label').length * 3); }, 'height': 56, 'background-color': 'rgba(129,140,248,0.08)', 'border-width': 2, 'border-style': 'dashed', 'border-color': 'rgba(129,140,248,0.35)', 'label': 'data(label)', 'color': '#ccc', 'font-size': '13px', 'font-weight': '600', 'text-halign': 'center', 'text-valign': 'center', 'text-wrap': 'wrap', 'text-max-width': '220px', 'font-family': 'Inter, sans-serif', 'overlay-opacity': 0 }},
-        { selector: 'node[nodeType="group"][!collapsed]', style: { 'shape': 'roundrectangle', 'background-color': 'rgba(42,42,78,0.5)', 'background-opacity': 1, 'border-width': 1.5, 'border-style': 'dashed', 'border-color': 'rgba(255,255,255,0.08)', 'label': 'data(label)', 'color': '#666', 'font-size': '12px', 'font-weight': '600', 'text-halign': 'center', 'text-valign': 'top', 'text-margin-y': -6, 'padding': '28px', 'compound-sizing-wrt-labels': 'include', 'text-wrap': 'wrap', 'text-max-width': '220px', 'font-family': 'Inter, sans-serif' }},
-        { selector: 'node[nodeType!="group"][nodeType!="external"]', style: { 'shape': 'roundrectangle', 'width': function(e) { return Math.max(140, 100 + e.data('label').length * 3.5); }, 'height': 44, 'background-color': function(e) { return TYPE_COLORS[e.data('nodeType')] || '#6366f1'; }, 'border-width': 0, 'label': 'data(label)', 'color': '#fff', 'font-size': '11px', 'font-weight': '500', 'text-halign': 'center', 'text-valign': 'center', 'text-wrap': 'wrap', 'text-max-width': '130px', 'font-family': 'Inter, sans-serif', 'overlay-opacity': 0 }},
+        { selector: 'node[?collapsed]', style: { 'shape': 'roundrectangle', 'width': function(e) { return Math.max(180, 140 + e.data('label').length * 3); }, 'height': 56, 'background-color': 'rgba(129,140,248,0.08)', 'border-width': 2, 'border-style': 'dashed', 'border-color': 'rgba(129,140,248,0.35)', 'label': 'data(label)', 'color': '#d4d4d8', 'font-size': '13px', 'font-weight': '600', 'text-halign': 'center', 'text-valign': 'center', 'text-wrap': 'wrap', 'text-max-width': '220px', 'font-family': 'Inter, sans-serif', 'overlay-opacity': 0 }},
+        { selector: 'node[!collapsed][hasChildren]', style: { 'shape': 'roundrectangle', 'background-color': 'rgba(42,42,78,0.5)', 'background-opacity': 1, 'border-width': 1.5, 'border-style': 'dashed', 'border-color': 'rgba(255,255,255,0.08)', 'label': 'data(label)', 'color': '#a1a1aa', 'font-size': '12px', 'font-weight': '600', 'text-halign': 'center', 'text-valign': 'top', 'text-margin-y': -6, 'padding': '28px', 'compound-sizing-wrt-labels': 'include', 'text-wrap': 'wrap', 'text-max-width': '220px', 'font-family': 'Inter, sans-serif' }},
+        { selector: 'node[nodeType!="external"][!hasChildren]', style: { 'shape': 'roundrectangle', 'width': function(e) { return Math.max(140, 100 + e.data('label').length * 3.5); }, 'height': 44, 'background-color': function(e) { return TYPE_COLORS[e.data('nodeType')] || '#6366f1'; }, 'border-width': 0, 'label': 'data(label)', 'color': '#fff', 'font-size': '11px', 'font-weight': '500', 'text-halign': 'center', 'text-valign': 'center', 'text-wrap': 'wrap', 'text-max-width': '130px', 'font-family': 'Inter, sans-serif', 'overlay-opacity': 0 }},
         { selector: 'node[nodeType="external"]', style: { 'shape': 'roundrectangle', 'width': function(e) { return Math.max(120, 80 + e.data('label').length * 4); }, 'height': 40, 'background-color': '#ef4444', 'border-width': 0, 'label': 'data(label)', 'color': '#fff', 'font-size': '10px', 'font-weight': '500', 'text-halign': 'center', 'text-valign': 'center', 'font-family': 'Inter, sans-serif', 'overlay-opacity': 0 }},
         { selector: 'edge[edgeStyle="solid"]', style: { 'width': 1.5, 'line-color': 'rgba(129,140,248,0.45)', 'target-arrow-color': 'rgba(129,140,248,0.45)', 'target-arrow-shape': 'triangle', 'arrow-scale': 0.8, 'curve-style': 'bezier', 'label': 'data(label)', 'font-size': '9px', 'font-family': 'Inter, sans-serif', 'color': 'rgba(255,255,255,0.3)', 'text-rotation': 'autorotate', 'text-margin-y': -10, 'text-background-color': '#0d0d12', 'text-background-opacity': 0.85, 'text-background-padding': '3px', 'text-background-shape': 'roundrectangle' }},
         { selector: 'edge[edgeStyle="dashed"]', style: { 'width': 1.5, 'line-style': 'dashed', 'line-dash-pattern': [6, 4], 'line-color': 'rgba(129,140,248,0.3)', 'target-arrow-color': 'rgba(129,140,248,0.3)', 'target-arrow-shape': 'triangle', 'arrow-scale': 0.8, 'curve-style': 'bezier', 'label': 'data(label)', 'font-size': '9px', 'font-family': 'Inter, sans-serif', 'color': 'rgba(255,255,255,0.25)', 'text-rotation': 'autorotate', 'text-margin-y': -10, 'text-background-color': '#0d0d12', 'text-background-opacity': 0.85, 'text-background-padding': '3px', 'text-background-shape': 'roundrectangle' }},
@@ -291,50 +340,62 @@ const { groups, components, extDeps, patterns = [] } = Astro.props;
     rebuildGraph(cy, false);
 
     var tooltip = document.getElementById('cy-tooltip');
-    var ttName = tooltip.querySelector('.tt-name'), ttType = tooltip.querySelector('.tt-type'), ttDesc = tooltip.querySelector('.tt-desc');
+    var ttName = tooltip.querySelector('.tt-name');
+    var ttType = tooltip.querySelector('.tt-type');
+    var ttDesc = tooltip.querySelector('.tt-desc');
 
-    // Hover: tooltip + highlight
     cy.on('mouseover', 'node', function(e) {
-      var node = e.target; node.addClass('hover-glow');
-      cy.elements().addClass('dimmed'); node.removeClass('dimmed');
+      var node = e.target;
+      node.addClass('hover-glow');
+      cy.elements().addClass('dimmed');
+      node.removeClass('dimmed');
       node.connectedEdges().removeClass('dimmed').addClass('highlighted');
       node.neighborhood('node').removeClass('dimmed');
       if (node.isParent()) node.descendants().removeClass('dimmed');
       if (node.isChild()) node.parent().removeClass('dimmed');
-      ttName.textContent = node.data('label'); ttType.textContent = node.data('nodeType'); ttDesc.textContent = node.data('description') || '';
+      ttName.textContent = node.data('label');
+      ttType.textContent = node.data('nodeType');
+      ttDesc.textContent = node.data('description') || '';
       tooltip.style.display = 'block';
-      var pos = node.renderedPosition(); var container = document.getElementById('cy-container').getBoundingClientRect();
-      tooltip.style.left = Math.min(pos.x + 12, container.width - 270) + 'px'; tooltip.style.top = Math.min(pos.y + 12, container.height - 80) + 'px';
+      var pos = node.renderedPosition();
+      var container = document.getElementById('cy-container').getBoundingClientRect();
+      tooltip.style.left = Math.min(pos.x + 12, container.width - 270) + 'px';
+      tooltip.style.top = Math.min(pos.y + 12, container.height - 80) + 'px';
     });
-    cy.on('mouseout', 'node', function() { cy.elements().removeClass('dimmed highlighted hover-glow'); tooltip.style.display = 'none'; });
+    cy.on('mouseout', 'node', function() {
+      cy.elements().removeClass('dimmed highlighted hover-glow');
+      tooltip.style.display = 'none';
+    });
 
-    // Click: groups toggle, components show detail panel
     cy.on('tap', 'node', function(e) {
-      var node = e.target, id = node.data('id'), nodeType = node.data('nodeType');
-      if (nodeType === 'group') {
+      var node = e.target;
+      var id = node.data('id');
+      if (node.data('hasChildren')) {
         if (expandedGroups[id]) delete expandedGroups[id]; else expandedGroups[id] = true;
         rebuildGraph(cy, true);
         return;
       }
-      showDetail(id, nodeType);
+      showDetail(id, node.data('nodeType'));
     });
 
-    // Click background: hide detail panel
     cy.on('tap', function(e) {
       if (e.target === cy) document.getElementById('detail-panel').classList.remove('visible');
     });
 
-    // Close detail panel button
     document.getElementById('detail-close').addEventListener('click', function() {
       document.getElementById('detail-panel').classList.remove('visible');
     });
 
-    // Controls
-    document.getElementById('btn-expand-all').addEventListener('click', function() { groups.forEach(function(g) { expandedGroups[g.id] = true; }); rebuildGraph(cy, false); });
-    document.getElementById('btn-collapse-all').addEventListener('click', function() { expandedGroups = {}; rebuildGraph(cy, true); });
+    document.getElementById('btn-expand-all').addEventListener('click', function() {
+      groupedRoots.forEach(function(root) { expandedGroups[root.id] = true; });
+      rebuildGraph(cy, false);
+    });
+    document.getElementById('btn-collapse-all').addEventListener('click', function() {
+      expandedGroups = {};
+      rebuildGraph(cy, true);
+    });
     document.getElementById('btn-fit').addEventListener('click', function() { cy.fit(undefined, 60); });
 
-    // Fullscreen toggle
     var wrap = document.getElementById('graph-wrap');
     var fsBtn = document.getElementById('btn-fullscreen');
     fsBtn.addEventListener('click', function() {
@@ -355,6 +416,9 @@ const { groups, components, extDeps, patterns = [] } = Astro.props;
     .then(function() { return loadScript('https://unpkg.com/layout-base@2.0.1/layout-base.js'); })
     .then(function() { return loadScript('https://unpkg.com/cose-base@2.2.0/cose-base.js'); })
     .then(function() { return loadScript('https://unpkg.com/cytoscape-cose-bilkent@4.1.0/cytoscape-cose-bilkent.js'); })
-    .then(function() { if (typeof cytoscapeCoseBilkent !== 'undefined') cytoscape.use(cytoscapeCoseBilkent); initGraph(); });
+    .then(function() {
+      if (typeof cytoscapeCoseBilkent !== 'undefined') cytoscape.use(cytoscapeCoseBilkent);
+      initGraph();
+    });
 })();
 </script>

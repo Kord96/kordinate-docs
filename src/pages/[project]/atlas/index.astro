@@ -10,7 +10,7 @@ import FlowsSection from '../../../components/atlas/FlowsSection.astro';
 import ExternalDepsSection from '../../../components/atlas/ExternalDepsSection.astro';
 import FailuresSection from '../../../components/atlas/FailuresSection.astro';
 import PatternsSection from '../../../components/atlas/PatternsSection.astro';
-import { getProjectAtlas, getProjectIndex } from '../../../lib/docs-data';
+import { displayProjectTitle, getProjectAtlas, getProjectIndex } from '../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
@@ -35,7 +35,7 @@ function severity(s: string) {
 }
 ---
 
-<Base title={`${atlas.project} — Atlas`}>
+<Base title={`${displayProjectTitle(project, atlas.project)} — Atlas`}>
   <AtlasStyles />
 
   <Header project={atlas.project} currentProject={project} badge="dev" position="sticky" />
@@ -47,7 +47,7 @@ function severity(s: string) {
 
   <div class="container">
     <div class="section" id="sec-overview">
-      <h1 class="section-title">{atlas.project}</h1>
+      <h1 class="section-title">{displayProjectTitle(project, atlas.project)}</h1>
       <p class="section-sub">{atlas.purpose}</p>
       {dm.primary && (
         <div>
@@ -62,12 +62,12 @@ function severity(s: string) {
       )}
     </div>
 
-    <ArchGraphSection groups={groups} components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} />
-    <ComponentsSection groups={groups} components={components} />
-    <FlowsSection flows={flows} />
+    <ArchGraphSection components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} />
+    <ComponentsSection components={components} />
+    <FlowsSection flows={flows} components={components} />
     <ExternalDepsSection extDeps={extDeps} severity={severity} />
     <FailuresSection failures={failures} severity={severity} />
-    <PatternsSection concepts={concepts} debt={debt} severity={severity} />
+    <PatternsSection concepts={concepts} debt={debt} severity={severity} components={components} flows={flows} />
   </div>
 
   <PillNav sections={[

@@ -1,16 +1,104 @@
 ---
-interface Props { flows: any[]; }
-const { flows } = Astro.props;
+interface Props { flows: any[]; components?: any[]; }
+const { flows, components = [] } = Astro.props;
+
+const componentNames = new Map<string, string>(
+  components.filter((component: any) => component?.id).map((component: any) => [component.id, component.name || component.id]),
+);
+
+function componentLabel(id: string) {
+  return componentNames.get(id) || id;
+}
 ---
 
 <div class="section" id="sec-flows">
   <h2 class="section-title">Flows</h2>
-  <p class="section-sub">{flows.length} typed flows</p>
-  {flows.map((f: any) => (
-    <div class="flow-card">
-      <div class="flow-name">{f.name}</div>
-      <div class="flow-type">{f.type} flow</div>
-      <div class="flow-desc">{f.description}</div>
-    </div>
-  ))}
+  <p class="section-sub">{flows.length} architectural flows with triggers, steps, and operational context</p>
+  {flows.map((flow: any) => {
+    const failureModes = flow.health?.failure_modes || [];
+    const flowGaps = flow.health?.gaps || [];
+    return (
+      <article class="flow-card flow-card-rich" id={`flow-${flow.id}`}>
+        <div class="flow-header">
+          <div>
+            <div class="flow-name">{flow.name}</div>
+            <div class="flow-type">{flow.type} flow</div>
+          </div>
+          {flow.trigger && <div class="flow-trigger-chip">{flow.trigger}</div>}
+        </div>
+
+        <div class="flow-desc">{flow.description}</div>
+
+        {flow.steps && flow.steps.length > 0 && (
+          <div class="flow-section">
+            <div class="flow-section-title">Sequence</div>
+            <ol class="flow-steps">
+              {flow.steps.map((step: any, index: number) => (
+                <li class="flow-step">
+                  <div class="flow-step-index">{index + 1}</div>
+                  <div class="flow-step-body">
+                    <div class="flow-step-line">
+                      <a href={`#card-${step.component}`} class="summary-link">{componentLabel(step.component)}</a>
+                      <span>{step.action}</span>
+                      {step.to && (
+                        <>
+                          <span class="flow-arrow">→</span>
+                          <span>{componentLabel(step.to)}</span>
+                        </>
+                      )}
+                    </div>
+
+                    <div class="flow-step-meta">
+                      {step.data && <span class="flow-chip">{step.data}</span>}
+                      {step.technology && <span class="flow-chip">{step.technology}</span>}
+                      {step.topic && <span class="flow-chip">{step.topic}</span>}
+                      {step.gate && <span class="flow-chip">gate: {step.gate}</span>}
+                      {step.delivery && <span class="flow-chip">{step.delivery}</span>}
+                    </div>
+
+                    {step.transform && <div class="flow-step-note">Transform: {step.transform}</div>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {(failureModes.length > 0 || flowGaps.length > 0) && (
+          <div class="flow-section">
+            <div class="flow-section-title">Flow Health</div>
+            {failureModes.length > 0 && (
+              <div class="signal-list">
+                {failureModes.map((failure: any) => (
+                  <div class="signal-item">
+                    <div class="signal-title">{failure.id}</div>
+                    <div class="signal-text">{failure.trigger}</div>
+                    {failure.signals && failure.signals.length > 0 && (
+                      <div class="card-meta">
+                        {failure.signals.map((signal: string) => <span class="card-tag">{signal}</span>)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {flowGaps.length > 0 && (
+              <ul class="summary-bullets">
+                {flowGaps.map((gap: string) => <li>{gap}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {flow.grounded_in && flow.grounded_in.length > 0 && (
+          <div class="flow-section">
+            <div class="flow-section-title">Grounded In</div>
+            <div class="summary-code-list">
+              {flow.grounded_in.map((ref: string) => <code class="summary-code">{ref}</code>)}
+            </div>
+          </div>
+        )}
+      </article>
+    );
+  })}
 </div>

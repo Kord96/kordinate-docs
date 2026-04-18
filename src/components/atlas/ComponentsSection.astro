@@ -1,35 +1,207 @@
 ---
-interface Props { groups: any[]; components: any[]; }
-const { groups, components } = Astro.props;
+interface Props { components: any[]; }
+const { components } = Astro.props;
+
+const roots = components.filter((component: any) => !component.parent);
+const childrenByParent = new Map<string, any[]>();
+for (const component of components) {
+  if (!component.parent) continue;
+  if (!childrenByParent.has(component.parent)) childrenByParent.set(component.parent, []);
+  childrenByParent.get(component.parent)?.push(component);
+}
+
+function linkedComponents(ids: string[] = []) {
+  return ids
+    .map((id) => components.find((component: any) => component.id === id))
+    .filter(Boolean);
+}
+
+function groundedRefs(component: any) {
+  const values = component?.grounded_in || component?.modules || [];
+  return Array.isArray(values) ? values.slice(0, 4) : [];
+}
 ---
 
 <div class="section" id="components-section">
   <h2 class="section-title">Components</h2>
-  <p class="section-sub">{components.length} components across {groups.length} groups</p>
+  <p class="section-sub">{components.length} components arranged by top-level architecture slice</p>
 
-  {groups.map((g: any) => {
-    const groupComps = components.filter((c: any) => c.group === g.id);
+  {roots.map((root: any) => {
+    const children = childrenByParent.get(root.id) || [];
+    const dependencies = linkedComponents(root.depends_on || []);
+    const failureModes = root.health?.failure_modes || [];
+    const healthGaps = root.health?.gaps || [];
+    const references = groundedRefs(root);
+
     return (
-      <div>
+      <section class="component-root" id={`card-${root.id}`}>
         <div class="group-header">
-          <div class="group-name">{g.name}</div>
-          <div class="group-desc">{g.description}</div>
+          <div class="group-name-row">
+            <div class="group-name">{root.name}</div>
+            <div class="group-pill">{root.type}</div>
+          </div>
+          <div class="group-desc">{root.description}</div>
         </div>
-        <div class="card-grid">
-          {groupComps.map((c: any) => (
-            <div class="card" id={`card-${c.id}`} data-component-id={c.id}>
-              <div class="card-name">{c.name}</div>
-              <div class="card-type">{c.type}</div>
-              <div class="card-desc">{c.description}</div>
-              {c.patterns && c.patterns.length > 0 && (
-                <div class="card-meta">
-                  {c.patterns.map((p: string) => <span class="card-tag">{p}</span>)}
-                </div>
-              )}
+
+        <div class="root-summary-grid">
+          {root.abstraction && root.abstraction.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Role</div>
+              <div class="summary-list">
+                {root.abstraction.map((item: string) => <span class="summary-pill">{item}</span>)}
+              </div>
             </div>
-          ))}
+          )}
+
+          {dependencies.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Depends On</div>
+              <div class="summary-list">
+                {dependencies.map((component: any) => (
+                  <a href={`#card-${component.id}`} class="summary-link">{component.name}</a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {root.patterns && root.patterns.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Patterns</div>
+              <div class="summary-list">
+                {root.patterns.map((pattern: string) => <span class="card-tag">{pattern}</span>)}
+              </div>
+            </div>
+          )}
+
+          {references.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Grounded In</div>
+              <div class="summary-code-list">
+                {references.map((ref: string) => <code class="summary-code">{ref}</code>)}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+
+        {(failureModes.length > 0 || healthGaps.length > 0) && (
+          <div class="root-health">
+            {failureModes.length > 0 && (
+              <div class="summary-block">
+                <div class="summary-label">Failure Modes</div>
+                <div class="signal-list">
+                  {failureModes.map((failure: any) => (
+                    <div class="signal-item">
+                      <div class="signal-title">{failure.id}</div>
+                      <div class="signal-text">{failure.trigger}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {healthGaps.length > 0 && (
+              <div class="summary-block">
+                <div class="summary-label">Operational Gaps</div>
+                <ul class="summary-bullets">
+                  {healthGaps.map((gap: string) => <li>{gap}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {children.length > 0 ? (
+          <div class="component-children">
+            <div class="children-title">Subcomponents</div>
+            <div class="card-grid">
+              {children.map((child: any) => {
+                const childDependencies = linkedComponents(child.depends_on || []);
+                const childFailures = child.health?.failure_modes || [];
+                const childGaps = child.health?.gaps || [];
+                const childRefs = groundedRefs(child);
+                return (
+                  <article class="card component-card" id={`card-${child.id}`} data-component-id={child.id}>
+                    <div class="card-name-row">
+                      <div class="card-name">{child.name}</div>
+                      <div class="card-type">{child.type}</div>
+                    </div>
+                    <div class="card-desc">{child.description}</div>
+
+                    {child.abstraction && child.abstraction.length > 0 && (
+                      <div class="meta-block">
+                        <div class="meta-label">Role</div>
+                        <div class="card-meta">
+                          {child.abstraction.map((item: string) => <span class="card-tag">{item}</span>)}
+                        </div>
+                      </div>
+                    )}
+
+                    {child.patterns && child.patterns.length > 0 && (
+                      <div class="meta-block">
+                        <div class="meta-label">Patterns</div>
+                        <div class="card-meta">
+                          {child.patterns.map((pattern: string) => <span class="card-tag">{pattern}</span>)}
+                        </div>
+                      </div>
+                    )}
+
+                    {childDependencies.length > 0 && (
+                      <div class="meta-block">
+                        <div class="meta-label">Depends On</div>
+                        <div class="summary-list">
+                          {childDependencies.map((component: any) => (
+                            <a href={`#card-${component.id}`} class="summary-link">{component.name}</a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {child.modules && child.modules.length > 0 && (
+                      <div class="meta-block">
+                        <div class="meta-label">Modules</div>
+                        <div class="summary-code-list">
+                          {child.modules.slice(0, 4).map((module: string) => <code class="summary-code">{module}</code>)}
+                        </div>
+                      </div>
+                    )}
+
+                    {(childFailures.length > 0 || childGaps.length > 0) && (
+                      <div class="meta-block">
+                        <div class="meta-label">Health</div>
+                        {childFailures.length > 0 && (
+                          <ul class="summary-bullets">
+                            {childFailures.slice(0, 2).map((failure: any) => (
+                              <li><strong>{failure.id}:</strong> {failure.trigger}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {childGaps.length > 0 && (
+                          <ul class="summary-bullets">
+                            {childGaps.slice(0, 2).map((gap: string) => <li>{gap}</li>)}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+
+                    {childRefs.length > 0 && (
+                      <div class="meta-block">
+                        <div class="meta-label">Grounded In</div>
+                        <div class="summary-code-list">
+                          {childRefs.map((ref: string) => <code class="summary-code">{ref}</code>)}
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div class="component-children">
+            <div class="children-title">This is a standalone top-level component.</div>
+          </div>
+        )}
+      </section>
     );
   })}
 </div>

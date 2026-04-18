@@ -24,8 +24,28 @@
   .card-tag { font-size: .6rem; padding: .1rem .35rem; border-radius: 4px; background: var(--accent-dim); color: var(--accent); }
 
   .group-header { margin-top: 2rem; margin-bottom: .75rem; padding-bottom: .35rem; border-bottom: 1px solid var(--border); }
+  .group-name-row { display: flex; align-items: center; gap: .6rem; justify-content: space-between; margin-bottom: .35rem; }
   .group-name { font-size: .9rem; font-weight: 600; }
   .group-desc { font-size: .75rem; color: var(--text-3); }
+  .group-pill { font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border); border-radius: 999px; padding: .15rem .45rem; font-weight: 600; }
+  .component-root { margin-bottom: 2.5rem; }
+  .root-summary-grid, .root-health { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+  .summary-block { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: .75rem .9rem; }
+  .summary-label, .meta-label, .flow-section-title { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-4); margin-bottom: .45rem; }
+  .summary-list, .summary-code-list { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .summary-pill { font-size: .68rem; border-radius: 999px; padding: .18rem .5rem; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-border); }
+  .summary-link { font-size: .72rem; text-decoration: none; color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border); padding: .16rem .45rem; border-radius: 999px; }
+  .summary-link:hover { background: var(--accent); color: white; }
+  .summary-code { font-size: .68rem; font-family: var(--mono); background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 4px; padding: .15rem .35rem; color: var(--text-2); }
+  .summary-bullets { margin: 0; padding-left: 1rem; font-size: .76rem; color: var(--text-2); line-height: 1.55; }
+  .children-title { font-size: .76rem; color: var(--text-3); margin-bottom: .7rem; font-weight: 500; }
+  .component-card { display: flex; flex-direction: column; gap: .5rem; }
+  .card-name-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+  .meta-block { margin-top: .1rem; }
+  .signal-list { display: flex; flex-direction: column; gap: .45rem; }
+  .signal-item { border-left: 2px solid var(--accent); padding-left: .55rem; }
+  .signal-title { font-size: .73rem; font-weight: 600; color: var(--text); margin-bottom: .15rem; }
+  .signal-text { font-size: .74rem; color: var(--text-2); line-height: 1.45; }
 
   .failure {
     background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
@@ -60,9 +80,21 @@
     background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
     padding: .75rem 1rem; margin-bottom: .6rem;
   }
+  .flow-card-rich { padding: 1rem 1.1rem; }
+  .flow-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .5rem; }
   .flow-name { font-weight: 600; font-size: .85rem; margin-bottom: .15rem; }
   .flow-type { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: .3rem; }
   .flow-desc { font-size: .78rem; color: var(--text-2); line-height: 1.5; }
+  .flow-trigger-chip, .flow-chip { font-size: .68rem; border-radius: 999px; padding: .18rem .5rem; border: 1px solid var(--border); color: var(--text-2); background: rgba(255,255,255,0.03); }
+  .flow-section { margin-top: .9rem; }
+  .flow-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .7rem; }
+  .flow-step { display: grid; grid-template-columns: 1.8rem 1fr; gap: .65rem; align-items: flex-start; }
+  .flow-step-index { width: 1.8rem; height: 1.8rem; border-radius: 999px; background: var(--accent-dim); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: .74rem; font-weight: 700; border: 1px solid var(--accent-border); }
+  .flow-step-body { min-width: 0; }
+  .flow-step-line { font-size: .78rem; color: var(--text); line-height: 1.45; display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+  .flow-arrow { color: var(--text-4); }
+  .flow-step-meta { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .35rem; }
+  .flow-step-note { font-size: .73rem; color: var(--text-3); margin-top: .3rem; line-height: 1.45; }
 
   .dm-badge { display: inline-flex; padding: .3rem .8rem; border-radius: 99px; font-size: .75rem; background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent); margin-bottom: 1rem; }
   .dm-entities { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .5rem; }
@@ -78,4 +110,40 @@
   #cy-tooltip .tt-type { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-4); margin-bottom: .25rem; }
   #cy-tooltip .tt-desc { font-size: .72rem; color: var(--text-2); line-height: 1.4; }
   .card-highlight { border-color: var(--accent) !important; box-shadow: 0 0 0 2px var(--accent-dim); transition: border-color .3s, box-shadow .3s; }
+
+  @media (max-width: 720px) {
+    .flow-header, .group-name-row { flex-direction: column; align-items: flex-start; }
+  }
+
+  [data-theme='light'] .summary-code,
+  [data-theme='light'] .flow-chip,
+  [data-theme='light'] .flow-trigger-chip {
+    background: rgba(24,24,27,0.04);
+    border-color: #cbd5e1;
+    color: #18181b;
+  }
+
+  [data-theme='light'] .summary-block,
+  [data-theme='light'] .card,
+  [data-theme='light'] .flow-card,
+  [data-theme='light'] .failure {
+    box-shadow: 0 1px 0 rgba(24,24,27,0.03);
+  }
+
+  [data-theme='light'] .card-tag,
+  [data-theme='light'] .summary-pill,
+  [data-theme='light'] .summary-link,
+  [data-theme='light'] .dep-comp-link {
+    background: rgba(79,70,229,0.08);
+    color: #3730a3;
+    border-color: rgba(79,70,229,0.18);
+  }
+
+  [data-theme='light'] .group-desc,
+  [data-theme='light'] .children-title,
+  [data-theme='light'] .flow-step-note,
+  [data-theme='light'] .failure-cascade,
+  [data-theme='light'] .graph-counter {
+    color: #3f3f46;
+  }
 </style>
