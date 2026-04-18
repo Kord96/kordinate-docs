@@ -19,9 +19,9 @@ const [atlas, analyses] = await Promise.all([
 <Base title={`${atlas.project || project} — Analyses`}>
   <Header project={atlas.project || project} badge="dev" />
   <PageNav tabs={[
-    { label: 'Journey', href: `/dev/${project}/` },
-    { label: 'Atlas', href: `/dev/${project}/atlas/` },
-    { label: 'History', href: `/dev/${project}/analyses/`, active: true },
+    { label: 'Journey', href: `/${project}/` },
+    { label: 'Atlas', href: `/${project}/atlas/` },
+    { label: 'History', href: `/${project}/analyses/`, active: true },
   ]} />
 
   <main class="history">
@@ -43,8 +43,8 @@ const [atlas, analyses] = await Promise.all([
             {analysis.status && <span>Status: {analysis.status}</span>}
           </div>
           <div class="analysis-links">
-            <a href={`/dev/${project}/analyses/${analysis.analysisId}/`}>Journey Snapshot</a>
-            <a href={`/dev/${project}/analyses/${analysis.analysisId}/atlas/`}>Atlas Snapshot</a>
+            <a href={`/${project}/analyses/${analysis.analysisId}/`}>Journey Snapshot</a>
+            <a href={`/${project}/analyses/${analysis.analysisId}/atlas/`}>Atlas Snapshot</a>
           </div>
         </article>
       ))}

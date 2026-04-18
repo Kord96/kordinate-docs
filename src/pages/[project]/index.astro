@@ -60,9 +60,9 @@ function parseSummary(text: string): string {
 
   <Header project={atlas.project || project} badge="dev" />
   <PageNav tabs={[
-    {label: "Journey", href: `/dev/${project}/`, active: true},
-    {label: "Atlas", href: `/dev/${project}/atlas/`},
-    {label: "History", href: `/dev/${project}/analyses/`},
+    {label: "Journey", href: `/${project}/`, active: true},
+    {label: "Atlas", href: `/${project}/atlas/`},
+    {label: "History", href: `/${project}/analyses/`},
   ]} />
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />

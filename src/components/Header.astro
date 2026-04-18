@@ -15,8 +15,8 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
 
 <header class:list={['site-header', position === 'sticky' && 'sticky']}>
   <div class="h-left">
-    <a class="h-home-icon" href="/dev/" title="Home">
-      <img src="/dev/logo_dark.png" alt="" class="logo-dark" /><img src="/dev/logo_light.png" alt="" class="logo-light" />
+    <a class="h-home-icon" href="/" title="Home">
+      <img src="/logo_dark.png" alt="" class="logo-dark" /><img src="/logo_light.png" alt="" class="logo-light" />
     </a>
     <span class="h-sep"></span>
     <span class="h-logo">{project}</span>

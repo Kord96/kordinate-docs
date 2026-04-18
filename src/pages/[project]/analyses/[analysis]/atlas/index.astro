@@ -43,9 +43,9 @@ function severity(s: string) {
   <AtlasStyles />
   <Header project={`${atlas.project} · ${analysisId}`} badge="snapshot" position="sticky" />
   <PageNav tabs={[
-    { label: 'Journey', href: `/dev/${project}/analyses/${analysis}/` },
-    { label: 'Atlas', href: `/dev/${project}/analyses/${analysis}/atlas/`, active: true },
-    { label: 'History', href: `/dev/${project}/analyses/` },
+    { label: 'Journey', href: `/${project}/analyses/${analysis}/` },
+    { label: 'Atlas', href: `/${project}/analyses/${analysis}/atlas/`, active: true },
+    { label: 'History', href: `/${project}/analyses/` },
   ]} />
 
   <div class="container">

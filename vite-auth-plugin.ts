@@ -36,7 +36,7 @@ export default function devAuthPlugin(): Plugin {
         if (url === LOGIN_PATH || url === `${LOGIN_PATH}/` || url.startsWith(`${LOGIN_PATH}?`)) {
           // Already authed — redirect to home
           if (cookies[COOKIE_NAME] === 'ok' || cookies[COOKIE_NAME] === 'guest') {
-            res.writeHead(302, { location: '/dev/' });
+            res.writeHead(302, { location: '/' });
             return res.end();
           }
 
@@ -55,7 +55,7 @@ export default function devAuthPlugin(): Plugin {
 
               if (match) {
                 res.writeHead(302, {
-                  location: '/dev/',
+                  location: '/',
                   'set-cookie': `${COOKIE_NAME}=${match}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}`,
                 });
                 return res.end();
@@ -63,7 +63,7 @@ export default function devAuthPlugin(): Plugin {
 
               // Wrong password
               res.writeHead(302, {
-                location: '/dev/login',
+                location: '/login',
                 'set-cookie': `dev-auth-error=1; Path=/; Max-Age=10`,
               });
               return res.end();
@@ -78,7 +78,7 @@ export default function devAuthPlugin(): Plugin {
         // All other pages — require auth (full or guest)
         const auth = cookies[COOKIE_NAME];
         if (auth !== 'ok' && auth !== 'guest') {
-          res.writeHead(302, { location: '/dev/login' });
+          res.writeHead(302, { location: '/login' });
           return res.end();
         }
 

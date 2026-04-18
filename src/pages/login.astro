@@ -5,7 +5,7 @@ import Base from '../layouts/Base.astro';
 <Base title="Sign in">
   <div class="login-wrap">
     <div class="login-card">
-      <img src="/dev/logo_dark.png" alt="Logo" class="logo" />
+      <img src="/logo_dark.png" alt="Logo" class="logo" />
       <h1>Sign in</h1>
       <p class="subtitle">Dev environment</p>
 
@@ -19,7 +19,7 @@ import Base from '../layouts/Base.astro';
 
       <p class="error" style="display:none">Wrong password</p>
 
-      <form method="POST" action="/dev/login">
+      <form method="POST" action="/login">
         <input type="hidden" name="role" id="role" value="admin" />
         <label for="password">Password</label>
         <input
