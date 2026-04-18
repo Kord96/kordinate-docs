@@ -15,11 +15,12 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
 
 <header class:list={['site-header', position === 'sticky' && 'sticky']}>
   <div class="h-left">
-    <a class="h-home-icon" href="/" title="Home">
-      <img src="/logo_dark.png" alt="" class="logo-dark" /><img src="/logo_light.png" alt="" class="logo-light" />
+    <a class="h-brand" href="/" title="Home">
+      <img src="/logo_dark.png?v=2" alt="Kordinate" class="logo-dark" />
+      <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
+      <span class="h-sep"></span>
+      <span class="h-logo">{project}</span>
     </a>
-    <span class="h-sep"></span>
-    <span class="h-logo">{project}</span>
     {badge && <span class="h-env">{badge}</span>}
   </div>
   <div class="h-right">
@@ -88,14 +89,16 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
   }
   .h-link:hover { color: var(--text-2); }
   .h-link-active { color: var(--text-2); }
-  .h-home-icon {
-    display: flex; align-items: center;
+  .h-brand {
+    display: flex; align-items: center; gap: .6rem;
+    color: inherit; text-decoration: none;
   }
-  .h-home-icon img {
+  .h-brand img {
     height: 32px; width: auto; max-height: 32px; opacity: 0.8;
     transition: opacity .2s;
   }
-  .h-home-icon:hover img { opacity: 1; }
+  .h-brand:hover img,
+  .h-brand:hover .h-logo { opacity: 1; }
   .logo-light { display: none; }
   :global([data-theme='light']) .logo-dark { display: none; }
   :global([data-theme='light']) .logo-light { display: block; }

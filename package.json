@@ -4,6 +4,8 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
+    "dev:remote": "DOCS_DATA_BASE_URL=https://docs.khaledkord.com/api astro dev",
+    "dev:local-api": "DOCS_DATA_BASE_URL=http://127.0.0.1:4010 astro dev",
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
