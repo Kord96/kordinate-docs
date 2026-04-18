@@ -210,24 +210,20 @@
 
     const elements = [];
     data.nodes.forEach(n => {
-      elements.push({ group: 'nodes', data: { id: n.id, label: n.name, nodeType: n.type, childCount: (n.children || []).length, ...n } });
+      elements.push({
+        group: 'nodes',
+        data: {
+          id: n.id,
+          label: n.name,
+          nodeType: n.type,
+          childCount: (n.children || []).length,
+          parent: n.parent || undefined,
+          ...n
+        }
+      });
     });
     data.edges.forEach(e => {
       elements.push({ group: 'edges', data: { source: e.from, target: e.to, label: e.label || '', edgeKind: 'explicit' } });
-    });
-    data.nodes.forEach(n => {
-      (n.children || []).forEach(childId => {
-        if (!data.nodes.some(candidate => candidate.id === childId)) return;
-        elements.push({
-          group: 'edges',
-          data: {
-            source: n.id,
-            target: childId,
-            label: 'contains',
-            edgeKind: 'contains',
-          }
-        });
-      });
     });
 
     container._cy = null;
@@ -245,6 +241,21 @@
           'transition-property': 'opacity, border-width, overlay-opacity',
           'transition-duration': '0.2s',
         }},
+        { selector: 'node:parent', style: {
+          'shape': 'roundrectangle',
+          'background-opacity': 0.14,
+          'background-color': '#232336',
+          'border-style': 'dashed',
+          'border-width': 1.4,
+          'border-color': 'rgba(196,181,253,0.55)',
+          'padding': '18px',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'font-size': '12px',
+          'font-weight': '600',
+          'color': '#ddd6fe',
+          'text-margin-y': '-8px',
+        }},
         { selector: 'edge', style: {
           'width': 1.5, 'line-color': 'rgba(255,255,255,0.15)',
           'target-arrow-color': 'rgba(255,255,255,0.15)', 'target-arrow-shape': 'triangle',
@@ -257,14 +268,6 @@
           'text-margin-y': -8,
           'transition-property': 'opacity, width, line-color, target-arrow-color',
           'transition-duration': '0.2s',
-        }},
-        { selector: 'edge[edgeKind = "contains"]', style: {
-          'line-style': 'dashed',
-          'line-color': 'rgba(196,181,253,0.45)',
-          'target-arrow-color': 'rgba(196,181,253,0.45)',
-          'target-arrow-shape': 'none',
-          'width': 1.8,
-          'color': 'rgba(228,228,231,0.75)',
         }},
         { selector: 'node.selected', style: { 'border-width': 2.5, 'border-opacity': 1, 'overlay-color': '#818cf8', 'overlay-padding': 8, 'overlay-opacity': 0.12 }},
         { selector: 'edge.highlighted', style: { 'width': 2.5, 'line-color': 'rgba(129,140,248,0.6)', 'target-arrow-color': 'rgba(129,140,248,0.6)', 'color': 'rgba(255,255,255,0.8)' }},
@@ -285,7 +288,7 @@
     try {
       cy.layout({
         name: layoutName,
-        ...(layoutName === 'dagre' ? { rankDir: 'TB', nodeSep: 60, rankSep: 90, edgeSep: 20 } :
+        ...(layoutName === 'dagre' ? { rankDir: 'TB', nodeSep: 60, rankSep: 100, edgeSep: 20, spacingFactor: 1.05 } :
             layoutName === 'cose-bilkent' ? { idealEdgeLength: 140, nodeRepulsion: 7000 } :
             { rows: 1, padding: 30 })
       }).run();

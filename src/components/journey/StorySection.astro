@@ -48,6 +48,13 @@ const html = parseSummary(story.summary || '');
       const missingIds = edgeIds.filter((id: string) => !explicitIds.includes(id));
       const allNodeIds = [...new Set([...explicitIds, ...missingIds])];
       const structureNodeMap = Object.fromEntries(structureNodes.map((n: any) => [n.id, n]));
+      const childToParent = Object.fromEntries(
+        structureNodes.flatMap((n: any) =>
+          ((n.children || []) as string[])
+            .filter((childId: string) => explicitIds.includes(childId))
+            .map((childId: string) => [childId, n.id])
+        )
+      );
       const graphData = JSON.stringify({
         nodes: allNodeIds.map((nid: string) => {
           const c = compMap[nid];
@@ -62,6 +69,7 @@ const html = parseSummary(story.summary || '');
             patterns: c?.patterns || [],
             children: stNode.children || [],
             observation_ids: stNode.observation_ids || [],
+            parent: childToParent[nid] || '',
           };
         }),
         edges: (st.edges || []).map((e: any) => ({ from: e.from, to: e.to, label: e.label || '' }))
