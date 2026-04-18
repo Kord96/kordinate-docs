@@ -54,7 +54,7 @@ function severity(s: string) {
 
 <Base title={`${displayProjectTitle(project, atlas.project)} — Atlas Snapshot`}>
   <AtlasStyles />
-  <Header project={`${atlas.project} · ${analysisId}`} currentProject={project} badge="snapshot" position="sticky" />
+  <Header project={`${project} · ${analysisId}`} currentProject={project} badge="snapshot" position="sticky" />
   <PageNav tabs={[
     { label: 'Journey', href: projectAnalysisRoutePath(project, analysis) },
     { label: 'Atlas', href: projectAnalysisAtlasRoutePath(project, analysis), active: true },

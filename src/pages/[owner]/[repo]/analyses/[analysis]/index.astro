@@ -54,7 +54,7 @@ function parseSummary(text: string): string {
 
 <Base title={`${defaultJourney.title} — ${analysisId}`}>
   <JourneyStyles />
-  <Header project={atlas.project || project} currentProject={project} badge="snapshot" position="sticky" />
+  <Header project={project} currentProject={project} badge="snapshot" position="sticky" />
   <PageNav tabs={[
     { label: 'Journey', href: projectAnalysisRoutePath(project, analysis), active: true },
     { label: 'Atlas', href: projectAnalysisAtlasRoutePath(project, analysis) },
@@ -63,7 +63,7 @@ function parseSummary(text: string): string {
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
   <LandingSection
-    project={`${atlas.project || project} · ${analysisId}`}
+    project={`${project} · ${analysisId}`}
     purpose={atlas.purpose || ''}
     journeys={journeys}
     defaultJourney={defaultJourney}
@@ -92,6 +92,6 @@ function parseSummary(text: string): string {
   })}
   <FocusOverlay />
   <JourneyData atlas={atlas} storyByNode={storyByNode} />
-  <Drawer project={atlas.project || project} />
+  <Drawer project={project} />
   <JourneyScript />
 </Base>
