@@ -40,6 +40,8 @@ spec:
         env:
         - name: CHOKIDAR_USEPOLLING
           value: "true"
+        - name: DOCS_DATA_BASE_URL
+          value: "https://docs.khaledkord.com/api"
         - name: DEV_PASSWORD
           valueFrom:
             secretKeyRef:
