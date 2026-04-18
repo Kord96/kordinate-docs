@@ -1,19 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
-import fs from 'node:fs';
+import { getProjectIndex } from '../lib/docs-data';
 
-// Discover projects from src/content/docs/
-const projectDirs = fs.readdirSync('src/content/docs').filter(f =>
-  fs.statSync(`src/content/docs/${f}`).isDirectory()
-);
-
-const projects = projectDirs.map(name => {
-  try {
-    const atlas = JSON.parse(fs.readFileSync(`src/content/docs/${name}/atlas.json`, 'utf8'));
-    return { name, purpose: atlas.purpose || '', components: atlas.components?.length || 0 };
-  } catch { return { name, purpose: '', components: 0 }; }
-});
+const projects = await getProjectIndex();
 ---
 <Base title="Khaled Kord — Docs">
   <Header project="Docs" badge="DEV"  />
@@ -27,10 +17,10 @@ const projects = projectDirs.map(name => {
       <h2>Projects</h2>
       <div class="project-grid">
         {projects.map(p => (
-          <a class="project-card" href={`/dev/${p.name}/`}>
-            <h3>{p.name}</h3>
+          <a class="project-card" href={`/dev/${p.slug}/`}>
+            <h3>{p.title}</h3>
             <p>{p.purpose}</p>
-            {p.components > 0 && <span class="meta">{p.components} components</span>}
+            {p.componentCount > 0 && <span class="meta">{p.componentCount} components</span>}
           </a>
         ))}
       </div>

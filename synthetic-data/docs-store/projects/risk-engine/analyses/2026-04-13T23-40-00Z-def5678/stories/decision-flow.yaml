@@ -1,0 +1,39 @@
+id: decision-flow
+title: Decision Flow
+teaches: How a transaction becomes a persisted risk decision.
+parent:
+children: []
+summary: |
+  **Ingest API** receives the transaction and hands it to **Risk Engine** for evaluation.
+
+  The scoring path ends when the final decision is written to **Risk Store**.
+structures:
+  - id: decision-structure
+    title: Decision Structure
+    type: component topology
+    nodes:
+      - id: ingest-api
+      - id: risk-engine
+      - id: risk-store
+    edges:
+      - from: ingest-api
+        to: risk-engine
+        label: submit
+      - from: risk-engine
+        to: risk-store
+        label: persist
+flows:
+  - id: decision-write
+    title: Decision Write
+    type: request path
+    steps:
+      - node: ingest-api
+        action: Accepts a transaction payload.
+        to: risk-engine
+      - node: risk-engine
+        action: Computes the decision and persists it.
+        to: risk-store
+observations: []
+evaluation:
+  groundedness: 0.91
+  coverage: 0.84

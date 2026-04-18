@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docs
+  namespace: master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docs
+  template:
+    metadata:
+      labels:
+        app: docs
+    spec:
+      containers:
+      - name: docs
+        image: localhost:30500/docs:latest
+        imagePullPolicy: Always
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - |
+          while [ ! -d /repo/kordinate-docs/src ]; do sleep 1; done
+          cp -r /repo/kordinate-docs/. /app/
+          npm install 2>/dev/null
+          LAST_REV=""
+          (
+            while true; do
+              sleep 3
+              CURRENT_REV=$(readlink /repo/kordinate-docs 2>/dev/null)
+              if [ -n "$CURRENT_REV" ] && [ "$CURRENT_REV" != "$LAST_REV" ]; then
+                cp -r /repo/kordinate-docs/src /repo/kordinate-docs/public /app/ 2>/dev/null
+                LAST_REV="$CURRENT_REV"
+              fi
+            done
+          ) &
+          exec npm run dev -- --host 0.0.0.0
+        env:
+        - name: CHOKIDAR_USEPOLLING
+          value: "true"
+        - name: DEV_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: dev-password
+              name: docs-auth
+        - name: GUEST_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: guest-password
+              name: docs-auth
+        ports:
+        - name: http
+          containerPort: 4321
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /repo
+          name: repo
+          readOnly: true
+        workingDir: /app
+      - name: docs-api
+        image: localhost:30500/docs:latest
+        imagePullPolicy: Always
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - |
+          while [ ! -f /repo/kordinate-docs/scripts/serve-synthetic-docs-api.mjs ]; do sleep 1; done
+          cp -r /repo/kordinate-docs/. /app/
+          npm install 2>/dev/null
+          exec npm run synthetic-api
+        env:
+        - name: DOCS_SOURCE_MODE
+          value: "augur"
+        - name: AUGUR_API_BASE_URL
+          value: "http://kord-api.kord.svc.cluster.local:9091"
+        - name: KORD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: api-key
+              name: docs-augur-api
+              optional: false
+        - name: SYNTHETIC_DOCS_PORT
+          value: "4010"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: api
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        ports:
+        - name: api
+          containerPort: 4010
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /repo
+          name: repo
+          readOnly: true
+        workingDir: /app
+      - name: git-sync
+        image: registry.k8s.io/git-sync/git-sync:v4.4.1
+        args:
+        - --repo=https://github.com/Kord96/kordinate-docs.git
+        - --period=3s
+        - --root=/repo
+        - --link=kordinate-docs
+        volumeMounts:
+        - mountPath: /repo
+          name: repo
+      volumes:
+      - emptyDir: {}
+        name: repo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docs
+  namespace: master
+spec:
+  type: ClusterIP
+  selector:
+    app: docs
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  - name: api
+    port: 4010
+    targetPort: api

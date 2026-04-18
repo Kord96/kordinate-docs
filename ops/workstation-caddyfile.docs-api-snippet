@@ -1,0 +1,9 @@
+  @docs_api {
+    host docs.khaledkord.com
+    path /api/*
+  }
+  handle @docs_api {
+    uri strip_prefix /api
+    reverse_proxy docs.master.svc.cluster.local:4010
+  }
+

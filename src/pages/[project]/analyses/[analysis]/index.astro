@@ -1,33 +1,31 @@
 ---
-/**
- * Generic Project Journey — Dynamic routing for any project
- * Uses shared journey components from src/components/journey/
- */
-import Base from '../../layouts/Base.astro';
-import Header from '../../components/Header.astro';
-import PageNav from '../../components/PageNav.astro';
-import JourneyStyles from '../../components/journey/JourneyStyles.astro';
-import JourneyNav from '../../components/journey/JourneyNav.astro';
-import LandingSection from '../../components/journey/LandingSection.astro';
-import OverviewSection from '../../components/journey/OverviewSection.astro';
-import StorySection from '../../components/journey/StorySection.astro';
-import FocusOverlay from '../../components/journey/FocusOverlay.astro';
-import Drawer from '../../components/journey/Drawer.astro';
-import JourneyData from '../../components/journey/JourneyData.astro';
-import JourneyScript from '../../components/journey/JourneyScript.astro';
-import { getProjectBundle, getProjectIndex } from '../../lib/docs-data';
+import Base from '../../../../layouts/Base.astro';
+import Header from '../../../../components/Header.astro';
+import PageNav from '../../../../components/PageNav.astro';
+import JourneyStyles from '../../../../components/journey/JourneyStyles.astro';
+import JourneyNav from '../../../../components/journey/JourneyNav.astro';
+import LandingSection from '../../../../components/journey/LandingSection.astro';
+import OverviewSection from '../../../../components/journey/OverviewSection.astro';
+import StorySection from '../../../../components/journey/StorySection.astro';
+import FocusOverlay from '../../../../components/journey/FocusOverlay.astro';
+import Drawer from '../../../../components/journey/Drawer.astro';
+import JourneyData from '../../../../components/journey/JourneyData.astro';
+import JourneyScript from '../../../../components/journey/JourneyScript.astro';
+import { getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex } from '../../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
-  return projects.map(({ slug }) => ({ params: { project: slug } }));
+  const paths = await Promise.all(projects.map(async ({ slug }) => {
+    const analyses = await getProjectAnalyses(slug);
+    return analyses.map((analysis) => ({ params: { project: slug, analysis: analysis.analysisId } }));
+  }));
+  return paths.flat();
 }
 
-const { project } = Astro.params;
-const { atlas, storyByNode, journeys, storyMap } = await getProjectBundle(project);
+const { project, analysis } = Astro.params;
+const { atlas, storyByNode, journeys, storyMap, analysisId } = await getProjectAnalysisBundle(project, analysis);
 
 const defaultJourney = journeys.find((j: any) => j.id === 'getting-started') || journeys[0] || { id: 'default', title: 'Journey', stories: [] };
-
-// Build stories + bridges per journey
 const journeyData: Record<string, { stories: any[]; bridgeMap: Record<string, any>; total: number }> = {};
 for (const j of journeys) {
   const jStories = (j.stories || []).map((sid: string) => storyMap[sid]).filter(Boolean);
@@ -43,9 +41,6 @@ const compMap: Record<string, any> = {};
 for (const c of (atlas.components || [])) compMap[c.id] = c;
 for (const e of (atlas.external_dependencies || [])) compMap[e.id] = e;
 
-const purpose = atlas.purpose || '';
-
-// Helper: parse bold refs in summary
 function parseSummary(text: string): string {
   return text
     .replace(/\*\*([^*]+?)\*\*/gs, (_: string, name: string) =>
@@ -55,21 +50,19 @@ function parseSummary(text: string): string {
 }
 ---
 
-<Base title={defaultJourney.title}>
+<Base title={`${defaultJourney.title} — ${analysisId}`}>
   <JourneyStyles />
-
-  <Header project={atlas.project || project} badge="dev" />
+  <Header project={atlas.project || project} badge="snapshot" />
   <PageNav tabs={[
-    {label: "Journey", href: `/dev/${project}/`, active: true},
-    {label: "Atlas", href: `/dev/${project}/atlas/`},
-    {label: "History", href: `/dev/${project}/analyses/`},
+    { label: 'Journey', href: `/dev/${project}/analyses/${analysis}/`, active: true },
+    { label: 'Atlas', href: `/dev/${project}/analyses/${analysis}/atlas/` },
+    { label: 'History', href: `/dev/${project}/analyses/` },
   ]} />
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
-
   <LandingSection
-    project={atlas.project || project}
-    purpose={purpose}
+    project={`${atlas.project || project} · ${analysisId}`}
+    purpose={atlas.purpose || ''}
     journeys={journeys}
     defaultJourney={defaultJourney}
     totalStories={stories.length}
@@ -77,9 +70,7 @@ function parseSummary(text: string): string {
     componentCount={atlas.components?.length}
     flowCount={atlas.flows?.length}
   />
-
   <OverviewSection atlas={atlas} journeys={journeys} defaultJourney={defaultJourney} storyByNode={storyByNode} />
-
   {journeys.map((journey: any) => {
     const jd = journeyData[journey.id];
     const isDefault = journey.id === defaultJourney.id;
@@ -97,7 +88,6 @@ function parseSummary(text: string): string {
       />
     ));
   })}
-
   <FocusOverlay />
   <JourneyData atlas={atlas} storyByNode={storyByNode} />
   <Drawer project={atlas.project || project} />

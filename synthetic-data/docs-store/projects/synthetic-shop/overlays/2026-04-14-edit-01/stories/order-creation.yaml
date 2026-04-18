@@ -1,0 +1,58 @@
+id: order-creation
+title: Order Creation
+teaches: How validated checkout data becomes a persisted order with reserved inventory.
+parent: edge-overview
+children: []
+summary: |
+  **Checkout API** hands ownership to **Order Service**, which becomes the single writer for order state and coordinates a reservation with **Inventory Service** before the order is considered durable.
+
+  This edited overlay tightens the explanation around writer ownership so the narrative is easier to onboard against.
+anchor:
+  file: src/services/order-service.ts
+  line: 18
+  description: Creates the order record and writes reservation state.
+structures:
+  - id: order-structure
+    title: Order Path
+    type: data lineage
+    nodes:
+      - id: checkout-api
+      - id: order-service
+      - id: inventory-service
+      - id: orders-db
+    edges:
+      - from: checkout-api
+        to: order-service
+        label: create order
+      - from: order-service
+        to: inventory-service
+        label: reserve stock
+      - from: order-service
+        to: orders-db
+        label: persist order
+flows:
+  - id: order-write
+    title: Order Write
+    type: data pipeline
+    steps:
+      - node: checkout-api
+        action: Sends normalized cart to Order Service.
+        to: order-service
+      - node: order-service
+        action: Creates order and reservation records.
+        to: orders-db
+      - node: order-service
+        action: Requests stock reservation.
+        to: inventory-service
+observations:
+  - id: obs-order-1
+    finding: "**Order Service** is the authoritative writer for order state."
+    confidence: high
+    component: order-service
+    evidence:
+      file: src/services/order-service.ts
+      lines: [18, 61]
+    recommendation: Preserve single-writer ownership if new order entrypoints are added.
+evaluation:
+  groundedness: 0.94
+  coverage: 0.88

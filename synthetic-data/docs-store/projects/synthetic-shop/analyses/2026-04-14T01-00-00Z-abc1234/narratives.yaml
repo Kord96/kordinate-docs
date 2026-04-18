@@ -1,0 +1,11 @@
+version: "1"
+narratives:
+  - id: getting-started
+    title: Getting Started
+    description: Follow the main checkout path from browser entry to persisted order state.
+    audience: ["onboarding"]
+    stories:
+      - id: edge-overview
+        description: Start at the customer-facing edge to see where the checkout path begins.
+      - id: order-creation
+        description: Then zoom into the core write path that turns checkout state into an order.

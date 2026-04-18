@@ -1,0 +1,43 @@
+id: edge-overview
+title: Edge Overview
+teaches: How checkout enters the system and hands off to core services.
+parent:
+children:
+  - order-creation
+summary: |
+  **Web UI** drives the initial customer journey and forwards validated carts to **Checkout API**.
+
+  The API concentrates edge validation before it hands control to the order and inventory path.
+structures:
+  - id: edge-topology
+    title: Edge Topology
+    type: component topology
+    nodes:
+      - id: web-ui
+      - id: checkout-api
+    edges:
+      - from: web-ui
+        to: checkout-api
+        label: checkout
+flows:
+  - id: checkout-entry
+    title: Checkout Entry
+    type: request path
+    steps:
+      - node: web-ui
+        action: Customer submits cart and shipping details.
+        to: checkout-api
+      - node: checkout-api
+        action: Validates cart contents and creates a checkout session.
+observations:
+  - id: obs-edge-1
+    finding: "Checkout validation is centralized in **Checkout API**."
+    confidence: high
+    component: checkout-api
+    evidence:
+      file: src/api/checkout.ts
+      lines: [12, 44]
+    recommendation: Keep validation logic here to avoid drift across entrypoints.
+evaluation:
+  groundedness: 0.96
+  coverage: 0.82

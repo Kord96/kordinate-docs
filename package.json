@@ -7,12 +7,18 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "synthetic-api": "node scripts/serve-synthetic-docs-api.mjs",
+    "bootstrap-docs-store": "node scripts/bootstrap-docs-store.mjs",
+    "publish-docs-store:minio": "node scripts/publish-docs-store-to-minio.mjs",
+    "verify-docs-store:minio": "node scripts/verify-docs-store-in-minio.mjs"
   },
   "dependencies": {
     "astro": "^6.0.1",
     "cookie": "^1.1.1",
+    "js-yaml": "^4.1.1",
     "locomotive-scroll": "^5.0.1",
+    "minio": "^8.0.6",
     "playwright": "^1.58.2",
     "sharp": "^0.34.2"
   },

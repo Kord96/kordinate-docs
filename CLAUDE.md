@@ -1,51 +1,94 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-Documentation site for **logBD** — an interactive architecture walkthrough of a stream-processing pipeline that builds a queryable property graph from network logs. Built with Astro + Starlight, deployed as a static site served at `/dev` base path.
+Documentation frontend for architecture walkthroughs. Built with Astro and served at the `/dev` base path.
 
-Production: `docs.khaledkord.com` | Dev: same domain at `/dev` path.
+The repo no longer reads project data directly from local docs folders. It now expects a docs-facing backend API via `DOCS_DATA_BASE_URL`.
 
 ## Commands
 
 ```bash
-npm run dev          # Start dev server (port 4321, binds 0.0.0.0)
-npm run build        # Build static site to dist/
-npm run preview      # Preview production build
+npm run dev
+npm run build
+npm run preview
+npm run synthetic-api
+npm run bootstrap-docs-store
+npm run publish-docs-store:minio
+npm run verify-docs-store:minio
 ```
 
-Docker alternative: `docker build -t docs . && docker run -p 4321:4321 docs`
+## Required Environment
 
-## Architecture
+```bash
+DOCS_DATA_BASE_URL=https://docs.khaledkord.com/api
+```
 
-### Data Pipeline (build-time)
+The build should fail fast if `DOCS_DATA_BASE_URL` is missing.
 
-The site is **data-driven** — augur (architecture analysis) and scribe (story generation) produce JSON/YAML in `src/content/docs/logbd/` which the Astro pages consume at build time via `fs.readFileSync`:
+## Frontend Data Contract
 
-- **`atlas.json`** — Full architecture model: components, groups, flows, failure modes, debt, domain model, concepts
-- **`manifest.json`** — Scribe output: story block metadata (renderers, block types)
-- **`storyByNode.json`** — Maps component IDs → story IDs (used for graph node click → story navigation)
-- **`journeys/*.yaml`** — Ordered story sequences with bridges (narrative transitions between stories)
-- **`stories/*.yaml`** — Individual stories: anchor file, summary, flows, observations, components
+The frontend currently consumes:
 
-### Pages
+- `GET /projects`
+- `GET /projects/:project/current`
 
-There are only two main pages — both are large single-file Astro components with inline JS and CSS:
+The current project view payload includes:
 
-- **`src/pages/logbd/index.astro`** (~1300 lines) — Journey page. Scroll-snap sections, Cytoscape.js graph per story, drawer with detail/terminal tabs, focus mode, keyboard nav (←/→/Esc). Loads journey YAML and renders stories with progressive reveal.
-- **`src/pages/logbd/atlas/index.astro`** (~1000 lines) — Atlas page. Full architecture reference: component cards, flow diagrams, failure modes, debt violations, domain model, Cytoscape.js interactive graph with expandable groups.
+- `atlas`
+- `stories`
+- `narratives`
+- `analysis_id`
+- optional `overlay_id`
 
-### Key Patterns
+The frontend derives node-to-story references internally. It does not require `storyByNode`.
 
-- **No framework JS** — All interactivity is vanilla JS in `<script>` tags within `.astro` files. Cytoscape.js and cose-bilkent layout loaded from CDN.
-- **Mermaid rendering** — Configured globally in `astro.config.mjs` head script; renders `[data-language="mermaid"]` blocks on page load and Astro navigation.
-- **Component/node IDs are the join key** — `atlas.json` component IDs link to `storyByNode.json` entries, which reference story IDs in `stories/*.yaml`, which are sequenced by `journeys/*.yaml`. Renaming an ID requires updating all four.
-- **Starlight theming** — `src/styles/custom.css` overrides Starlight defaults. The journey and atlas pages bypass Starlight layout entirely (standalone HTML).
+## Upstream Data Shape
 
-## Content Schema
+Augur produces canonical analysis artifacts in this shape:
 
-Stories follow this structure: `id`, `title`, `teaches`, `tags`, `anchor` (source file reference), `parent`/`children`, `summary`, `flows[]`, `observations[]`, `components[]`.
+- `atlas.json`
+- `stories/*.yaml`
+- `narratives.yaml`
 
-Journeys: `id`, `number`, `title`, `description`, `audience`, `overview`, `stories[]` (ordered IDs), `bridges[]` (from/to/text narrative connectors).
+The docs backend is expected to:
+
+- index analyses by project
+- expose the current published view
+- support browsing historical analyses
+- apply editable overlays without mutating the Augur base analysis
+
+## Synthetic Harness
+
+The repo includes a synthetic docs backend in:
+
+- `scripts/serve-synthetic-docs-api.mjs`
+- `synthetic-data/docs-store/` as fixture data
+- `/kord/docs-store` as the default external local store
+- `http://127.0.0.1:9091` as the default Augur API source in hybrid mode
+
+Reader behavior:
+
+- `DOCS_SOURCE_MODE=hybrid` by default
+- canonical Augur projects are preferred when the Augur API returns accepted base analyses
+- docs-store fixture data remains the fallback source for projects not yet published by Augur
+
+Use it to validate frontend integration locally:
+
+```bash
+DOCS_DATA_BASE_URL=http://127.0.0.1:4010 npm run build
+```
+
+Bootstrap the external store once with:
+
+```bash
+npm run bootstrap-docs-store
+```
+
+Publish that store to MinIO/S3-compatible object storage with:
+
+```bash
+MINIO_ENDPOINT=127.0.0.1 MINIO_PORT=9000 MINIO_ACCESS_KEY=... MINIO_SECRET_KEY=... MINIO_BUCKET=docs npm run publish-docs-store:minio
+```

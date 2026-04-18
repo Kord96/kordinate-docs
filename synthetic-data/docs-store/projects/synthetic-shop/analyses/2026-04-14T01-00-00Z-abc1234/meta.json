@@ -1,0 +1,9 @@
+{
+  "project": "synthetic-shop",
+  "analysis_id": "2026-04-14T01-00-00Z-abc1234",
+  "commit_sha": "abc1234def5678",
+  "commit_time": "2026-04-14T00:58:00Z",
+  "analyzed_at": "2026-04-14T01:00:00Z",
+  "source": "augur",
+  "status": "ready"
+}

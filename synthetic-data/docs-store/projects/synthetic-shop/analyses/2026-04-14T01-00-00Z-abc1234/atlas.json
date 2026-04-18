@@ -1,0 +1,82 @@
+{
+  "project": "Synthetic Shop",
+  "purpose": "Demo storefront docs backed by immutable analysis snapshots and editable overlays.",
+  "domain_model": {
+    "primary": "Order",
+    "entities": ["Order", "CheckoutSession", "InventoryReservation"],
+    "relationships": ["Order reserves inventory", "Checkout creates order"]
+  },
+  "groups": [
+    { "id": "edge", "label": "Edge", "description": "User-facing entrypoints" },
+    { "id": "core", "label": "Core", "description": "Business logic and persistence" },
+    { "id": "external", "label": "External", "description": "Third-party integrations" }
+  ],
+  "components": [
+    {
+      "id": "web-ui",
+      "name": "Web UI",
+      "type": "frontend",
+      "group": "edge",
+      "description": "Renders catalog, cart, and checkout entrypoints.",
+      "depends_on": ["checkout-api"]
+    },
+    {
+      "id": "checkout-api",
+      "name": "Checkout API",
+      "type": "api",
+      "group": "edge",
+      "description": "Validates carts and creates checkout sessions.",
+      "depends_on": ["order-service", "inventory-service", "payment-gateway"]
+    },
+    {
+      "id": "order-service",
+      "name": "Order Service",
+      "type": "service",
+      "group": "core",
+      "description": "Creates orders and writes order state.",
+      "depends_on": ["orders-db", "inventory-service"]
+    },
+    {
+      "id": "inventory-service",
+      "name": "Inventory Service",
+      "type": "service",
+      "group": "core",
+      "description": "Tracks stock and reservations.",
+      "depends_on": ["orders-db"]
+    }
+  ],
+  "external_dependencies": [
+    {
+      "id": "payment-gateway",
+      "name": "Payment Gateway",
+      "type": "external-service",
+      "description": "Processes card authorization and capture."
+    },
+    {
+      "id": "orders-db",
+      "name": "Orders DB",
+      "type": "store",
+      "description": "Persists orders and inventory reservations."
+    }
+  ],
+  "flows": [
+    {
+      "id": "checkout",
+      "title": "Checkout Request",
+      "steps": [
+        { "component": "web-ui", "to": "checkout-api" },
+        { "component": "checkout-api", "to": "order-service" },
+        { "component": "order-service", "to": "orders-db" }
+      ]
+    }
+  ],
+  "failure_modes": [
+    {
+      "id": "payment-timeout",
+      "severity": "high",
+      "narrative": "If the payment gateway times out, checkout sessions linger without clear user recovery."
+    }
+  ],
+  "concepts": {},
+  "debt": {}
+}

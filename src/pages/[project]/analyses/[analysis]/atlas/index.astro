@@ -1,24 +1,28 @@
 ---
-import Base from '../../../layouts/Base.astro';
-import Header from '../../../components/Header.astro';
-import PageNav from '../../../components/PageNav.astro';
-import PillNav from '../../../components/PillNav.astro';
-import AtlasStyles from '../../../components/atlas/AtlasStyles.astro';
-import ArchGraphSection from '../../../components/atlas/ArchGraphSection.astro';
-import ComponentsSection from '../../../components/atlas/ComponentsSection.astro';
-import FlowsSection from '../../../components/atlas/FlowsSection.astro';
-import ExternalDepsSection from '../../../components/atlas/ExternalDepsSection.astro';
-import FailuresSection from '../../../components/atlas/FailuresSection.astro';
-import PatternsSection from '../../../components/atlas/PatternsSection.astro';
-import { getProjectAtlas, getProjectIndex } from '../../../lib/docs-data';
+import Base from '../../../../../layouts/Base.astro';
+import Header from '../../../../../components/Header.astro';
+import PageNav from '../../../../../components/PageNav.astro';
+import PillNav from '../../../../../components/PillNav.astro';
+import AtlasStyles from '../../../../../components/atlas/AtlasStyles.astro';
+import ArchGraphSection from '../../../../../components/atlas/ArchGraphSection.astro';
+import ComponentsSection from '../../../../../components/atlas/ComponentsSection.astro';
+import FlowsSection from '../../../../../components/atlas/FlowsSection.astro';
+import ExternalDepsSection from '../../../../../components/atlas/ExternalDepsSection.astro';
+import FailuresSection from '../../../../../components/atlas/FailuresSection.astro';
+import PatternsSection from '../../../../../components/atlas/PatternsSection.astro';
+import { getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex } from '../../../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
-  return projects.map(({ slug }) => ({ params: { project: slug } }));
+  const paths = await Promise.all(projects.map(async ({ slug }) => {
+    const analyses = await getProjectAnalyses(slug);
+    return analyses.map((analysis) => ({ params: { project: slug, analysis: analysis.analysisId } }));
+  }));
+  return paths.flat();
 }
 
-const { project } = Astro.params;
-const atlas = await getProjectAtlas(project);
+const { project, analysis } = Astro.params;
+const { atlas, analysisId } = await getProjectAnalysisBundle(project, analysis);
 
 const groups = atlas.groups || [];
 const components = atlas.components || [];
@@ -35,14 +39,13 @@ function severity(s: string) {
 }
 ---
 
-<Base title={`${atlas.project} — Atlas`}>
+<Base title={`${atlas.project} — Atlas Snapshot`}>
   <AtlasStyles />
-
-  <Header project={atlas.project} badge="dev" position="sticky" />
+  <Header project={`${atlas.project} · ${analysisId}`} badge="snapshot" position="sticky" />
   <PageNav tabs={[
-    {label: "Journey", href: `/dev/${project}/`},
-    {label: "Atlas", href: `/dev/${project}/atlas/`, active: true},
-    {label: "History", href: `/dev/${project}/analyses/`},
+    { label: 'Journey', href: `/dev/${project}/analyses/${analysis}/` },
+    { label: 'Atlas', href: `/dev/${project}/analyses/${analysis}/atlas/`, active: true },
+    { label: 'History', href: `/dev/${project}/analyses/` },
   ]} />
 
   <div class="container">
