@@ -15,6 +15,16 @@ function slugFromParts(owner, repo) {
   return owner && repo ? `${owner}--${repo}` : '';
 }
 
+function displayProjectTitle(project, title) {
+  const candidate = (title || project || '').trim();
+  if (!candidate) return project;
+  if (candidate === project) {
+    const [owner, repo] = project.split('--');
+    if (owner && repo) return `${owner}/${repo}`;
+  }
+  return candidate;
+}
+
 function sendJson(res, status, payload) {
   const body = JSON.stringify(payload, null, 2);
   res.writeHead(status, {
@@ -138,7 +148,7 @@ async function buildAugurProjectSummary(project) {
   const view = await loadAugurRenderedView(project, record.latest_analysis_id);
   return {
     slug: project,
-    title: record.title || view.atlas?.project || project,
+    title: displayProjectTitle(project, record.title || view.atlas?.project || project),
     purpose: record.purpose || view.atlas?.purpose || '',
     componentCount: Array.isArray(view.atlas?.components) ? view.atlas.components.length : 0,
     current_analysis_id: record.latest_analysis_id,
@@ -178,7 +188,7 @@ function buildProjectSummary(project) {
   const view = loadRenderedView(project, current.default_analysis_id, current.default_overlay_id || null);
   return {
     slug: project,
-    title: view.atlas?.project || project,
+    title: displayProjectTitle(project, view.atlas?.project || project),
     purpose: view.atlas?.purpose || '',
     componentCount: Array.isArray(view.atlas?.components) ? view.atlas.components.length : 0,
     current_analysis_id: current.default_analysis_id,
