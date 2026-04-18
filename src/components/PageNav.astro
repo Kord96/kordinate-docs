@@ -24,24 +24,24 @@ const { tabs } = Astro.props;
     margin: 0 auto;
     display: inline-flex;
     gap: 0.3rem;
-    padding: 0.25rem;
-    border: 1px solid var(--border, rgba(255,255,255,0.06));
+    padding: 0.3rem;
+    border: 1px solid var(--border-hover, rgba(255,255,255,0.08));
     border-radius: 999px;
-    background: var(--bg-raised, rgba(24,24,27,0.75));
-    backdrop-filter: blur(12px);
+    background: rgba(9,9,11,0.92);
+    backdrop-filter: blur(16px) saturate(180%);
   }
   .page-tab {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 600;
-    color: var(--text-3, #71717a);
+    color: var(--text-4, #a1a1aa);
     text-decoration: none;
-    padding: 0.4rem 0.9rem;
+    padding: 0.35rem 0.8rem;
     border-radius: 999px;
     transition: all 0.2s;
   }
   .page-tab:hover {
-    color: var(--text-2, #d4d4d8);
-    background: rgba(255,255,255,0.04);
+    color: var(--text-2, #e4e4e7);
+    background: rgba(39,39,42,0.6);
   }
   .page-tab-active {
     color: var(--text, #fafafa);
@@ -54,11 +54,11 @@ const { tabs } = Astro.props;
     background: transparent;
   }
   :global([data-theme='light']) .page-nav-inner {
-    background: rgba(255,255,255,0.9);
-    border-color: #d4d4d8;
-    box-shadow: 0 1px 0 rgba(24,24,27,0.03);
+    background: rgba(255,255,255,0.96);
+    border-color: #cbd5e1;
+    box-shadow: 0 8px 28px rgba(24,24,27,0.08);
   }
   :global([data-theme='light']) .page-tab { color: #52525b; }
-  :global([data-theme='light']) .page-tab:hover { color: #18181b; background: rgba(0,0,0,0.04); }
+  :global([data-theme='light']) .page-tab:hover { color: #18181b; background: rgba(24,24,27,0.06); }
   :global([data-theme='light']) .page-tab-active { color: #18181b; background: rgba(79,70,229,0.1); border-color: rgba(79,70,229,0.2); }
 </style>
