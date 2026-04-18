@@ -12,8 +12,8 @@ const { atlas, storyByNode } = Astro.props;
 
 <script id="comp-data" type="application/json" set:html={JSON.stringify(
   Object.fromEntries([
-    ...(atlas.components || []).map((c: any) => [c.id, { id: c.id, name: c.name, type: c.type, description: c.description, depends_on: c.depends_on || [], patterns: c.patterns || [] }]),
-    ...(atlas.external_dependencies || []).map((e: any) => [e.id, { id: e.id, name: e.name || e.id, type: 'external', description: e.description || '', depends_on: [], patterns: [] }]),
+    ...(atlas.components || []).map((c: any) => [c.id, { id: c.id, name: c.name, type: c.type, description: c.description, summary: c.summary || '', depends_on: c.depends_on || [], patterns: c.patterns || [], modules: c.modules || [], children: c.children || [], health: c.health || {} }]),
+    ...(atlas.external_dependencies || []).map((e: any) => [e.id, { id: e.id, name: e.name || e.id, type: 'external', description: e.description || '', summary: e.summary || '', depends_on: [], patterns: [], modules: [], children: [], health: e.health || {}, purpose: e.purpose || '', technology: e.technology || '' }]),
   ])
 )} />
 <script id="refs-data" type="application/json" set:html={JSON.stringify(storyByNode)} />

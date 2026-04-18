@@ -1,6 +1,6 @@
 version: "1"
 narratives:
-  - id: getting-started
+  - id: system-overview
     title: Getting Started
     description: Follow one transaction through scoring and persistence.
     audience: ["onboarding"]

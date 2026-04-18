@@ -57,6 +57,7 @@ const html = parseSummary(story.summary || '');
             name: c?.name || nid,
             type: c?.type || 'worker',
             description: c?.description || '',
+            summary: c?.summary || '',
             depends_on: c?.depends_on || [],
             patterns: c?.patterns || [],
             children: stNode.children || [],

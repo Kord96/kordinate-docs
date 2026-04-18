@@ -25,7 +25,7 @@ const { owner, repo } = Astro.params;
 const project = slugFromRouteParts(owner, repo);
 const { atlas, storyByNode, journeys, storyMap } = await getProjectBundle(project);
 
-const defaultJourney = journeys.find((j: any) => j.id === 'getting-started') || journeys[0] || { id: 'default', title: 'Journey', stories: [] };
+const defaultJourney = journeys.find((j: any) => j.id === 'system-overview') || journeys[0] || { id: 'default', title: 'Journey', stories: [] };
 
 const journeyData: Record<string, { stories: any[]; bridgeMap: Record<string, any>; total: number }> = {};
 for (const j of journeys) {

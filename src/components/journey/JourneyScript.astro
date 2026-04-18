@@ -16,7 +16,7 @@
   const jnPicker = document.getElementById('jn-picker');
   const landing = document.getElementById('s0');
   let cur = 0;
-  let currentJourneyId = jnPicker.querySelector('.jn-pick-active')?.dataset.journey || 'getting-started';
+  let currentJourneyId = jnPicker.querySelector('.jn-pick-active')?.dataset.journey || 'system-overview';
 
   function getVisibleSections() {
     return [landing, ...document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"]`)];
@@ -154,6 +154,17 @@
     const modules = (data.modules || []).slice(0, 3).map(m =>
       '<code style="font-size:.7rem;color:var(--accent);display:block;padding:.1rem 0;">' + m + '</code>'
     ).join('');
+    const children = (data.children || []).map(id =>
+      '<a class="detail-link detail-dep" data-node="' + id + '">' + formatId(id) + '</a>'
+    ).join(' ');
+    const health = data.health || {};
+    const localFailures = ((health.local || {}).failure_modes || []).map(f =>
+      '<li>' + (f.impact || f.trigger || f.id) + '</li>'
+    ).join('');
+    const integrationFailures = ((health.integration || {}).failure_modes || []).map(f =>
+      '<li>' + (f.impact || f.trigger || f.id) + '</li>'
+    ).join('');
+    const summaryText = data.summary || data.description || data.purpose || '';
 
     let html = '<div class="detail-header">';
     html += '<div class="detail-name">' + (data.name || formatId(data.id)) + '</div>';
@@ -162,9 +173,16 @@
     html += '<div class="detail-type"><span style="color:' + tc + ';border:1px solid ' + tc + '33;background:' + tc + '15;padding:.15rem .5rem;border-radius:4px">' + (data.type || 'component') + '</span>' + (patterns ? ' ' + patterns : '') + '</div>';
     html += '</div>';
 
-    if (data.description) html += '<div class="detail-desc">' + data.description + '</div>';
+    if (summaryText) html += '<div class="detail-desc">' + summaryText + '</div>';
+    if (children) html += '<div class="detail-section"><div class="detail-label">Subcomponents</div><div class="detail-links">' + children + '</div></div>';
     if (modules) html += '<div class="detail-section"><div class="detail-label">Files</div>' + modules + '</div>';
     if (depList) html += '<div class="detail-section"><div class="detail-label">Dependencies</div><div class="detail-links">' + depList + '</div></div>';
+    if (localFailures || integrationFailures) {
+      html += '<div class="detail-section"><div class="detail-label">Health</div>';
+      if (localFailures) html += '<div style="font-size:.68rem;color:var(--text-4);margin:.2rem 0 .15rem;">Local</div><ul>' + localFailures + '</ul>';
+      if (integrationFailures) html += '<div style="font-size:.68rem;color:var(--text-4);margin:.45rem 0 .15rem;">Integration</div><ul>' + integrationFailures + '</ul>';
+      html += '</div>';
+    }
     if (storyList) html += '<div class="detail-section"><div class="detail-label">Appears in stories</div><div class="detail-links">' + storyList + '</div></div>';
 
     panelDetail.innerHTML = html;

@@ -12,20 +12,7 @@ const sourceMode = process.env.DOCS_SOURCE_MODE || 'hybrid';
 const port = Number(process.env.SYNTHETIC_DOCS_PORT || 4010);
 
 function slugFromParts(owner, repo) {
-  return owner && repo ? `${owner}--${repo}` : owner || repo || '';
-}
-
-function resolveProjectPath(parts, startIndex = 1) {
-  if (parts[startIndex] && parts[startIndex + 1] && !['current', 'analyses', 'overlays'].includes(parts[startIndex + 1])) {
-    return {
-      project: slugFromParts(parts[startIndex], parts[startIndex + 1]),
-      nextIndex: startIndex + 2,
-    };
-  }
-  return {
-    project: parts[startIndex],
-    nextIndex: startIndex + 1,
-  };
+  return owner && repo ? `${owner}--${repo}` : '';
 }
 
 function sendJson(res, status, payload) {
@@ -322,8 +309,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && parts.length === 1 && parts[0] === 'projects') {
       return await handleProjects(req, res);
     }
-    if (req.method === 'GET' && parts[0] === 'projects' && parts.length >= 2) {
-      const { project, nextIndex } = resolveProjectPath(parts, 1);
+    if (req.method === 'GET' && parts[0] === 'projects' && parts.length >= 3) {
+      const project = slugFromParts(parts[1], parts[2]);
+      const nextIndex = 3;
       if (!project) return sendJson(res, 404, { error: 'project_not_found' });
       if (parts.length === nextIndex) {
         return await handleProject(req, res, project);

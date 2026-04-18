@@ -181,21 +181,21 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
       var expanded = !!expandedGroups[root.id];
       var label = expanded ? root.name : root.name + '  [' + kids.length + ']';
       vis.add(root.id);
-      els.push({ group: 'nodes', data: { id: root.id, label: label, nodeType: root.type || 'service', description: root.description || '', hasChildren: true, collapsed: !expanded }});
+      els.push({ group: 'nodes', data: { id: root.id, label: label, nodeType: root.type || 'service', description: root.description || '', summary: root.summary || '', hasChildren: true, collapsed: !expanded, children: root.children || [], health: root.health || {}, modules: root.modules || [], depends_on: root.depends_on || [] }});
       if (expanded) {
         kids.forEach(function(component) {
           vis.add(component.id);
-          els.push({ group: 'nodes', data: { id: component.id, label: component.name, nodeType: component.type || 'worker', description: component.description || '', parent: root.id, hasChildren: false, collapsed: false }});
+          els.push({ group: 'nodes', data: { id: component.id, label: component.name, nodeType: component.type || 'worker', description: component.description || '', summary: component.summary || '', parent: root.id, hasChildren: false, collapsed: false, children: component.children || [], health: component.health || {}, modules: component.modules || [], depends_on: component.depends_on || [] }});
         });
       }
     });
     standaloneRoots.forEach(function(component) {
       vis.add(component.id);
-      els.push({ group: 'nodes', data: { id: component.id, label: component.name, nodeType: component.type || 'worker', description: component.description || '', hasChildren: false, collapsed: false }});
+      els.push({ group: 'nodes', data: { id: component.id, label: component.name, nodeType: component.type || 'worker', description: component.description || '', summary: component.summary || '', hasChildren: false, collapsed: false, children: component.children || [], health: component.health || {}, modules: component.modules || [], depends_on: component.depends_on || [] }});
     });
     extDeps.forEach(function(dep) {
       vis.add(dep.id);
-      els.push({ group: 'nodes', data: { id: dep.id, label: dep.name || dep.id, nodeType: 'external', description: dep.purpose || dep.technology || '', hasChildren: false, collapsed: false }});
+      els.push({ group: 'nodes', data: { id: dep.id, label: dep.name || dep.id, nodeType: 'external', description: dep.purpose || dep.technology || '', summary: dep.summary || '', hasChildren: false, collapsed: false, children: [], health: dep.health || {}, modules: [], depends_on: [] }});
     });
 
     var edgeSet = {};
@@ -280,7 +280,7 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
 
     nameEl.textContent = item.name || item.id;
     typeEl.textContent = nodeType;
-    descEl.textContent = item.description || item.purpose || '';
+    descEl.textContent = item.summary || item.description || item.purpose || '';
 
     if (component && component.depends_on && component.depends_on.length) {
       depsEl.innerHTML = '<h4>Dependencies</h4><ul>' + component.depends_on.map(function(depId) {

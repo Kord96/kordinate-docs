@@ -1,6 +1,6 @@
 version: "1"
 narratives:
-  - id: getting-started
+  - id: system-overview
     title: Getting Started
     description: Follow the main checkout path from browser entry to persisted order state.
     audience: ["onboarding"]

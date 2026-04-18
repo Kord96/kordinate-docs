@@ -24,7 +24,7 @@ const { atlas, journeys, defaultJourney, storyByNode } = Astro.props;
       <div class="struct-graph" id="atlas-overview" data-graph={JSON.stringify({
         nodes: (atlas.components || []).map((c: any) => ({
           id: c.id, name: c.name, type: c.type,
-          description: c.description, depends_on: c.depends_on || [], patterns: c.patterns || []
+          description: c.description, summary: c.summary || '', depends_on: c.depends_on || [], patterns: c.patterns || [], children: c.children || []
         })),
         edges: (atlas.components || []).flatMap((c: any) =>
           (c.depends_on || []).filter((d: string) => (atlas.components || []).some((cc: any) => cc.id === d))
