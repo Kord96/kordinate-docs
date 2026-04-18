@@ -1,108 +1,12 @@
 ---
-import Base from '../layouts/Base.astro';
-import Header from '../components/Header.astro';
 import { getProjectIndex } from '../lib/docs-data';
 
 const projects = await getProjectIndex();
----
-<Base title="Khaled Kord — Docs">
-  <Header project="Docs" badge="DEV"  />
-  <main class="home">
-    <section class="hero">
-      <img src="/logo_dark.png" alt="Logo" class="hero-logo logo-dark" /><img src="/logo_light.png" alt="Logo" class="hero-logo logo-light" />
-      <h1>Khaled Kord</h1>
-      <p class="subtitle">Projects and architecture documentation.</p>
-    </section>
-    <section class="projects">
-      <h2>Projects</h2>
-      <div class="project-grid">
-        {projects.map(p => (
-          <a class="project-card" href={`/${p.slug}/`}>
-            <h3>{p.title}</h3>
-            <p>{p.purpose}</p>
-            {p.componentCount > 0 && <span class="meta">{p.componentCount} components</span>}
-          </a>
-        ))}
-      </div>
-    </section>
-  </main>
-</Base>
+const fallback = projects[0]?.slug;
 
-<style>
-  .home {
-    padding-top: 40px;
-  }
-  .hero {
-    text-align: center;
-    padding: 4rem 1.5rem 3rem;
-    background: var(--bg);
-  }
-  .logo-light { display: none; }
-  :global([data-theme="light"]) .logo-dark { display: none; }
-  :global([data-theme="light"]) .logo-light { display: inline-block; }
-  .hero-logo {
-    width: 120px;
-    height: auto;
-    margin-bottom: 1.5rem;
-    opacity: 0.9;
-  }
-  .hero h1 {
-    font-size: 2.2rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    margin-bottom: 0.5rem;
-  }
-  .hero .subtitle {
-    color: var(--text-2);
-    font-size: 1rem;
-    font-weight: 400;
-  }
-  .projects {
-    max-width: 56rem;
-    margin: 0 auto;
-    padding: 2rem 1.5rem 4rem;
-  }
-  .projects h2 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 1.2rem;
-    color: var(--text-2);
-    letter-spacing: -0.01em;
-  }
-  .project-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 1rem;
-  }
-  .project-card {
-    display: block;
-    padding: 1.25rem 1.4rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--bg-raised);
-    text-decoration: none;
-    color: var(--text);
-    transition: border-color 0.2s, background 0.2s;
-  }
-  .project-card:hover {
-    border-color: var(--accent);
-    background: var(--bg-card);
-  }
-  .project-card h3 {
-    font-size: 1rem;
-    font-weight: 700;
-    margin-bottom: 0.4rem;
-    text-transform: capitalize;
-  }
-  .project-card p {
-    font-size: 0.82rem;
-    color: var(--text-2);
-    line-height: 1.5;
-    margin-bottom: 0.5rem;
-  }
-  .project-card .meta {
-    font-size: 0.7rem;
-    color: var(--text-3);
-    font-weight: 500;
-  }
-</style>
+if (!fallback) {
+  throw new Error('No projects available for docs redirect.');
+}
+
+return Astro.redirect(`/${fallback}/`);
+---

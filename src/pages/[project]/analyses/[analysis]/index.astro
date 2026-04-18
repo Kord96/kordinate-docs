@@ -52,7 +52,7 @@ function parseSummary(text: string): string {
 
 <Base title={`${defaultJourney.title} — ${analysisId}`}>
   <JourneyStyles />
-  <Header project={atlas.project || project} badge="snapshot" />
+  <Header project={atlas.project || project} currentProject={project} badge="snapshot" />
   <PageNav tabs={[
     { label: 'Journey', href: `/${project}/analyses/${analysis}/`, active: true },
     { label: 'Atlas', href: `/${project}/analyses/${analysis}/atlas/` },

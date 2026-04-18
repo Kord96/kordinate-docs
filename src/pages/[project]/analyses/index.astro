@@ -17,7 +17,7 @@ const [atlas, analyses] = await Promise.all([
 ---
 
 <Base title={`${atlas.project || project} — Analyses`}>
-  <Header project={atlas.project || project} badge="dev" />
+  <Header project={atlas.project || project} currentProject={project} badge="dev" />
   <PageNav tabs={[
     { label: 'Journey', href: `/${project}/` },
     { label: 'Atlas', href: `/${project}/atlas/` },

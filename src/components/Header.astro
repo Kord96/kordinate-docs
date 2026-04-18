@@ -3,24 +3,46 @@
  * Shared header — translucent bar with logo, badge, nav links, theme toggle.
  * Used by all custom project pages (homepage, journey, atlas, etc.).
  */
+import { displayProjectTitle, getProjectIndex } from '../lib/docs-data';
+
 interface Props {
   project: string;
+  currentProject?: string;
+  projects?: { slug: string; title: string; purpose?: string; componentCount?: number }[];
   badge?: string;
   links?: { label: string; href: string }[];
   position?: 'fixed' | 'sticky';
   active?: string;
 }
-const { project, badge, links = [], position = 'fixed', active } = Astro.props;
+const { project, currentProject, projects: explicitProjects = [], badge, links = [], position = 'fixed', active } = Astro.props;
+const projects = explicitProjects.length > 0 || !currentProject ? explicitProjects : await getProjectIndex();
+const hasProjectSwitcher = projects.length > 0;
+const displayProject = displayProjectTitle(project);
 ---
 
 <header class:list={['site-header', position === 'sticky' && 'sticky']}>
   <div class="h-left">
-    <a class="h-brand" href="/" title="Home">
-      <img src="/logo_dark.png?v=2" alt="Kordinate" class="logo-dark" />
-      <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
-      <span class="h-sep"></span>
-      <span class="h-logo">{project}</span>
-    </a>
+    {hasProjectSwitcher ? (
+      <button
+        class:list={['h-brand', 'h-brand-button']}
+        type="button"
+        title="Open project switcher"
+        aria-label="Open project switcher"
+        data-project-switcher-trigger="true"
+      >
+        <img src="/logo_dark.png?v=2" alt="Kordinate" class="logo-dark" />
+        <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
+        <span class="h-sep"></span>
+        <span class="h-logo">{displayProject}</span>
+      </button>
+    ) : (
+      <a class="h-brand" href="/" title="Home">
+        <img src="/logo_dark.png?v=2" alt="Kordinate" class="logo-dark" />
+        <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
+        <span class="h-sep"></span>
+        <span class="h-logo">{displayProject}</span>
+      </a>
+    )}
     {badge && <span class="h-env">{badge}</span>}
   </div>
   <div class="h-right">
@@ -36,6 +58,32 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
     </a>
   </div>
 </header>
+
+{hasProjectSwitcher && (
+  <>
+    <div class="project-switcher-backdrop" id="project-switcher-backdrop"></div>
+    <aside class="project-switcher" id="project-switcher" aria-hidden="true">
+      <div class="project-switcher-head">
+        <div>
+          <div class="project-switcher-kicker">Projects</div>
+          <div class="project-switcher-title">Switch project</div>
+        </div>
+        <button class="project-switcher-close" id="project-switcher-close" type="button" aria-label="Close project switcher">✕</button>
+      </div>
+      <div class="project-switcher-list">
+        {projects.map((entry) => (
+          <a class:list={['project-switcher-item', currentProject === entry.slug && 'project-switcher-item-active']} href={`/${entry.slug}/`}>
+            <div class="project-switcher-row">
+              <span class="project-switcher-name">{entry.title}</span>
+              {typeof entry.componentCount === 'number' && entry.componentCount > 0 && <span class="project-switcher-count">{entry.componentCount}</span>}
+            </div>
+            {entry.purpose && <div class="project-switcher-purpose">{entry.purpose}</div>}
+          </a>
+        ))}
+      </div>
+    </aside>
+  </>
+)}
 
 <script>
   // Theme toggle — persist in localStorage
@@ -54,6 +102,28 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
       const next = current === 'light' ? 'dark' : 'light';
       document.documentElement.dataset.theme = next;
       localStorage.setItem('theme', next);
+    });
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const trigger = document.querySelector('[data-project-switcher-trigger="true"]');
+    const drawer = document.getElementById('project-switcher');
+    const backdrop = document.getElementById('project-switcher-backdrop');
+    const close = document.getElementById('project-switcher-close');
+    if (!trigger || !drawer || !backdrop) return;
+
+    const setOpen = (open) => {
+      drawer.classList.toggle('project-switcher-open', open);
+      backdrop.classList.toggle('project-switcher-backdrop-open', open);
+      drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+      document.body.classList.toggle('project-switcher-active', open);
+    };
+
+    trigger.addEventListener('click', () => setOpen(true));
+    backdrop.addEventListener('click', () => setOpen(false));
+    close?.addEventListener('click', () => setOpen(false));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') setOpen(false);
     });
   });
 </script>
@@ -92,6 +162,12 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
   .h-brand {
     display: flex; align-items: center; gap: .6rem;
     color: inherit; text-decoration: none;
+  }
+  .h-brand-button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
   .h-brand img {
     height: 32px; width: auto; max-height: 32px; opacity: 0.8;
@@ -161,4 +237,116 @@ const { project, badge, links = [], position = 'fixed', active } = Astro.props;
     color: #52525b;
   }
   :global([data-theme='light']) .h-gh:hover { color: #18181b; }
+
+  .project-switcher-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+    z-index: 109;
+  }
+  .project-switcher-backdrop-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .project-switcher {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(30rem, 90vw);
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    background: rgba(9,9,11,.98);
+    border-right: 1px solid var(--border);
+    z-index: 110;
+    display: flex;
+    flex-direction: column;
+  }
+  .project-switcher-open {
+    transform: translateX(0);
+  }
+  .project-switcher-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1.1rem 1rem .9rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .project-switcher-kicker {
+    color: var(--text-4);
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .project-switcher-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-top: .2rem;
+  }
+  .project-switcher-close {
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  .project-switcher-list {
+    padding: .75rem;
+    display: grid;
+    gap: .6rem;
+    overflow: auto;
+  }
+  .project-switcher-item {
+    display: grid;
+    gap: .35rem;
+    padding: .85rem .9rem;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255,255,255,.02);
+  }
+  .project-switcher-item:hover,
+  .project-switcher-item-active {
+    border-color: var(--border-hover);
+    background: rgba(255,255,255,.04);
+  }
+  .project-switcher-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+  }
+  .project-switcher-name {
+    font-weight: 700;
+  }
+  .project-switcher-count {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--text-3);
+  }
+  .project-switcher-purpose {
+    color: var(--text-3);
+    font-size: .78rem;
+    line-height: 1.45;
+  }
+  :global(body.project-switcher-active) {
+    overflow: hidden;
+  }
+  :global([data-theme='light']) .project-switcher {
+    background: rgba(255,255,255,.98);
+    border-right-color: #e4e4e7;
+  }
+  :global([data-theme='light']) .project-switcher-item {
+    background: #fff;
+    border-color: #e4e4e7;
+  }
+  :global([data-theme='light']) .project-switcher-item:hover,
+  :global([data-theme='light']) .project-switcher-item-active {
+    border-color: #a1a1aa;
+    background: #fafafa;
+  }
 </style>

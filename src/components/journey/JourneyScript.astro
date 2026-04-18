@@ -366,8 +366,15 @@
   let focusIndex = 0;
   let focusSections = [];
 
+  function getFocusSections() {
+    return [
+      document.getElementById('chapter0'),
+      ...document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"]`)
+    ].filter(Boolean);
+  }
+
   function openFocus(sectionId) {
-    focusSections = Array.from(document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"]`));
+    focusSections = getFocusSections();
     const section = document.getElementById(sectionId);
     focusIndex = focusSections.indexOf(section);
     if (focusIndex < 0) focusIndex = 0;

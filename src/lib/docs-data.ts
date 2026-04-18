@@ -13,6 +13,16 @@ export interface ProjectSummary {
   currentOverlayId?: string | null;
 }
 
+export function displayProjectTitle(project: string, title?: string | null) {
+  const candidate = (title || project || '').trim();
+  if (!candidate) return project;
+  if (candidate === project) {
+    const parts = project.split('--');
+    if (parts.length === 2 && parts[1]) return parts[1];
+  }
+  return candidate;
+}
+
 export interface ProjectBundle {
   project: string;
   atlas: any;
@@ -51,7 +61,7 @@ function normalizeProjectSummary(item: any): ProjectSummary | null {
 
   return {
     slug,
-    title: item?.title || item?.project || slug,
+    title: displayProjectTitle(slug, item?.title || item?.project || slug),
     purpose: item?.purpose || '',
     componentCount: Number(item?.componentCount || item?.components || 0),
     currentAnalysisId: item?.current_analysis_id || item?.currentAnalysisId,
