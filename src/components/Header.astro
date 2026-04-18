@@ -74,24 +74,36 @@ const displayProject = displayProjectTitle(project);
         {projects.map((entry) => {
           const displayTitle = displayProjectTitle(entry.slug, entry.title);
           const isCurrent = currentProject === entry.slug;
-          return (
-            <details class:list={['project-switcher-item', isCurrent && 'project-switcher-item-active']} open={isCurrent}>
-              <summary class="project-switcher-summary">
-                <div class="project-switcher-row">
-                  <span class="project-switcher-name">{displayTitle}</span>
-                  <div class="project-switcher-summary-right">
-                    {typeof entry.componentCount === 'number' && entry.componentCount > 0 && <span class="project-switcher-count">{entry.componentCount}</span>}
-                    <span class="project-switcher-chevron">▾</span>
+          if (isCurrent) {
+            return (
+              <details class:list={['project-switcher-item', 'project-switcher-item-active']} open>
+                <summary class="project-switcher-summary">
+                  <div class="project-switcher-row">
+                    <span class="project-switcher-name">{displayTitle}</span>
+                    <div class="project-switcher-summary-right">
+                      {typeof entry.componentCount === 'number' && entry.componentCount > 0 && <span class="project-switcher-count">{entry.componentCount}</span>}
+                      <span class="project-switcher-chevron">▾</span>
+                    </div>
                   </div>
+                  {entry.purpose && <div class="project-switcher-purpose">{entry.purpose}</div>}
+                </summary>
+                <div class="project-switcher-links">
+                  <a class="project-switcher-link" href={projectRoutePath(entry.slug)}>Journey</a>
+                  <a class="project-switcher-link" href={projectAtlasRoutePath(entry.slug)}>Atlas</a>
+                  <a class="project-switcher-link" href={projectAnalysesRoutePath(entry.slug)}>History</a>
                 </div>
-                {entry.purpose && <div class="project-switcher-purpose">{entry.purpose}</div>}
-              </summary>
-              <div class="project-switcher-links">
-                <a class="project-switcher-link" href={projectRoutePath(entry.slug)}>Journey</a>
-                <a class="project-switcher-link" href={projectAtlasRoutePath(entry.slug)}>Atlas</a>
-                <a class="project-switcher-link" href={projectAnalysesRoutePath(entry.slug)}>History</a>
+              </details>
+            );
+          }
+
+          return (
+            <a class="project-switcher-card" href={projectRoutePath(entry.slug)}>
+              <div class="project-switcher-row">
+                <span class="project-switcher-name">{displayTitle}</span>
+                {typeof entry.componentCount === 'number' && entry.componentCount > 0 && <span class="project-switcher-count">{entry.componentCount}</span>}
               </div>
-            </details>
+              {entry.purpose && <div class="project-switcher-purpose">{entry.purpose}</div>}
+            </a>
           );
         })}
       </div>
@@ -313,6 +325,7 @@ const displayProject = displayProjectTitle(project);
     gap: .6rem;
     overflow: auto;
   }
+  .project-switcher-card,
   .project-switcher-item {
     display: block;
     border: 1px solid var(--border);
@@ -320,6 +333,13 @@ const displayProject = displayProjectTitle(project);
     background: rgba(255,255,255,.02);
     overflow: hidden;
   }
+  .project-switcher-card {
+    padding: .85rem .9rem;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .18s ease, background .18s ease;
+  }
+  .project-switcher-card:hover,
   .project-switcher-item:hover,
   .project-switcher-item-active {
     border-color: var(--border-hover);
@@ -399,10 +419,12 @@ const displayProject = displayProjectTitle(project);
     background: rgba(255,255,255,.98);
     border-right-color: #e4e4e7;
   }
+  :global([data-theme='light']) .project-switcher-card,
   :global([data-theme='light']) .project-switcher-item {
     background: #fff;
     border-color: #e4e4e7;
   }
+  :global([data-theme='light']) .project-switcher-card:hover,
   :global([data-theme='light']) .project-switcher-item:hover,
   :global([data-theme='light']) .project-switcher-item-active {
     border-color: #a1a1aa;
