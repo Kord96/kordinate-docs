@@ -18,12 +18,11 @@ function linkedComponents(ids: string[] = []) {
 
 function groundedRefs(component: any) {
   const values = component?.grounded_in || component?.modules || [];
-  return Array.isArray(values) ? values.slice(0, 4) : [];
+  return Array.isArray(values) ? values.slice(0, 6) : [];
 }
 
-function severityLabel(severity?: string) {
-  if (!severity) return null;
-  return severity.toUpperCase();
+function list(values: any): string[] {
+  return Array.isArray(values) ? values.filter(Boolean) : [];
 }
 ---
 
@@ -38,8 +37,10 @@ function severityLabel(severity?: string) {
   {roots.map((root: any) => {
     const children = childrenByParent.get(root.id) || [];
     const dependencies = linkedComponents(root.depends_on || []);
-    const failureModes = root.health?.failure_modes || [];
-    const healthGaps = root.health?.gaps || [];
+    const health = root.health || {};
+    const criteria = list(health.criteria);
+    const triggerScenarios = list(health.triggers_failure_scenarios);
+    const participatingScenarios = list(health.participates_in_failure_scenarios);
     const references = groundedRefs(root);
 
     return (
@@ -56,6 +57,7 @@ function severityLabel(severity?: string) {
             <div class="group-pill">{root.type}</div>
           </div>
           <div class="group-desc">{root.description}</div>
+          {root.summary && <div class="signal-text" style="margin-top:.45rem;">{root.summary}</div>}
         </div>
 
         <div class="root-summary-grid">
@@ -88,6 +90,33 @@ function severityLabel(severity?: string) {
             </div>
           )}
 
+          {criteria.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Healthy When</div>
+              <ul class="summary-bullets">
+                {criteria.map((criterion: string) => <li>{criterion}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {triggerScenarios.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Can Trigger</div>
+              <div class="summary-list">
+                {triggerScenarios.map((scenarioId: string) => <a href={`#failure-${scenarioId}`} class="summary-link">{scenarioId}</a>)}
+              </div>
+            </div>
+          )}
+
+          {participatingScenarios.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Participates In</div>
+              <div class="summary-list">
+                {participatingScenarios.map((scenarioId: string) => <a href={`#failure-${scenarioId}`} class="summary-link">{scenarioId}</a>)}
+              </div>
+            </div>
+          )}
+
           {references.length > 0 && (
             <div class="summary-block">
               <div class="summary-label">Grounded In</div>
@@ -98,54 +127,16 @@ function severityLabel(severity?: string) {
           )}
         </div>
 
-        {(failureModes.length > 0 || healthGaps.length > 0) && (
-          <div class="root-health">
-            {failureModes.length > 0 && (
-              <div class="summary-block">
-                <div class="summary-label">Failure Modes</div>
-                <div class="signal-list">
-                  {failureModes.map((failure: any) => (
-                    <div class="signal-item">
-                      <div class="signal-title">
-                        {failure.id}
-                        {failure.severity && <span class="signal-severity"> · {severityLabel(failure.severity)}</span>}
-                      </div>
-                      <div class="signal-text">{failure.trigger}</div>
-                      {failure.signals && failure.signals.length > 0 && (
-                        <div class="card-meta">
-                          {failure.signals.map((signal: string) => <span class="card-tag">{signal}</span>)}
-                        </div>
-                      )}
-                      {failure.recovery && failure.recovery.length > 0 && (
-                        <ul class="summary-bullets">
-                          {failure.recovery.map((step: string) => <li>{step}</li>)}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {healthGaps.length > 0 && (
-              <div class="summary-block">
-                <div class="summary-label">Operational Gaps</div>
-                <ul class="summary-bullets">
-                  {healthGaps.map((gap: string) => <li>{gap}</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
         {children.length > 0 ? (
           <div class="component-children">
             <div class="children-title">Subcomponents ({children.length})</div>
             <div class="card-grid">
               {children.map((child: any) => {
                 const childDependencies = linkedComponents(child.depends_on || []);
-                const childFailures = child.health?.failure_modes || [];
-                const childGaps = child.health?.gaps || [];
+                const childHealth = child.health || {};
+                const childCriteria = list(childHealth.criteria);
+                const childTriggerScenarios = list(childHealth.triggers_failure_scenarios);
+                const childParticipatingScenarios = list(childHealth.participates_in_failure_scenarios);
                 const childRefs = groundedRefs(child);
                 return (
                   <article class="card component-card" id={`card-${child.id}`} data-component-id={child.id}>
@@ -154,6 +145,7 @@ function severityLabel(severity?: string) {
                       <div class="card-type">{child.type}</div>
                     </div>
                     <div class="card-desc">{child.description}</div>
+                    {child.summary && <div class="signal-text">{child.summary}</div>}
 
                     {child.abstraction && child.abstraction.length > 0 && (
                       <div class="meta-block">
@@ -184,46 +176,39 @@ function severityLabel(severity?: string) {
                       </div>
                     )}
 
+                    {childCriteria.length > 0 && (
+                      <div class="meta-block">
+                        <div class="meta-label">Healthy When</div>
+                        <ul class="summary-bullets">
+                          {childCriteria.map((criterion: string) => <li>{criterion}</li>)}
+                        </ul>
+                      </div>
+                    )}
+
+                    {childTriggerScenarios.length > 0 && (
+                      <div class="meta-block">
+                        <div class="meta-label">Can Trigger</div>
+                        <div class="summary-list">
+                          {childTriggerScenarios.map((scenarioId: string) => <a href={`#failure-${scenarioId}`} class="summary-link">{scenarioId}</a>)}
+                        </div>
+                      </div>
+                    )}
+
+                    {childParticipatingScenarios.length > 0 && (
+                      <div class="meta-block">
+                        <div class="meta-label">Participates In</div>
+                        <div class="summary-list">
+                          {childParticipatingScenarios.map((scenarioId: string) => <a href={`#failure-${scenarioId}`} class="summary-link">{scenarioId}</a>)}
+                        </div>
+                      </div>
+                    )}
+
                     {child.modules && child.modules.length > 0 && (
                       <div class="meta-block">
                         <div class="meta-label">Modules</div>
                         <div class="summary-code-list">
                           {child.modules.slice(0, 4).map((module: string) => <code class="summary-code">{module}</code>)}
                         </div>
-                      </div>
-                    )}
-
-                    {(childFailures.length > 0 || childGaps.length > 0) && (
-                      <div class="meta-block">
-                        <div class="meta-label">Health</div>
-                        {childFailures.length > 0 && (
-                          <div class="signal-list">
-                            {childFailures.slice(0, 2).map((failure: any) => (
-                              <div class="signal-item">
-                                <div class="signal-title">
-                                  {failure.id}
-                                  {failure.severity && <span class="signal-severity"> · {severityLabel(failure.severity)}</span>}
-                                </div>
-                                <div class="signal-text">{failure.trigger}</div>
-                                {failure.signals && failure.signals.length > 0 && (
-                                  <div class="card-meta">
-                                    {failure.signals.slice(0, 4).map((signal: string) => <span class="card-tag">{signal}</span>)}
-                                  </div>
-                                )}
-                                {failure.recovery && failure.recovery.length > 0 && (
-                                  <ul class="summary-bullets">
-                                    {failure.recovery.slice(0, 2).map((step: string) => <li>{step}</li>)}
-                                  </ul>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {childGaps.length > 0 && (
-                          <ul class="summary-bullets">
-                            {childGaps.slice(0, 2).map((gap: string) => <li>{gap}</li>)}
-                          </ul>
-                        )}
                       </div>
                     )}
 

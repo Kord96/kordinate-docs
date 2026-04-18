@@ -1,0 +1,122 @@
+---
+interface Props { domainModel?: any; actors?: any[]; events?: any[]; components?: any[]; }
+const { domainModel = {}, actors = [], events = [], components = [] } = Astro.props;
+
+const componentNames = new Map<string, string>(
+  components.filter((component: any) => component?.id).map((component: any) => [component.id, component.name || component.id]),
+);
+
+const hasDomainModel = domainModel && Object.keys(domainModel).length > 0;
+const boundedContexts = Array.isArray(domainModel?.bounded_contexts) ? domainModel.bounded_contexts : [];
+---
+
+{(hasDomainModel || actors.length > 0 || events.length > 0) && (
+  <div class="section" id="sec-context">
+    <h2 class="section-title">Domain & Interfaces</h2>
+    <p class="section-sub">Domain language, outside actors, and event boundaries surfaced by the atlas.</p>
+
+    {hasDomainModel && (
+      <div class="section-stack" style="margin-bottom: 1rem;">
+        <div class="summary-block">
+          <div class="summary-label">Domain Model</div>
+          {domainModel.primary && <div class="signal-title" style="margin-bottom:.3rem;">{domainModel.primary}</div>}
+          {domainModel.description && <div class="signal-text">{domainModel.description}</div>}
+          {Array.isArray(domainModel.entities) && domainModel.entities.length > 0 && (
+            <div class="meta-block">
+              <div class="meta-label">Entities</div>
+              <div class="summary-list">
+                {domainModel.entities.map((entity: string) => <span class="summary-pill">{entity}</span>)}
+              </div>
+            </div>
+          )}
+          {Array.isArray(domainModel.relationships) && domainModel.relationships.length > 0 && (
+            <div class="meta-block">
+              <div class="meta-label">Relationships</div>
+              <ul class="summary-bullets">
+                {domainModel.relationships.map((relationship: string) => <li>{relationship}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {boundedContexts.length > 0 && (
+          <div class="card-grid">
+            {boundedContexts.map((context: any) => (
+              <article class="card component-card">
+                <div class="card-name-row">
+                  <div class="card-name">{context.name || context.id}</div>
+                  <div class="card-type">bounded context</div>
+                </div>
+                {context.description && <div class="card-desc">{context.description}</div>}
+                {Array.isArray(context.entities) && context.entities.length > 0 && (
+                  <div class="meta-block">
+                    <div class="meta-label">Entities</div>
+                    <div class="summary-list">
+                      {context.entities.map((entity: string) => <span class="summary-pill">{entity}</span>)}
+                    </div>
+                  </div>
+                )}
+                {Array.isArray(context.modules) && context.modules.length > 0 && (
+                  <div class="meta-block">
+                    <div class="meta-label">Modules</div>
+                    <div class="summary-code-list">
+                      {context.modules.slice(0, 4).map((module: string) => <code class="summary-code">{module}</code>)}
+                    </div>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+
+    {actors.length > 0 && (
+      <div class="section-stack" style="margin-bottom: 1rem;">
+        <div class="summary-label">Actors</div>
+        <div class="card-grid">
+          {actors.map((actor: any) => (
+            <article class="card component-card">
+              <div class="card-name-row">
+                <div class="card-name">{actor.id}</div>
+                <div class="card-type">{actor.type}</div>
+              </div>
+              {actor.description && <div class="card-desc">{actor.description}</div>}
+            </article>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {events.length > 0 && (
+      <div class="section-stack">
+        <div class="summary-label">Events</div>
+        <div class="card-grid">
+          {events.map((event: any) => (
+            <article class="card component-card" id={`event-${event.id}`}>
+              <div class="card-name-row">
+                <div class="card-name">{event.name || event.id}</div>
+                <div class="card-type">{event.type}</div>
+              </div>
+              {event.data && <div class="card-desc">{event.data}</div>}
+              <div class="meta-block">
+                <div class="meta-label">Producer</div>
+                <div class="summary-list">
+                  {event.producer ? <a href={`#card-${event.producer}`} class="summary-link">{componentNames.get(event.producer) || event.producer}</a> : <span class="summary-pill">unknown</span>}
+                </div>
+              </div>
+              {Array.isArray(event.consumers) && event.consumers.length > 0 && (
+                <div class="meta-block">
+                  <div class="meta-label">Consumers</div>
+                  <div class="summary-list">
+                    {event.consumers.map((consumer: string) => <a href={`#card-${consumer}`} class="summary-link">{componentNames.get(consumer) || consumer}</a>)}
+                  </div>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+)}

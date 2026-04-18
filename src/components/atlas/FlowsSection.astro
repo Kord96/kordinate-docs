@@ -9,14 +9,26 @@ const componentNames = new Map<string, string>(
 function componentLabel(id: string) {
   return componentNames.get(id) || id;
 }
+
+function hrefFor(id: string) {
+  if ((components || []).some((component: any) => component?.id === id)) return `#card-${id}`;
+  return `#state-${id}`;
+}
+
+function list(values: any): string[] {
+  return Array.isArray(values) ? values.filter(Boolean) : [];
+}
 ---
 
 <div class="section" id="sec-flows">
   <h2 class="section-title">Flows</h2>
-  <p class="section-sub">{flows.length} architectural flows with triggers, steps, and operational context</p>
+  <p class="section-sub">{flows.length} architectural flows with triggers, steps, boundaries, and operational health</p>
   {flows.map((flow: any) => {
-    const failureModes = flow.health?.failure_modes || [];
-    const flowGaps = flow.health?.gaps || [];
+    const health = flow.health || {};
+    const criteria = list(health.criteria);
+    const triggerScenarios = list(health.triggers_failure_scenarios);
+    const participatingScenarios = list(health.participates_in_failure_scenarios);
+
     return (
       <article class="flow-card flow-card-rich" id={`flow-${flow.id}`}>
         <div class="flow-header">
@@ -28,6 +40,42 @@ function componentLabel(id: string) {
         </div>
 
         <div class="flow-desc">{flow.description}</div>
+        {flow.summary && <div class="signal-text" style="margin-top:.55rem;">{flow.summary}</div>}
+
+        <div class="detail-grid" style="margin-top:.85rem;">
+          {Array.isArray(flow.actors) && flow.actors.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Actors</div>
+              <div class="summary-list">
+                {flow.actors.map((actorId: string) => <span class="summary-pill">{actorId}</span>)}
+              </div>
+            </div>
+          )}
+          {criteria.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Healthy When</div>
+              <ul class="summary-bullets">
+                {criteria.map((criterion: string) => <li>{criterion}</li>)}
+              </ul>
+            </div>
+          )}
+          {triggerScenarios.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Can Trigger</div>
+              <div class="summary-list">
+                {triggerScenarios.map((scenarioId: string) => <a href={`#failure-${scenarioId}`} class="summary-link">{scenarioId}</a>)}
+              </div>
+            </div>
+          )}
+          {participatingScenarios.length > 0 && (
+            <div class="summary-block">
+              <div class="summary-label">Participates In</div>
+              <div class="summary-list">
+                {participatingScenarios.map((scenarioId: string) => <a href={`#failure-${scenarioId}`} class="summary-link">{scenarioId}</a>)}
+              </div>
+            </div>
+          )}
+        </div>
 
         {flow.steps && flow.steps.length > 0 && (
           <div class="flow-section">
@@ -38,12 +86,12 @@ function componentLabel(id: string) {
                   <div class="flow-step-index">{index + 1}</div>
                   <div class="flow-step-body">
                     <div class="flow-step-line">
-                      <a href={`#card-${step.component}`} class="summary-link">{componentLabel(step.component)}</a>
+                      <a href={hrefFor(step.component)} class="summary-link">{componentLabel(step.component)}</a>
                       <span>{step.action}</span>
                       {step.to && (
                         <>
                           <span class="flow-arrow">→</span>
-                          <span>{componentLabel(step.to)}</span>
+                          <a href={hrefFor(step.to)} class="summary-link">{componentLabel(step.to)}</a>
                         </>
                       )}
                     </div>
@@ -54,47 +102,18 @@ function componentLabel(id: string) {
                       {step.topic && <span class="flow-chip">{step.topic}</span>}
                       {step.gate && <span class="flow-chip">gate: {step.gate}</span>}
                       {step.delivery && <span class="flow-chip">{step.delivery}</span>}
+                      {step.from_state && <span class="flow-chip">from: {step.from_state}</span>}
+                      {step.to_state && <span class="flow-chip">to: {step.to_state}</span>}
+                      {step.resource && <span class="flow-chip">{step.resource}</span>}
                     </div>
 
                     {step.transform && <div class="flow-step-note">Transform: {step.transform}</div>}
+                    {step.condition && <div class="flow-step-note">Condition: {step.condition}</div>}
+                    {step.operation && <div class="flow-step-note">Operation: {step.operation}</div>}
                   </div>
                 </li>
               ))}
             </ol>
-          </div>
-        )}
-
-        {(failureModes.length > 0 || flowGaps.length > 0) && (
-          <div class="flow-section">
-            <div class="flow-section-title">Flow Health</div>
-            {failureModes.length > 0 && (
-              <div class="signal-list">
-                {failureModes.map((failure: any) => (
-                  <div class="signal-item">
-                    <div class="signal-title">
-                      {failure.id}
-                      {failure.severity && <span class="signal-severity"> · {String(failure.severity).toUpperCase()}</span>}
-                    </div>
-                    <div class="signal-text">{failure.trigger}</div>
-                    {failure.signals && failure.signals.length > 0 && (
-                      <div class="card-meta">
-                        {failure.signals.map((signal: string) => <span class="card-tag">{signal}</span>)}
-                      </div>
-                    )}
-                    {failure.recovery && failure.recovery.length > 0 && (
-                      <ul class="summary-bullets">
-                        {failure.recovery.map((step: string) => <li>{step}</li>)}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            {flowGaps.length > 0 && (
-              <ul class="summary-bullets">
-                {flowGaps.map((gap: string) => <li>{gap}</li>)}
-              </ul>
-            )}
           </div>
         )}
 

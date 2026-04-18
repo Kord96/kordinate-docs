@@ -1,32 +1,114 @@
 ---
-interface Props { failures: any[]; severity: (s: string) => string; }
-const { failures, severity } = Astro.props;
+interface Props { failures: any[]; severity: (s: string) => string; components?: any[]; flows?: any[]; stateEntries?: any[]; extDeps?: any[]; }
+const { failures, severity, components = [], flows = [], stateEntries = [], extDeps = [] } = Astro.props;
+
+const labels = new Map<string, string>();
+for (const component of components) if (component?.id) labels.set(component.id, component.name || component.id);
+for (const flow of flows) if (flow?.id) labels.set(flow.id, flow.name || flow.id);
+for (const entry of stateEntries) if (entry?.id) labels.set(entry.id, entry.id);
+for (const dep of extDeps) if (dep?.id) labels.set(dep.id, dep.name || dep.id);
+
+function hrefFor(id: string) {
+  if ((flows || []).some((flow: any) => flow?.id === id)) return `#flow-${id}`;
+  if ((stateEntries || []).some((entry: any) => entry?.id === id)) return `#state-${id}`;
+  return `#card-${id}`;
+}
 ---
 
 <div class="section" id="sec-failures">
-  <h2 class="section-title">Failure Modes</h2>
-  <p class="section-sub">{failures.length} failure scenarios analyzed</p>
+  <h2 class="section-title">Failure Scenarios</h2>
+  <p class="section-sub">{failures.length} shared cascades, degraded modes, and system-wide mitigations</p>
   {failures.map((fm: any) => (
-    <div class="failure">
+    <article class="failure scenario-card" id={`failure-${fm.id}`}>
       <div class="failure-header">
-        <span class="failure-name">{fm.id.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
-        <span class="failure-sev" style={`background: ${severity(fm.severity)}`}>{fm.severity}</span>
+        <span class="failure-name">{fm.name || fm.id}</span>
+        {fm.scope && <span class="failure-sev" style={`background: ${fm.scope === 'cascading' ? '#ef4444' : '#f59e0b'}`}>{fm.scope}</span>}
       </div>
-      <div class="failure-trigger">Trigger: {fm.trigger}</div>
-      {fm.impact && <div class="failure-cascade" style="color: var(--text-2); margin: .3rem 0;">Impact: {fm.impact}</div>}
-      {fm.cascade && fm.cascade.length > 0 && (
-        <div class="failure-cascade">
-          Cascade: {fm.cascade.map((c: any) => c.component || c.effect).join(' → ')}
-        </div>
-      )}
-      {fm.recovery && fm.recovery.length > 0 && (
-        <div style="font-size: .78rem; color: var(--accent); margin-top: .3rem; padding-top: .3rem; border-top: 1px solid var(--border);">
-          <div style="font-weight: 500; margin-bottom: .2rem;">Recovery:</div>
-          <div style="display: flex; flex-wrap: wrap; gap: .4rem;">
-            {fm.recovery.map((r: string) => <span style="background: var(--accent-dim); padding: .1rem .4rem; border-radius: 3px; font-size: .7rem;">{r}</span>)}
+      {fm.degraded_mode && <div class="failure-trigger">{fm.degraded_mode}</div>}
+
+      <div class="detail-grid">
+        {Array.isArray(fm.starts_at) && fm.starts_at.length > 0 && (
+          <div class="summary-block">
+            <div class="summary-label">Starts At</div>
+            <div class="summary-list">
+                  {fm.starts_at.map((id: string) => <a href={hrefFor(id)} class="summary-link">{labels.get(id) || id}</a>)}
+            </div>
+          </div>
+        )}
+        {Array.isArray(fm.involves) && fm.involves.length > 0 && (
+          <div class="summary-block">
+            <div class="summary-label">Involves</div>
+            <div class="summary-list">
+                  {fm.involves.map((id: string) => <a href={hrefFor(id)} class="summary-link">{labels.get(id) || id}</a>)}
+            </div>
+          </div>
+        )}
+        {Array.isArray(fm.signals) && fm.signals.length > 0 && (
+          <div class="summary-block">
+            <div class="summary-label">Signals</div>
+            <div class="summary-list">
+              {fm.signals.map((signal: string) => <span class="summary-pill">{signal}</span>)}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {Array.isArray(fm.chain) && fm.chain.length > 0 && (
+        <div class="meta-block">
+          <div class="meta-label">Propagation Chain</div>
+          <div class="chain-list">
+            {fm.chain.map((step: any, index: number) => (
+              <div class="chain-step">
+                <div class="flow-step-index">{index + 1}</div>
+                <div class="flow-step-body">
+                  <div class="flow-step-line">
+                    <a href={hrefFor(step.from)} class="summary-link">{labels.get(step.from) || step.from}</a>
+                    <span class="flow-arrow">→</span>
+                    <a href={hrefFor(step.to)} class="summary-link">{labels.get(step.to) || step.to}</a>
+                  </div>
+                  <div class="flow-step-note">{step.effect}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
-    </div>
+
+      {(Array.isArray(fm.user_visible_impact) && fm.user_visible_impact.length > 0) && (
+        <div class="meta-block">
+          <div class="meta-label">User / Operator Impact</div>
+          <ul class="summary-bullets">
+            {fm.user_visible_impact.map((impact: string) => <li>{impact}</li>)}
+          </ul>
+        </div>
+      )}
+
+      <div class="detail-grid">
+        {Array.isArray(fm.mitigations) && fm.mitigations.length > 0 && (
+          <div class="summary-block">
+            <div class="summary-label">Mitigations</div>
+            <ul class="summary-bullets">
+              {fm.mitigations.map((mitigation: string) => <li>{mitigation}</li>)}
+            </ul>
+          </div>
+        )}
+        {Array.isArray(fm.gaps) && fm.gaps.length > 0 && (
+          <div class="summary-block">
+            <div class="summary-label">Gaps</div>
+            <ul class="summary-bullets">
+              {fm.gaps.map((gap: string) => <li>{gap}</li>)}
+            </ul>
+          </div>
+        )}
+        {Array.isArray(fm.grounded_in) && fm.grounded_in.length > 0 && (
+          <div class="summary-block">
+            <div class="summary-label">Grounded In</div>
+            <div class="summary-code-list">
+              {fm.grounded_in.map((ref: string) => <code class="summary-code">{ref}</code>)}
+            </div>
+          </div>
+        )}
+      </div>
+    </article>
   ))}
 </div>
