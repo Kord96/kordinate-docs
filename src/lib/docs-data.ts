@@ -60,7 +60,7 @@ export function displayProjectTitle(project: string, title?: string | null) {
   if (!candidate) return project;
   if (candidate === project) {
     const parts = project.split('--');
-    if (parts.length === 2 && parts[1]) return parts[1];
+    if (parts.length === 2 && parts[0] && parts[1]) return `${parts[0]}/${parts[1]}`;
   }
   return candidate;
 }
