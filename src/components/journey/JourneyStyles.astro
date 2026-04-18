@@ -368,7 +368,7 @@
 
     /* Focus content — wider, two-column for graphs */
     .focus-content {
-      max-width: 1000px; margin: 0 auto; padding: 2.5rem 2.5rem 4rem;
+      max-width: min(1440px, calc(100vw - 3rem)); margin: 0 auto; padding: 2.5rem 2.5rem 4rem;
     }
     .focus-content .story-num { font-size: .7rem; }
     .focus-content .story-title { font-size: 1.8rem; margin-bottom: .75rem; }
@@ -377,7 +377,6 @@
     .focus-content .anchor-desc { font-size: .82rem; }
     .focus-content .summary { font-size: .95rem; line-height: 1.8; margin-bottom: 1.5rem; }
     .focus-content .struct { margin-bottom: 1.5rem; }
-    .focus-content .struct-graph { height: 420px; }
     .focus-content .flow { padding: 1.25rem; margin-bottom: 1.5rem; }
     .focus-content .flow-head { font-size: .85rem; }
     .focus-content .flow-step { font-size: .88rem; padding: .5rem 0; }
@@ -385,7 +384,10 @@
     .focus-content .obs-text { line-height: 1.6; }
     .focus-content .rat { padding: .85rem 1rem; font-size: .85rem; margin-bottom: .75rem; }
     .focus-content .next { display: none; }
-    .focus-content .struct-graph { height: 520px; }
+    .focus-content .struct-graph {
+      height: min(72vh, 860px);
+      min-height: 540px;
+    }
 
     /* Bridge in focus mode */
     .focus-bridge {
@@ -404,6 +406,14 @@
       .story-title { font-size: 1.3rem; }
       header { padding: 0 1rem; }
       .landing-stats { flex-wrap: wrap; gap: .75rem; }
+      .focus-content {
+        max-width: calc(100vw - 1rem);
+        padding: 1.25rem 1rem 3rem;
+      }
+      .focus-content .struct-graph {
+        height: min(62vh, 640px);
+        min-height: 360px;
+      }
     }
   </style>
 <style is:global>

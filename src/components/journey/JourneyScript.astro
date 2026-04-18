@@ -381,6 +381,23 @@
     renderFocus();
     focusOverlay.classList.add('open');
     document.body.style.overflow = 'hidden';
+    refreshFocusGraphs();
+  }
+
+  function refreshFocusGraphs() {
+    const attemptResize = () => {
+      focusContent.querySelectorAll('.struct-graph').forEach(g => {
+        if (!g._cy) return;
+        g._cy.resize();
+        g._cy.fit(undefined, 30);
+      });
+    };
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(attemptResize);
+    });
+    setTimeout(attemptResize, 120);
+    setTimeout(attemptResize, 320);
   }
 
   function renderFocus() {
@@ -391,7 +408,12 @@
     focusContent.querySelectorAll('.focus-btn').forEach(b => b.remove());
     focusContent.querySelectorAll('.struct-graph').forEach(g => {
       g.id = 'focus-' + g.id;
-      setTimeout(() => { if (typeof cytoscape !== 'undefined') initGraph(g); }, 200);
+      setTimeout(() => {
+        if (typeof cytoscape !== 'undefined') {
+          initGraph(g);
+          refreshFocusGraphs();
+        }
+      }, 200);
     });
     focusPos.textContent = (focusIndex + 1) + ' / ' + focusSections.length;
     focusPrev.disabled = focusIndex === 0;
@@ -417,6 +439,11 @@
     if (e.key === 'Escape') focusClose.click();
     if (e.key === 'ArrowLeft' || e.key === 'h') focusPrev.click();
     if (e.key === 'ArrowRight' || e.key === 'l') focusNext.click();
+  });
+
+  window.addEventListener('resize', () => {
+    if (!focusOverlay.classList.contains('open')) return;
+    refreshFocusGraphs();
   });
 
   // ─── Journey switching ───
