@@ -1,19 +1,28 @@
 ---
 /**
- * Architecture graph section — Cytoscape interactive dependency map
- * with expand/collapse roots, hover tooltips, click for details, fullscreen.
+ * Cytoscape component dependency view with expand/collapse roots,
+ * hover tooltips, click for details, fullscreen.
  */
-interface Props { components: any[]; extDeps: any[]; patterns?: any[]; }
-const { components, extDeps, patterns = [] } = Astro.props;
+interface Props { components: any[]; extDeps: any[]; patterns?: any[]; embedded?: boolean; }
+const { components, extDeps, patterns = [], embedded = false } = Astro.props;
 
 const rootComponents = components.filter((component: any) => !component.parent);
 const groupedRoots = rootComponents.filter((component: any) => Array.isArray(component.children) && component.children.length > 0);
 const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray(component.children) || component.children.length === 0);
 ---
 
-<div class="section" id="sec-graph">
-  <h2 class="section-title">Architecture Graph</h2>
-  <p class="section-sub">This is the atlas rendered as a dependency map: top-level components, their subcomponents, and the external systems they depend on.</p>
+<div class={embedded ? 'component-subsection' : 'section'} id={embedded ? undefined : 'sec-graph'}>
+  {embedded ? (
+    <>
+      <h3 class="children-title" style="margin-bottom:.4rem;">Component Dependency View</h3>
+      <p class="section-sub" style="margin-bottom:.8rem;">How top-level components, subcomponents, and external systems depend on each other at runtime.</p>
+    </>
+  ) : (
+    <>
+      <h2 class="section-title">Component Dependency View</h2>
+      <p class="section-sub">How top-level components, subcomponents, and external systems depend on each other at runtime.</p>
+    </>
+  )}
   <div class="graph-controls">
     <button class="graph-btn" id="btn-expand-all">Expand All</button>
     <button class="graph-btn" id="btn-collapse-all">Collapse All</button>

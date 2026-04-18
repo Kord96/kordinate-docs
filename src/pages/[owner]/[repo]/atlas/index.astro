@@ -69,8 +69,12 @@ function severity(s: string) {
     </div>
 
     <MetadataSection metadata={metadata} components={components} flows={flows} state={stateEntries} extDeps={extDeps} />
-    <ArchGraphSection components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} />
-    <ComponentsSection components={components} />
+    <div class="section" id="components-section">
+      <h2 class="section-title">Components</h2>
+      <p class="section-sub">{components.length} components arranged by top-level architecture slice, with a dependency view to show runtime relationships.</p>
+      <ArchGraphSection components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} embedded={true} />
+      <ComponentsSection components={components} embedded={true} />
+    </div>
     <FlowsSection flows={flows} components={components} />
     <StateSection stateEntries={stateEntries} components={components} />
     <ExternalDepsSection extDeps={extDeps} severity={severity} />
@@ -81,7 +85,6 @@ function severity(s: string) {
   <PillNav sections={[
     { id: 'sec-overview', label: 'Overview' },
     { id: 'sec-atlas-overview', label: 'Stack' },
-    { id: 'sec-graph', label: 'Graph' },
     { id: 'components-section', label: 'Components' },
     { id: 'sec-flows', label: 'Flows' },
     { id: 'sec-state', label: 'State' },
