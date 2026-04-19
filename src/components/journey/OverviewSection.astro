@@ -28,7 +28,7 @@ const flowEdges = (atlas.flows || []).flatMap((flow: any) => {
 const dependencyEdges = components.flatMap((c: any) =>
   (c.depends_on || [])
     .filter((d: string) => componentIds.has(d))
-    .map((d: string) => ({ from: c.id, to: d, label: '' }))
+    .map((d: string) => ({ from: c.id, to: d, label: 'depends on' }))
 );
 const overviewEdges = Array.from(
   new Map(
