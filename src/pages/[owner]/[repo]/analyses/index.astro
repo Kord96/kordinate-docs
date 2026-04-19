@@ -17,6 +17,26 @@ const [atlas, analyses] = await Promise.all([
   getProjectAtlas(project),
   getProjectAnalyses(project),
 ]);
+
+function formatNumber(value?: number | null, digits = 0) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '';
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function formatSeconds(value?: number | null) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '';
+  if (value < 1) return `${formatNumber(value, 2)}s`;
+  if (value < 60) return `${formatNumber(value, 1)}s`;
+  return `${formatNumber(value / 60, 1)}m`;
+}
+
+function formatUsd(value?: number | null) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '';
+  return `$${value.toFixed(4)}`;
+}
 ---
 
 <Base title={`${atlas.project || project} — Analyses`}>
@@ -49,6 +69,18 @@ const [atlas, analyses] = await Promise.all([
             {analysis.commitTime && <span>Commit: {analysis.commitTime}</span>}
             {analysis.analyzedAt && <span>Analyzed: {analysis.analyzedAt}</span>}
             {analysis.status && <span>Status: {analysis.status}</span>}
+            {typeof analysis.validation?.attempts === 'number' && analysis.validation.attempts > 0 && <span>Validation attempts: {analysis.validation.attempts}</span>}
+          </div>
+          <div class="analysis-runtime">
+            {analysis.agent?.name && <span>Agent: {analysis.agent.name}</span>}
+            {analysis.agent?.specialization && <span>Specialization: {analysis.agent.specialization}</span>}
+            {analysis.agent?.bundleMode && <span>Bundle: {analysis.agent.bundleMode}</span>}
+          </div>
+          <div class="analysis-telemetry">
+            {analysis.requestId && <span>Request: {analysis.requestId}</span>}
+            {analysis.repository?.fileCount != null && <span>Files: {formatNumber(analysis.repository.fileCount, 0)}</span>}
+            {analysis.repository?.filesReadCount != null && <span>Read: {formatNumber(analysis.repository.filesReadCount, 0)}</span>}
+            {analysis.repository?.repoTokensEst != null && <span>Repo est: {formatNumber(analysis.repository.repoTokensEst, 0)} tok</span>}
           </div>
           <div class="analysis-links">
             <a href={projectAnalysisRoutePath(project, analysis.analysisId)}>Narrative Snapshot</a>
@@ -116,6 +148,14 @@ const [atlas, analyses] = await Promise.all([
     flex-wrap: wrap;
     color: var(--text-2);
     font-size: 0.82rem;
+  }
+  .analysis-runtime,
+  .analysis-telemetry {
+    display: flex;
+    gap: .85rem;
+    flex-wrap: wrap;
+    color: var(--text-3);
+    font-size: 0.78rem;
   }
   .analysis-links {
     display: flex;

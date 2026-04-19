@@ -96,10 +96,28 @@ export interface ProjectBundle {
 export interface AnalysisSummary {
   project: string;
   analysisId: string;
+  requestId?: string;
   commitSha?: string;
   commitTime?: string;
   analyzedAt?: string;
   status?: string;
+  repository?: {
+    project?: string;
+    commit?: string;
+    commitTime?: string;
+    fileCount?: number | null;
+    filesReadCount?: number | null;
+    repoTokensEst?: number | null;
+  };
+  agent?: {
+    name?: string;
+    specialization?: string;
+    bundleMode?: string;
+  };
+  validation?: {
+    passed?: boolean;
+    attempts?: number;
+  };
 }
 
 interface ProjectCurrentView {
@@ -308,18 +326,37 @@ function normalizeAnalysisSummary(item: any): AnalysisSummary | null {
   return {
     project,
     analysisId,
+    requestId: item?.request_id || item?.requestId,
     commitSha: item?.commit_sha || item?.commitSha,
     commitTime: item?.commit_time || item?.commitTime,
     analyzedAt: item?.analyzed_at || item?.analyzedAt,
     status: item?.status,
+    repository: item?.repository ? {
+      project: item.repository?.project || '',
+      commit: item.repository?.commit || '',
+      commitTime: item.repository?.commit_time ?? item.repository?.commitTime ?? '',
+      fileCount: item.repository?.file_count ?? item.repository?.fileCount ?? null,
+      filesReadCount: item.repository?.files_read_count ?? item.repository?.filesReadCount ?? null,
+      repoTokensEst: item.repository?.repo_tokens_est ?? item.repository?.repoTokensEst ?? null,
+    } : undefined,
+    agent: item?.agent ? {
+      name: item.agent?.name || '',
+      specialization: item.agent?.specialization || '',
+      bundleMode: item.agent?.bundle_mode ?? item.agent?.bundleMode ?? '',
+    } : undefined,
+    validation: item?.validation ? {
+      passed: item.validation?.passed,
+      attempts: item.validation?.attempts,
+    } : undefined,
   };
 }
 
 export async function getProjectAnalyses(project: string): Promise<AnalysisSummary[]> {
   const payload = await fetchJson(`${remoteBaseUrl}${projectApiPath(project)}/analyses`);
-  if (!Array.isArray(payload)) return [];
+  const items = Array.isArray(payload) ? payload : payload?.analyses;
+  if (!Array.isArray(items)) return [];
 
-  return payload
+  return items
     .map(normalizeAnalysisSummary)
     .filter((item): item is AnalysisSummary => Boolean(item));
 }
