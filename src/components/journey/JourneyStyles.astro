@@ -87,12 +87,11 @@
     }
     .jn-journey {
       padding: .3rem .6rem; border-radius: 99px;
-      font-size: .65rem; font-weight: 600; color: var(--text-2);
+      font-size: .65rem; font-weight: 500; color: var(--text-4);
       cursor: pointer; transition: all .2s; white-space: nowrap;
-      border-right: 1px solid var(--border-hover); margin-right: 2px;
       position: relative; line-height: 1;
     }
-    .jn-journey:hover { background: rgba(39,39,42,0.6); }
+    .jn-journey:hover { color: var(--text-2); background: rgba(39,39,42,0.6); }
     .jn-journey::after { content: ' ▾'; font-size: .45rem; opacity: .5; vertical-align: middle; }
     .jn-picker {
       position: fixed; z-index: 210;
@@ -627,10 +626,10 @@
     border-color: rgba(79,70,229,.18);
   }
   [data-theme='light'] .jn-journey {
-    color: #3f3f46;
-    border-right-color: #d4d4d8;
+    color: #52525b;
   }
   [data-theme='light'] .jn-journey:hover {
+    color: #18181b;
     background: rgba(24,24,27,0.05);
   }
   [data-theme='light'] .jn-picker {
