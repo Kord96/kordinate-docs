@@ -697,12 +697,43 @@
       });
     }
 
+    function runGraphLayout() {
+      const visibleCount = cy.nodes().length;
+      const layoutName = visibleCount <= 3 ? 'grid' : visibleCount <= 8 ? 'dagre' : 'cose-bilkent';
+      try {
+        cy.layout({
+          name: layoutName,
+          ...(layoutName === 'dagre' ? { rankDir: 'TB', nodeSep: 60, rankSep: 100, edgeSep: 20, spacingFactor: 1.05 } :
+              layoutName === 'cose-bilkent' ? { idealEdgeLength: 140, nodeRepulsion: 7000 } :
+              { rows: 1, padding: 30 })
+        }).run();
+      } catch { cy.layout({ name: 'grid', padding: 30 }).run(); }
+    }
+
     function rebuildGraph(preserveViewport = true) {
       const zoom = cy.zoom();
       const pan = { ...cy.pan() };
+      const previousPositions = {};
+      cy.nodes().forEach((node) => {
+        previousPositions[node.id()] = { ...node.position() };
+      });
       cy.elements().remove();
       cy.add(buildElements());
       applyNodeColors();
+      let appliedPositions = 0;
+      let missingPositions = 0;
+      cy.nodes().forEach((node) => {
+        const previous = previousPositions[node.id()];
+        if (previous && typeof previous.x === 'number' && typeof previous.y === 'number') {
+          node.position(previous);
+          appliedPositions += 1;
+        } else {
+          missingPositions += 1;
+        }
+      });
+      if (missingPositions > 0 || appliedPositions === 0) {
+        runGraphLayout();
+      }
       if (preserveViewport) {
         cy.zoom(zoom);
         cy.pan(pan);
@@ -727,15 +758,7 @@
       n.style({ 'background-color': tc.bg, 'border-color': tc.border, 'color': tc.text });
     });
     if (!applySavedPositions(cy, savedLayout)) {
-      const layoutName = nodeCount <= 3 ? 'grid' : nodeCount <= 8 ? 'dagre' : 'cose-bilkent';
-      try {
-        cy.layout({
-          name: layoutName,
-          ...(layoutName === 'dagre' ? { rankDir: 'TB', nodeSep: 60, rankSep: 100, edgeSep: 20, spacingFactor: 1.05 } :
-              layoutName === 'cose-bilkent' ? { idealEdgeLength: 140, nodeRepulsion: 7000 } :
-              { rows: 1, padding: 30 })
-        }).run();
-      } catch { cy.layout({ name: 'grid', padding: 30 }).run(); }
+      runGraphLayout();
     }
     cy.fit(undefined, 30);
 

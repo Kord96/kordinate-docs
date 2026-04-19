@@ -149,7 +149,10 @@ const supportPayload = encodeURIComponent(JSON.stringify({
           <div class="flow-steps">
             {steps.map((step: any, si: number) => (
               <div class={`flow-step ${step.to && step.to !== step.node ? 'flow-step-crossing' : ''}`}>
-                <span class="flow-n">{si+1}</span>
+                <div class="flow-stage-rail" aria-hidden="true">
+                  <span class="flow-n">{si+1}</span>
+                  {si < steps.length - 1 && <span class="flow-stage-line"></span>}
+                </div>
                 <div class="flow-step-body">
                   <div class="flow-route">
                     <span class="flow-from">{compMap[step.node]?.name || step.node}</span>
