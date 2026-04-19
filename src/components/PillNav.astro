@@ -15,23 +15,24 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
 
 <nav class="pill-nav" aria-label="Section navigation" id="pill-nav">
   {activePageLink && (
-    <div class="pill-page-row" aria-label="Page navigation">
-      <div class="pill-page-group">
+    <div class="pill-page-menu" aria-label="Page navigation">
+      <button class="pill-page-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+        {activePageLink.label}
+      </button>
+      <div class="pill-page-list">
         {pageLinks.map((link) => (
-          <a class:list={['pill-page-link', activePage === link.label.toLowerCase() && 'pill-page-link-active']} href={link.href}>
+          <a class:list={['pill-page-item', activePage === link.label.toLowerCase() && 'pill-page-item-active']} href={link.href}>
             {link.label}
           </a>
         ))}
       </div>
     </div>
   )}
-  <div class="pill-section-row">
-    {sections.map((s, i) => (
-      <a class:list={['pill', i === 0 && 'pill-active']} href={`#${s.id}`} data-section={s.id}>
-        <span class="pill-label">{s.label}</span>
-      </a>
-    ))}
-  </div>
+  {sections.map((s, i) => (
+    <a class:list={['pill', i === 0 && 'pill-active']} href={`#${s.id}`} data-section={s.id}>
+      <span class="pill-label">{s.label}</span>
+    </a>
+  ))}
 </nav>
 
 <script is:inline>
@@ -66,6 +67,22 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
+
+  const pageMenu = nav.querySelector('.pill-page-menu');
+  const pageToggle = nav.querySelector('.pill-page-toggle');
+  if (pageMenu && pageToggle instanceof HTMLButtonElement) {
+    pageToggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const open = pageMenu.classList.toggle('open');
+      pageToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (pageMenu.contains(event.target)) return;
+      pageMenu.classList.remove('open');
+      pageToggle.setAttribute('aria-expanded', 'false');
+    });
+  }
 })();
 </script>
 
@@ -77,74 +94,83 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     transform: translateX(-50%);
     z-index: 200;
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
+    align-items: center;
+    gap: 2px;
     background: rgba(9,9,11,0.92);
     backdrop-filter: blur(16px) saturate(180%);
     border: 1px solid var(--border-hover);
-    border-radius: 18px;
-    padding: 6px;
+    border-radius: 99px;
+    padding: 3px;
     max-width: 90vw;
-    overflow-x: visible;
+    overflow-x: auto;
     overflow-y: visible;
     scrollbar-width: none;
     box-shadow: 0 10px 28px rgba(0,0,0,0.28);
   }
   .pill-nav::-webkit-scrollbar { display: none; }
-  .pill-page-row,
-  .pill-section-row {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    min-width: 0;
-  }
-  .pill-page-row {
-    justify-content: center;
-    padding: 0 .15rem .15rem;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-  }
-  .pill-section-row {
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-top: .05rem;
-  }
-  .pill-section-row::-webkit-scrollbar { display: none; }
-  .pill-page-group {
-    display: inline-flex;
-    align-items: center;
-    gap: .15rem;
+  .pill-page-menu {
+    position: relative;
     flex-shrink: 0;
   }
-  .pill-page-group::before {
-    content: '';
-  }
-  .pill-page-link {
+  .pill-page-toggle {
     display: inline-flex;
     align-items: center;
-    padding: .1rem .35rem;
-    border-radius: 6px;
-    font-size: .6rem;
-    font-weight: 600;
-    color: var(--text-3);
-    background: transparent;
+    cursor: pointer;
+    padding: .3rem .65rem;
+    border-radius: 99px;
+    font-size: .65rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
     line-height: 1;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: all .18s ease;
+    position: relative;
+    z-index: 1;
+  }
+  .pill-page-toggle::after {
+    content: '▾';
+    font-size: .5rem;
+    margin-left: .35rem;
+    color: currentColor;
+  }
+  .pill-page-list {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + .55rem);
+    min-width: 8rem;
+    padding: .35rem;
+    gap: .2rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(9,9,11,.96);
+    backdrop-filter: blur(16px) saturate(180%);
+    box-shadow: 0 16px 36px rgba(0,0,0,.26);
+    z-index: 220;
+    display: none;
+  }
+  .pill-page-menu.open .pill-page-list {
+    display: grid;
+  }
+  .pill-page-item {
     text-decoration: none;
+    color: var(--text-3);
+    font-size: .74rem;
+    font-weight: 600;
+    padding: .38rem .55rem;
+    border-radius: 8px;
     transition: all .18s ease;
   }
-  .pill-page-link + .pill-page-link::before {
-    content: '/';
-    margin-right: .3rem;
-    color: var(--text-4);
-  }
-  .pill-page-link:hover {
+  .pill-page-item:hover {
     color: var(--text-2);
-    background: transparent;
+    background: rgba(39,39,42,.7);
   }
-  .pill-page-link-active {
+  .pill-page-item-active {
     color: var(--accent);
-    background: transparent;
-    font-weight: 600;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
   }
   .pill {
     padding: .3rem .6rem;
@@ -171,25 +197,30 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     border-color: #cbd5e1;
     box-shadow: 0 8px 28px rgba(24,24,27,0.08);
   }
+  [data-theme='light'] .pill-page-toggle {
+    color: #3730a3;
+    background: rgba(79,70,229,0.08);
+    border-color: rgba(79,70,229,0.18);
+  }
   [data-theme='light'] .pill {
     color: #71717a;
   }
-  [data-theme='light'] .pill-page-link {
-    color: #71717a;
+  [data-theme='light'] .pill-page-list {
+    background: rgba(255,255,255,.98);
+    border-color: #d4d4d8;
+    box-shadow: 0 16px 36px rgba(24,24,27,.12);
   }
-  [data-theme='light'] .pill-page-link + .pill-page-link::before {
-    color: #a1a1aa;
+  [data-theme='light'] .pill-page-item {
+    color: #52525b;
   }
-  [data-theme='light'] .pill-page-link:hover {
-    color: #27272a;
-    background: transparent;
+  [data-theme='light'] .pill-page-item:hover {
+    color: #18181b;
+    background: rgba(24,24,27,.05);
   }
-  [data-theme='light'] .pill-page-link-active {
+  [data-theme='light'] .pill-page-item-active {
     color: #3730a3;
-    background: transparent;
-  }
-  [data-theme='light'] .pill-page-row {
-    border-bottom-color: rgba(24,24,27,0.08);
+    background: rgba(79,70,229,.08);
+    border-color: rgba(79,70,229,.18);
   }
   [data-theme='light'] .pill:hover {
     color: #18181b;
