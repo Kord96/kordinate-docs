@@ -22,30 +22,29 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
 </div>
 <nav class="journey-nav" id="journey-nav">
   {activePageLink && (
-    <div class="jn-page-menu">
-      <button class="jn-page-summary" type="button" aria-haspopup="true" aria-expanded="false">
-        {activePageLink.label.toLowerCase()}
-      </button>
-      <div class="jn-page-list">
+    <div class="jn-page-row">
+      <div class="jn-page-group">
         {pageLinks.map((link) => (
           <a class={`jn-page-item ${activePage === link.label.toLowerCase() ? 'jn-page-item-active' : ''}`} href={link.href}>
-            {link.label.toLowerCase()}
+            {link.label}
           </a>
         ))}
       </div>
     </div>
   )}
-  <span class="jn-journey" id="jn-journey">
-    {defaultJourney.title.includes(':') ? defaultJourney.title.split(':')[0].trim() : defaultJourney.title}
-  </span>
-  <span id="jb-dots">
-    {stories.map((s: any, i: number) => {
-      const label = s.title?.includes(':') ? s.title.split(':')[0].trim() : (s.title || `Story ${i+1}`);
-      return (
-        <a class={`jb-dot ${i === 0 ? 'jb-dot-active' : ''}`} data-index={i + 1} title={s.title}>
-          {label}
-        </a>
-      );
-    })}
-  </span>
+  <div class="jn-story-row">
+    <span class="jn-journey" id="jn-journey">
+      {defaultJourney.title.includes(':') ? defaultJourney.title.split(':')[0].trim() : defaultJourney.title}
+    </span>
+    <span id="jb-dots">
+      {stories.map((s: any, i: number) => {
+        const label = s.title?.includes(':') ? s.title.split(':')[0].trim() : (s.title || `Story ${i+1}`);
+        return (
+          <a class={`jb-dot ${i === 0 ? 'jb-dot-active' : ''}`} data-index={i + 1} title={s.title}>
+            {label}
+          </a>
+        );
+      })}
+    </span>
+  </div>
 </nav>

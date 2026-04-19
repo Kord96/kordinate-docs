@@ -15,24 +15,23 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
 
 <nav class="pill-nav" aria-label="Section navigation" id="pill-nav">
   {activePageLink && (
-    <div class="pill-context-menu">
-      <button class="pill-context-summary" type="button" aria-haspopup="true" aria-expanded="false">
-        <span class="pill-context-label">{activePageLink.label.toLowerCase()}</span>
-      </button>
-      <div class="pill-context-list">
+    <div class="pill-page-row" aria-label="Page navigation">
+      <div class="pill-page-group">
         {pageLinks.map((link) => (
-          <a class:list={['pill-context-item', activePage === link.label.toLowerCase() && 'pill-context-item-active']} href={link.href}>
-            {link.label.toLowerCase()}
+          <a class:list={['pill-page-link', activePage === link.label.toLowerCase() && 'pill-page-link-active']} href={link.href}>
+            {link.label}
           </a>
         ))}
       </div>
     </div>
   )}
-  {sections.map((s, i) => (
-    <a class:list={['pill', i === 0 && 'pill-active']} href={`#${s.id}`} data-section={s.id}>
-      <span class="pill-label">{s.label}</span>
-    </a>
-  ))}
+  <div class="pill-section-row">
+    {sections.map((s, i) => (
+      <a class:list={['pill', i === 0 && 'pill-active']} href={`#${s.id}`} data-section={s.id}>
+        <span class="pill-label">{s.label}</span>
+      </a>
+    ))}
+  </div>
 </nav>
 
 <script is:inline>
@@ -67,22 +66,6 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
-
-  const pageMenu = nav.querySelector('.pill-context-menu');
-  const pageToggle = nav.querySelector('.pill-context-summary');
-  if (pageMenu && pageToggle instanceof HTMLButtonElement) {
-    pageToggle.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const open = pageMenu.classList.toggle('open');
-      pageToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
-    document.addEventListener('click', (event) => {
-      if (!(event.target instanceof Element)) return;
-      if (pageMenu.contains(event.target)) return;
-      pageMenu.classList.remove('open');
-      pageToggle.setAttribute('aria-expanded', 'false');
-    });
-  }
 })();
 </script>
 
@@ -94,81 +77,61 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     transform: translateX(-50%);
     z-index: 200;
     display: flex;
-    align-items: center;
-    gap: 2px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
     background: rgba(9,9,11,0.92);
     backdrop-filter: blur(16px) saturate(180%);
     border: 1px solid var(--border-hover);
-    border-radius: 99px;
-    padding: 3px;
+    border-radius: 18px;
+    padding: 6px;
     max-width: 90vw;
-    overflow-x: auto;
+    overflow-x: visible;
     overflow-y: visible;
     scrollbar-width: none;
     box-shadow: 0 10px 28px rgba(0,0,0,0.28);
   }
   .pill-nav::-webkit-scrollbar { display: none; }
-  .pill-context-menu {
-    position: relative;
-    flex-shrink: 0;
+  .pill-page-row,
+  .pill-section-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
   }
-  .pill-context-summary {
+  .pill-section-row {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .pill-section-row::-webkit-scrollbar { display: none; }
+  .pill-page-group {
     display: inline-flex;
     align-items: center;
-    cursor: pointer;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .pill-page-link {
+    display: inline-flex;
+    align-items: center;
     padding: .3rem .65rem;
     border-radius: 99px;
     font-size: .65rem;
-    font-weight: 700;
-    color: var(--accent);
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
-    line-height: 1;
-    appearance: none;
-    -webkit-appearance: none;
-  }
-  .pill-context-summary::after {
-    content: '▾';
-    font-size: .5rem;
-    margin-left: .35rem;
-    color: currentColor;
-  }
-  .pill-context-list {
-    position: absolute;
-    left: 0;
-    bottom: calc(100% + .55rem);
-    min-width: 8rem;
-    padding: .35rem;
-    display: grid;
-    gap: .2rem;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: rgba(9,9,11,.96);
-    backdrop-filter: blur(16px) saturate(180%);
-    box-shadow: 0 16px 36px rgba(0,0,0,.26);
-    z-index: 220;
-    display: none;
-  }
-  .pill-context-menu.open .pill-context-list {
-    display: grid;
-  }
-  .pill-context-item {
-    text-decoration: none;
-    color: var(--text-3);
-    font-size: .74rem;
     font-weight: 600;
-    padding: .38rem .55rem;
-    border-radius: 8px;
+    color: var(--text-3);
+    background: transparent;
+    line-height: 1;
+    text-decoration: none;
     transition: all .18s ease;
   }
-  .pill-context-item:hover {
+  .pill-page-link:hover {
     color: var(--text-2);
-    background: rgba(39,39,42,.7);
+    background: rgba(39,39,42,0.6);
   }
-  .pill-context-item-active {
+  .pill-page-link-active {
     color: var(--accent);
     background: var(--accent-dim);
     border: 1px solid var(--accent-border);
+    font-weight: 600;
   }
   .pill {
     padding: .3rem .6rem;
@@ -198,27 +161,14 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
   [data-theme='light'] .pill {
     color: #71717a;
   }
-  [data-theme='light'] .pill-context-summary {
-    color: #3730a3;
-    background: rgba(79,70,229,0.08);
-    border-color: rgba(79,70,229,0.18);
-  }
-  [data-theme='light'] .pill-context-summary::after {
-    color: currentColor;
-  }
-  [data-theme='light'] .pill-context-list {
-    background: rgba(255,255,255,.98);
-    border-color: #d4d4d8;
-    box-shadow: 0 16px 36px rgba(24,24,27,.12);
-  }
-  [data-theme='light'] .pill-context-item {
+  [data-theme='light'] .pill-page-link {
     color: #52525b;
   }
-  [data-theme='light'] .pill-context-item:hover {
+  [data-theme='light'] .pill-page-link:hover {
     color: #18181b;
     background: rgba(24,24,27,.05);
   }
-  [data-theme='light'] .pill-context-item-active {
+  [data-theme='light'] .pill-page-link-active {
     color: #3730a3;
     background: rgba(79,70,229,.08);
     border-color: rgba(79,70,229,.18);

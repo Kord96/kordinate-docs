@@ -14,8 +14,6 @@
   const jbDots = document.getElementById('jb-dots');
   const jnJourney = document.getElementById('jn-journey');
   const jnPicker = document.getElementById('jn-picker');
-  const jnPageMenu = journeyNav?.querySelector('.jn-page-menu');
-  const jnPageToggle = journeyNav?.querySelector('.jn-page-summary');
   const landing = document.getElementById('s0');
   let cur = 0;
   let currentJourneyId = jnPicker.querySelector('.jn-pick-active')?.dataset.journey || 'system-overview';
@@ -51,21 +49,6 @@
       jnPicker.querySelectorAll('.jn-pick').forEach(p => p.classList.toggle('jn-pick-active', p === pick));
     });
   });
-
-  if (jnPageMenu && jnPageToggle instanceof HTMLButtonElement) {
-    jnPageToggle.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const open = jnPageMenu.classList.toggle('open');
-      jnPageToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      jnPicker.classList.remove('open');
-    });
-    document.addEventListener('click', (event) => {
-      if (!(event.target instanceof Element)) return;
-      if (jnPageMenu.contains(event.target)) return;
-      jnPageMenu.classList.remove('open');
-      jnPageToggle.setAttribute('aria-expanded', 'false');
-    });
-  }
 
   // Track current story and update dots
   function rebuildDots() {
