@@ -15,7 +15,7 @@
       z-index: 1200; display: flex; align-items: center; gap: 2px;
       background: rgba(9,9,11,0.92); backdrop-filter: blur(16px) saturate(180%);
       border: 1px solid var(--border-hover); border-radius: 99px; padding: 3px;
-      max-width: 90vw; overflow-x: auto; overflow-y: visible; scrollbar-width: none;
+      max-width: 90vw; overflow: visible; scrollbar-width: none;
       opacity: 0; transform: translateX(-50%) translateY(20px);
       transition: opacity .3s, transform .3s;
     }
@@ -116,7 +116,12 @@
     .jn-pick-active { color: var(--accent); }
     #jb-dots {
       display: inline-flex; align-items: center; gap: 2px;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: visible;
+      scrollbar-width: none;
     }
+    #jb-dots::-webkit-scrollbar { display: none; }
     .jb-dot {
       padding: .3rem .6rem; border-radius: 99px;
       font-size: .65rem; font-weight: 500; color: var(--text-4);
