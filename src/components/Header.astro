@@ -1,7 +1,7 @@
 ---
 /**
- * Shared header — translucent bar with logo, badge, nav links, theme toggle.
- * Used by all custom project pages (homepage, journey, atlas, etc.).
+ * Shared header — top identity bar plus thin project/page subnav.
+ * Used by all custom project pages.
  */
 import { displayProjectTitle, getProjectIndex, projectAnalysesRoutePath, projectAtlasRoutePath, projectRoutePath, splitDisplayProjectTitle } from '../lib/docs-data';
 
@@ -183,21 +183,21 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
 <style>
   .site-header {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    padding: .4rem 1.5rem .3rem; min-height: 64px;
-    display: flex; flex-direction: column; justify-content: center;
+    padding: 0;
+    min-height: 0;
+    display: flex; flex-direction: column;
     background: rgba(9,9,11,0.85); backdrop-filter: blur(16px) saturate(180%);
     border-bottom: 1px solid var(--border);
   }
-  .site-header.sticky {
-    position: sticky;
-    min-height: 68px;
-  }
+  .site-header.sticky { position: sticky; }
   .h-top {
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
+    min-height: 44px;
+    padding: .35rem 1.5rem;
   }
   .h-left { display: flex; align-items: center; gap: .7rem; min-width: 0; }
   .h-logo { display: inline-flex; align-items: baseline; gap: .2rem; letter-spacing: -.02em; }
@@ -232,9 +232,11 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
   .h-route-summary::-webkit-details-marker { display: none; }
   .h-subnav {
     width: 100%;
-    margin-top: .22rem;
-    padding-top: .26rem;
+    min-height: 29px;
+    padding: .28rem 1.5rem;
     border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
   }
   .h-route-project {
     font-size: .74rem;
