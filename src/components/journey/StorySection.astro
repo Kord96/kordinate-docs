@@ -105,7 +105,7 @@ const supportPayload = encodeURIComponent(JSON.stringify({
         storyTitle: story.title,
         title: st.title || `Structure View ${si + 1}`,
         summary: st.summary || story.summary || '',
-        teaches: story.teaches || '',
+        focus: st.focus || story.teaches || '',
         nodes: allNodeIds.map((nid: string) => ({
           id: nid,
           name: compMap[nid]?.name || nid,
@@ -129,8 +129,7 @@ const supportPayload = encodeURIComponent(JSON.stringify({
 
     {(story.flows || []).map((fl: any, fi: number) => {
       const steps = fl.steps || [];
-      const finalStep = steps.length ? steps[steps.length - 1] : null;
-      const flowOutcome = finalStep ? (finalStep.effect || finalStep.action || '') : '';
+      const flowOutcome = fl.outcome || '';
       const flowTrigger = fl.trigger || '';
       const flowSupportPayload = encodeURIComponent(JSON.stringify({
         id: fl.id || `${story.id}-flow-${fi + 1}`,

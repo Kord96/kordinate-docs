@@ -254,8 +254,8 @@
     if (structSupport.storyTitle) html += '<span>' + escapeHtml(structSupport.storyTitle) + '</span>';
     html += '</div></div>';
     if (structSupport.summary) html += '<div class="detail-desc">' + renderInlineMarkup(structSupport.summary) + '</div>';
-    if (structSupport.teaches) {
-      html += '<div class="detail-section"><div class="detail-label">Focus</div><div class="detail-prose">' + renderInlineMarkup(structSupport.teaches) + '</div></div>';
+    if (structSupport.focus) {
+      html += '<div class="detail-section"><div class="detail-label">Focus</div><div class="detail-prose">' + renderInlineMarkup(structSupport.focus) + '</div></div>';
     }
     if (nodes.length) {
       html += '<div class="detail-section"><div class="detail-label">Nodes In View</div><div class="detail-links">';
