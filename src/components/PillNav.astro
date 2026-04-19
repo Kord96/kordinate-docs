@@ -146,6 +146,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
   .pill-page-button {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: .35rem;
     border-radius: 99px;
     background: var(--accent-dim);
@@ -153,10 +154,13 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     color: var(--accent);
     border-radius: 99px;
     cursor: pointer;
-    padding: .3rem .7rem;
+    min-height: 2rem;
+    min-width: 4.75rem;
+    padding: .45rem .8rem;
     font-size: .65rem;
     font-weight: 700;
     line-height: 1;
+    white-space: nowrap;
     transition: background .18s, border-color .18s, color .18s;
   }
   .pill-page-button:hover {
