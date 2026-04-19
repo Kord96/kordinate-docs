@@ -14,18 +14,6 @@ const { journeys, defaultJourney, stories, pageLinks = [], activePage = '' } = A
 const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === activePage) || pageLinks[0] || null;
 ---
 
-{activePageLink && (
-  <details class="page-picker" id="page-picker">
-    <summary class="page-pick-active">{activePageLink.label.toLowerCase()}</summary>
-    <div class="page-picker-list">
-      {pageLinks.map((link) => (
-        <a class={`page-pick ${activePage === link.label.toLowerCase() ? 'page-pick-current' : ''}`} href={link.href}>
-          {link.label.toLowerCase()}
-        </a>
-      ))}
-    </div>
-  </details>
-)}
 <div class="jn-picker" id="jn-picker">
   {journeys.map((j: any) => {
     const label = j.title?.includes(':') ? j.title.split(':')[0].trim() : j.title;
@@ -33,7 +21,18 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
   })}
 </div>
 <nav class="journey-nav" id="journey-nav">
-  {activePageLink && <span class="jn-page-anchor" id="jn-page-anchor">{activePageLink.label.toLowerCase()}</span>}
+  {activePageLink && (
+    <details class="jn-page-menu">
+      <summary class="jn-page-summary">{activePageLink.label.toLowerCase()}</summary>
+      <div class="jn-page-list">
+        {pageLinks.map((link) => (
+          <a class={`jn-page-item ${activePage === link.label.toLowerCase() ? 'jn-page-item-active' : ''}`} href={link.href}>
+            {link.label.toLowerCase()}
+          </a>
+        ))}
+      </div>
+    </details>
+  )}
   <span class="jn-journey" id="jn-journey">
     {defaultJourney.title.includes(':') ? defaultJourney.title.split(':')[0].trim() : defaultJourney.title}
   </span>
