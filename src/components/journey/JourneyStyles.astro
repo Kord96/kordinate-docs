@@ -394,6 +394,17 @@
 
     /* ─── Journey switching ─── */
     .journey-section.hidden { display: none; }
+    .section-actions {
+      position: absolute; top: 80px; right: 1.5rem;
+      display: inline-flex; align-items: center; gap: .45rem; z-index: 10;
+    }
+    .journey-switch-btn {
+      padding: .25rem .6rem; border-radius: 5px; font-size: .65rem;
+      color: var(--text-4); border: 1px solid var(--border); background: transparent;
+      cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .journey-switch-btn::after { content: ' ▾'; font-size: .45rem; opacity: .5; vertical-align: middle; }
+    .journey-switch-btn:hover { color: var(--text-2); border-color: var(--border-hover); background: var(--bg-raised); }
 
     /* ─── Focus mode (fullscreen story) ─── */
     .focus-btn {
@@ -402,6 +413,7 @@
       color: var(--text-4); border: 1px solid var(--border); background: transparent;
       cursor: pointer; transition: all .2s; z-index: 10;
     }
+    .section-actions .focus-btn { position: static; }
     .focus-btn:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-dim); }
 
     .focus-overlay {
@@ -646,6 +658,16 @@
   }
   [data-theme='light'] .jn-pick-active {
     color: #3730a3;
+  }
+  [data-theme='light'] .journey-switch-btn {
+    color: #52525b;
+    background: rgba(255,255,255,0.72);
+    border-color: #d4d4d8;
+  }
+  [data-theme='light'] .journey-switch-btn:hover {
+    color: #18181b;
+    background: rgba(24,24,27,0.05);
+    border-color: #cbd5e1;
   }
   [data-theme='light'] .jb-dot {
     color: #52525b;

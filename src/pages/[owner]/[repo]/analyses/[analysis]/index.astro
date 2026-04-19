@@ -39,6 +39,7 @@ for (const j of journeys) {
 }
 
 const stories = journeyData[defaultJourney.id]?.stories || [];
+const allJourneyTitles = Object.fromEntries(journeys.map((j: any) => [j.id, j.title]));
 const compMap: Record<string, any> = {};
 for (const c of (atlas.components || [])) compMap[c.id] = c;
 for (const e of (atlas.external_dependencies || [])) compMap[e.id] = e;
@@ -98,6 +99,7 @@ function parseSummary(text: string): string {
         total={jd.total}
         journeyId={journey.id}
         isDefault={isDefault}
+        allJourneyTitles={allJourneyTitles}
         bridge={jd.bridgeMap[story.id]}
         compMap={compMap}
         storyByNode={storyByNode}

@@ -9,19 +9,27 @@ interface Props {
   total: number;
   journeyId: string;
   isDefault: boolean;
+  allJourneyTitles?: Record<string, string>;
   bridge?: any;
   compMap: Record<string, any>;
   storyByNode: Record<string, string[]>;
   parseSummary: (text: string) => string;
 }
 
-const { story, index, total, journeyId, isDefault, bridge, compMap, storyByNode, parseSummary } = Astro.props;
+const { story, index, total, journeyId, isDefault, allJourneyTitles = {}, bridge, compMap, storyByNode, parseSummary } = Astro.props;
 const anchor = story.anchor;
 const html = parseSummary(story.summary || '');
 ---
 
 <section class={`snap journey-section ${isDefault ? '' : 'hidden'}`} id={`${journeyId}-s${index+1}`} data-journey={journeyId}>
-  <button class="focus-btn" data-focus={`${journeyId}-s${index+1}`}>Focus ⛶</button>
+  <div class="section-actions">
+    {Object.keys(allJourneyTitles).length > 1 && (
+      <button class="journey-switch-btn" type="button" data-journey-switch={`${journeyId}-s${index+1}`}>
+        {allJourneyTitles[journeyId] || journeyId}
+      </button>
+    )}
+    <button class="focus-btn" data-focus={`${journeyId}-s${index+1}`}>Focus ⛶</button>
+  </div>
   <div class="snap-inner">
     {bridge && <div class="bridge">{bridge.text}</div>}
 

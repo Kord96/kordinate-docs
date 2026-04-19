@@ -12,13 +12,12 @@
 <script is:inline>
   const journeyNav = document.getElementById('journey-nav');
   const jbDots = document.getElementById('jb-dots');
-  const jnJourney = document.getElementById('jn-journey');
   const jnPicker = document.getElementById('jn-picker');
   const jnPageMenu = journeyNav?.querySelector('.jn-page-menu');
   const jnPageToggle = journeyNav?.querySelector('.jn-page-toggle');
   const landing = document.getElementById('s0');
   let cur = 0;
-  let currentJourneyId = jnPicker.querySelector('.jn-pick-active')?.dataset.journey || 'system-overview';
+  let currentJourneyId = journeyNav?.dataset.defaultJourney || jnPicker?.querySelector('.jn-pick-active')?.dataset.journey || 'system-overview';
 
   function getVisibleSections() {
     return [landing, ...document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"]`)];
@@ -32,22 +31,23 @@
   }, { threshold: 0.3 });
   landingObs.observe(landing);
 
-  // Journey picker toggle — position above the nav
-  jnJourney.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const rect = jnJourney.getBoundingClientRect();
-    jnPicker.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
-    jnPicker.style.left = rect.left + 'px';
-    jnPicker.classList.toggle('open');
+  // Journey picker toggle — position next to the section action buttons
+  document.addEventListener('click', () => jnPicker?.classList.remove('open'));
+  document.querySelectorAll('.journey-switch-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!jnPicker) return;
+      const rect = btn.getBoundingClientRect();
+      jnPicker.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+      jnPicker.style.left = Math.max(16, rect.left - Math.max(0, jnPicker.offsetWidth - rect.width)) + 'px';
+      jnPicker.classList.toggle('open');
+    });
   });
-  document.addEventListener('click', () => jnPicker.classList.remove('open'));
-  jnPicker.querySelectorAll('.jn-pick').forEach(pick => {
+  jnPicker?.querySelectorAll('.jn-pick').forEach(pick => {
     pick.addEventListener('click', (e) => {
       e.stopPropagation();
       jnPicker.classList.remove('open');
       switchJourney(pick.dataset.journey);
-      const label = pick.textContent;
-      jnJourney.childNodes[0].textContent = label + ' ';
       jnPicker.querySelectorAll('.jn-pick').forEach(p => p.classList.toggle('jn-pick-active', p === pick));
     });
   });
@@ -579,6 +579,15 @@
 
     const startBtn = document.getElementById('start-btn');
     if (startBtn) startBtn.href = '#' + currentJourneyId + '-s1';
+
+    const activeJourneyLabel = jnPicker?.querySelector('.jn-pick-active')?.textContent?.trim();
+    document.querySelectorAll('.journey-switch-btn').forEach((btn) => {
+      const activePick = jnPicker?.querySelector(`.jn-pick[data-journey="${currentJourneyId}"]`);
+      btn.textContent = activePick?.textContent?.trim() || activeJourneyLabel || btn.textContent || '';
+    });
+    document.querySelectorAll('.landing-journey-btn').forEach((btn) => {
+      btn.classList.toggle('primary', btn.dataset.journey === currentJourneyId);
+    });
 
     currentObs = setupObserver();
     document.getElementById('chapter0')?.scrollIntoView({ behavior: 'smooth' });

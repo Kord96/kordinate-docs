@@ -14,7 +14,14 @@ const { atlas, journeys, defaultJourney, storyByNode, parseSummary } = Astro.pro
 ---
 
 <section class="snap" id="chapter0">
-  <button class="focus-btn" data-focus="chapter0">Focus ⛶</button>
+  <div class="section-actions">
+    {journeys.length > 1 && (
+      <button class="journey-switch-btn" type="button" data-journey-switch="chapter0">
+        {defaultJourney.title}
+      </button>
+    )}
+    <button class="focus-btn" data-focus="chapter0">Focus ⛶</button>
+  </div>
   <div class="snap-inner ch0">
     <div class="ch0-header">
       <div class="story-num">Overview</div>

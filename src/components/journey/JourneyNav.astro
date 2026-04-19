@@ -10,17 +10,17 @@ interface Props {
   activePage?: string;
 }
 
-const { journeys, defaultJourney, stories, pageLinks = [], activePage = '' } = Astro.props;
+const { defaultJourney, stories, pageLinks = [], activePage = '' } = Astro.props;
 const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === activePage) || pageLinks[0] || null;
 ---
 
 <div class="jn-picker" id="jn-picker">
-  {journeys.map((j: any) => {
+  {Astro.props.journeys?.map((j: any) => {
     const label = j.title?.includes(':') ? j.title.split(':')[0].trim() : j.title;
     return <div class={`jn-pick ${j.id === defaultJourney.id ? 'jn-pick-active' : ''}`} data-journey={j.id}>{label}</div>;
   })}
 </div>
-<nav class="journey-nav" id="journey-nav">
+<nav class="journey-nav" id="journey-nav" data-default-journey={defaultJourney.id}>
   {activePageLink && (
     <div class="jn-page-menu">
       <button class="jn-page-toggle" type="button" aria-haspopup="true" aria-expanded="false">
@@ -35,9 +35,6 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
       </div>
     </div>
   )}
-  <span class="jn-journey" id="jn-journey">
-    {defaultJourney.title.includes(':') ? defaultJourney.title.split(':')[0].trim() : defaultJourney.title}
-  </span>
   <span id="jb-dots">
     {stories.map((s: any, i: number) => {
       const label = s.title?.includes(':') ? s.title.split(':')[0].trim() : (s.title || `Story ${i+1}`);
