@@ -42,6 +42,19 @@ const actors = atlas.actors || [];
 const events = atlas.events || [];
 const concepts = atlas.concepts || {};
 const tensions = atlas.tensions || [];
+const atlasSections = [
+  { id: 'sec-atlas-overview', label: 'Atlas Overview' },
+  { id: 'sec-context', label: 'Domain & Interfaces' },
+  { id: 'components-section', label: 'Components' },
+  { id: 'sec-flows', label: 'Flows' },
+  { id: 'sec-state', label: 'State & Storage' },
+  { id: 'sec-external', label: 'External Dependencies' },
+  ...(failureScenarios.length > 0 ? [{ id: 'sec-failures', label: 'Failure Scenarios' }] : []),
+  ...(monitoring.length > 0 ? [{ id: 'sec-monitoring', label: 'Monitoring' }] : []),
+  ...(gaps.length > 0 ? [{ id: 'sec-gaps', label: 'Gaps' }] : []),
+  { id: 'sec-patterns', label: 'Concepts' },
+  { id: 'sec-tensions', label: 'Architecture Tensions' },
+];
 
 function severity(s: string) {
   const colors: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#22c55e' };
@@ -83,17 +96,99 @@ function severity(s: string) {
     <TensionsSection tensions={tensions} components={components} />
   </div>
 
-  <PillNav sections={[
-    { id: 'sec-atlas-overview', label: 'Atlas Overview' },
-    { id: 'sec-context', label: 'Domain & Interfaces' },
-    { id: 'components-section', label: 'Components' },
-    { id: 'sec-flows', label: 'Flows' },
-    { id: 'sec-state', label: 'State & Storage' },
-    { id: 'sec-external', label: 'External Dependencies' },
-    ...(failureScenarios.length > 0 ? [{ id: 'sec-failures', label: 'Failure Scenarios' }] : []),
-    ...(monitoring.length > 0 ? [{ id: 'sec-monitoring', label: 'Monitoring' }] : []),
-    ...(gaps.length > 0 ? [{ id: 'sec-gaps', label: 'Gaps' }] : []),
-    { id: 'sec-patterns', label: 'Concepts' },
-    { id: 'sec-tensions', label: 'Architecture Tensions' },
-  ]} />
+  <PillNav sections={atlasSections} />
+
+  <div class="atlas-focus-overlay" id="atlas-focus-overlay">
+    <div class="atlas-focus-header">
+      <div class="atlas-focus-nav">
+        <button class="atlas-focus-btn atlas-focus-nav-btn" id="atlas-focus-prev" type="button">← Prev</button>
+        <span class="atlas-focus-pos" id="atlas-focus-pos"></span>
+        <button class="atlas-focus-btn atlas-focus-nav-btn" id="atlas-focus-next" type="button">Next →</button>
+      </div>
+      <button class="atlas-focus-btn atlas-focus-close" id="atlas-focus-close" type="button">✕ Close</button>
+    </div>
+  </div>
+
+  <script is:inline define:vars={{ atlasSections }}>
+    (function() {
+      const body = document.body;
+      const overlay = document.getElementById('atlas-focus-overlay');
+      const prevBtn = document.getElementById('atlas-focus-prev');
+      const nextBtn = document.getElementById('atlas-focus-next');
+      const closeBtn = document.getElementById('atlas-focus-close');
+      const pos = document.getElementById('atlas-focus-pos');
+      const sectionIds = atlasSections.map((section) => section.id);
+      const labelById = Object.fromEntries(atlasSections.map((section) => [section.id, section.label]));
+      let focusIndex = -1;
+
+      function currentSection() {
+        if (focusIndex < 0) return null;
+        return document.getElementById(sectionIds[focusIndex]);
+      }
+
+      function refreshFocusedSection() {
+        const section = currentSection();
+        if (!section) return;
+        pos.textContent = `${labelById[section.id]} · ${focusIndex + 1} / ${sectionIds.length}`;
+        prevBtn.disabled = focusIndex === 0;
+        nextBtn.disabled = focusIndex === sectionIds.length - 1;
+        setTimeout(() => {
+          window.dispatchEvent(new Event('resize'));
+          section.querySelector('#btn-fit')?.click();
+        }, 120);
+      }
+
+      function openFocus(sectionId) {
+        const section = document.getElementById(sectionId);
+        const nextIndex = sectionIds.indexOf(sectionId);
+        if (!section || nextIndex < 0) return;
+        body.classList.remove('atlas-focus-active');
+        document.querySelectorAll('.atlas-focus-target').forEach((node) => node.classList.remove('atlas-focus-target'));
+        focusIndex = nextIndex;
+        section.classList.add('atlas-focus-target');
+        body.classList.add('atlas-focus-active');
+        overlay.classList.add('open');
+        body.style.overflow = 'hidden';
+        refreshFocusedSection();
+      }
+
+      function closeFocus() {
+        body.classList.remove('atlas-focus-active');
+        overlay.classList.remove('open');
+        body.style.overflow = '';
+        document.querySelectorAll('.atlas-focus-target').forEach((node) => node.classList.remove('atlas-focus-target'));
+        focusIndex = -1;
+        window.dispatchEvent(new Event('resize'));
+      }
+
+      sectionIds.forEach((id) => {
+        const section = document.getElementById(id);
+        if (!section) return;
+        if (section.querySelector('.atlas-focus-launch')) return;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'atlas-focus-btn atlas-focus-launch';
+        button.textContent = 'Focus ⛶';
+        button.addEventListener('click', () => openFocus(id));
+        section.prepend(button);
+      });
+
+      prevBtn?.addEventListener('click', () => {
+        if (focusIndex <= 0) return;
+        openFocus(sectionIds[focusIndex - 1]);
+      });
+      nextBtn?.addEventListener('click', () => {
+        if (focusIndex >= sectionIds.length - 1) return;
+        openFocus(sectionIds[focusIndex + 1]);
+      });
+      closeBtn?.addEventListener('click', closeFocus);
+
+      document.addEventListener('keydown', (event) => {
+        if (!overlay.classList.contains('open')) return;
+        if (event.key === 'Escape') closeFocus();
+        if (event.key === 'ArrowLeft' || event.key === 'h') prevBtn?.click();
+        if (event.key === 'ArrowRight' || event.key === 'l') nextBtn?.click();
+      });
+    })();
+  </script>
 </Base>

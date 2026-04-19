@@ -7,9 +7,97 @@
 <style is:global>
   .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
-  .section { margin-bottom: 3rem; }
+  .section { margin-bottom: 3rem; position: relative; }
   .section-title { font-size: 1.2rem; font-weight: 700; margin-bottom: .25rem; letter-spacing: -.02em; }
   .section-sub { font-size: .8rem; color: var(--text-3); margin-bottom: 1.25rem; }
+  .atlas-focus-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .3rem;
+    padding: .26rem .65rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-3);
+    cursor: pointer;
+    transition: all .18s ease;
+    font-size: .68rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .atlas-focus-btn:hover {
+    color: var(--text-2);
+    border-color: var(--border-hover);
+  }
+  .atlas-focus-launch {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+  }
+  .atlas-focus-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 8998;
+    pointer-events: none;
+  }
+  .atlas-focus-overlay.open {
+    display: block;
+  }
+  .atlas-focus-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 8999;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .55rem 1.5rem;
+    background: rgba(9,9,11,0.92);
+    backdrop-filter: blur(16px) saturate(180%);
+    border-bottom: 1px solid var(--border);
+    pointer-events: auto;
+  }
+  .atlas-focus-nav {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+  }
+  .atlas-focus-pos {
+    font-size: .75rem;
+    color: var(--text-4);
+    margin: 0 .35rem;
+  }
+  :global(body.atlas-focus-active) .pill-nav {
+    display: none;
+  }
+  :global(body.atlas-focus-active) .container > .section {
+    visibility: hidden;
+  }
+  :global(body.atlas-focus-active) .container > .section.atlas-focus-target {
+    visibility: visible;
+    position: fixed;
+    inset: 3.9rem 1rem 1rem;
+    width: min(1200px, calc(100vw - 2rem));
+    max-width: none;
+    margin: 0 auto;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    z-index: 8998;
+    overflow: auto;
+    padding: 1.5rem 1.25rem 2rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.35);
+  }
+  :global(body.atlas-focus-active) .container > .section.atlas-focus-target .atlas-focus-launch {
+    display: none;
+  }
 
   .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .75rem; }
   .card {
@@ -161,5 +249,25 @@
   [data-theme='light'] .failure-cascade,
   [data-theme='light'] .graph-counter {
     color: #3f3f46;
+  }
+  [data-theme='light'] .atlas-focus-btn {
+    background: rgba(255,255,255,0.92);
+    border-color: #d4d4d8;
+    color: #52525b;
+  }
+  [data-theme='light'] .atlas-focus-btn:hover {
+    color: #18181b;
+    border-color: #a1a1aa;
+  }
+  [data-theme='light'] .atlas-focus-header {
+    background: rgba(255,255,255,0.96);
+    border-bottom-color: #d4d4d8;
+    box-shadow: 0 8px 24px rgba(24,24,27,0.08);
+  }
+  [data-theme='light'] .atlas-focus-pos {
+    color: #52525b;
+  }
+  [data-theme='light'] :global(body.atlas-focus-active) .container > .section.atlas-focus-target {
+    box-shadow: 0 24px 56px rgba(24,24,27,0.12);
   }
 </style>

@@ -196,8 +196,9 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
     padding: 0;
     min-height: 0;
     display: flex; flex-direction: column;
-    background: rgba(9,9,11,0.85); backdrop-filter: blur(16px) saturate(180%);
-    border-bottom: 1px solid var(--border);
+    background: transparent;
+    backdrop-filter: none;
+    border-bottom: none;
   }
   .site-header.sticky { position: sticky; }
   .h-top {
@@ -208,6 +209,9 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
     gap: 1rem;
     min-height: 44px;
     padding: .35rem 1.5rem;
+    background: rgba(9,9,11,0.85);
+    backdrop-filter: blur(16px) saturate(180%);
+    border-bottom: 1px solid var(--border);
   }
   .h-left { display: flex; align-items: center; gap: .7rem; min-width: 0; }
   .h-logo { display: inline-flex; align-items: baseline; gap: .2rem; letter-spacing: -.02em; }
@@ -243,20 +247,25 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
     align-items: baseline;
     gap: .12rem;
     cursor: pointer;
-    padding: 0;
+    padding: .18rem .55rem;
+    border-radius: 999px;
+    background: rgba(9,9,11,0.76);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
   }
   .h-route-summary::-webkit-details-marker { display: none; }
   .h-subnav {
-    width: 100%;
-    min-height: 24px;
-    padding: .14rem 1.5rem .18rem;
-    border-top: 1px solid rgba(255,255,255,0.05);
+    width: auto;
+    min-height: 0;
+    margin-left: 1.5rem;
+    margin-top: .32rem;
+    padding: 0;
     display: flex;
     align-items: center;
-    background: rgba(255,255,255,0.02);
+    background: transparent;
   }
   .h-route-project {
-    font-size: .7rem;
+    font-size: .68rem;
     font-weight: 700;
     color: var(--text-3);
   }
@@ -272,6 +281,9 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
   .h-route-menu[open] .h-route-label,
   .h-route-summary:hover .h-route-label {
     color: var(--text-2);
+  }
+  .h-route-summary:hover {
+    border-color: rgba(255,255,255,0.14);
   }
   .h-route-list {
     position: absolute;
@@ -352,6 +364,9 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
 
   /* Light mode header */
   :global([data-theme='light']) .site-header {
+    background: transparent;
+  }
+  :global([data-theme='light']) .h-top {
     background: rgba(255,255,255,0.9);
     border-bottom-color: #e4e4e7;
   }
@@ -359,8 +374,12 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
     background: rgba(24,24,27,0.12);
   }
   :global([data-theme='light']) .h-subnav {
-    border-top-color: rgba(24,24,27,0.06);
-    background: rgba(24,24,27,0.015);
+    background: transparent;
+  }
+  :global([data-theme='light']) .h-route-summary {
+    background: rgba(255,255,255,0.92);
+    border-color: rgba(24,24,27,0.08);
+    box-shadow: 0 8px 20px rgba(24,24,27,0.08);
   }
   :global([data-theme='light']) .h-route-project { color: #3f3f46; }
   :global([data-theme='light']) .h-route-slash { color: #71717a; }
