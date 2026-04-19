@@ -244,6 +244,43 @@
     openDrawer('detail');
   }
 
+  function showStructureDetail(structSupport) {
+    if (!structSupport) return;
+    const nodes = Array.isArray(structSupport.nodes) ? structSupport.nodes : [];
+    const edges = Array.isArray(structSupport.edges) ? structSupport.edges : [];
+    let html = '<div class="detail-header">';
+    html += '<div class="detail-name">' + escapeHtml(structSupport.title || 'Structure view') + '</div>';
+    html += '<div class="detail-type"><span class="detail-type-badge">graph</span>';
+    if (structSupport.storyTitle) html += '<span>' + escapeHtml(structSupport.storyTitle) + '</span>';
+    html += '</div></div>';
+    if (structSupport.summary) html += '<div class="detail-desc">' + renderInlineMarkup(structSupport.summary) + '</div>';
+    if (structSupport.teaches) {
+      html += '<div class="detail-section"><div class="detail-label">Focus</div><div class="detail-prose">' + renderInlineMarkup(structSupport.teaches) + '</div></div>';
+    }
+    if (nodes.length) {
+      html += '<div class="detail-section"><div class="detail-label">Nodes In View</div><div class="detail-links">';
+      html += nodes.map((node) => '<a class="detail-link detail-dep" data-node="' + escapeHtml(node.id) + '">' + escapeHtml(node.name || labelFor(node.id)) + '</a>').join('');
+      html += '</div></div>';
+    }
+    if (edges.length) {
+      html += '<div class="detail-section"><div class="detail-label">Key Relationships</div><ul class="detail-list">';
+      html += edges.map((edge) => {
+        const relation = edge.label || 'relates to';
+        return '<li><div class="detail-prose"><strong>' + escapeHtml(labelFor(edge.from)) + '</strong> — ' + escapeHtml(relation) + ' → <strong>' + escapeHtml(labelFor(edge.to)) + '</strong></div></li>';
+      }).join('');
+      html += '</ul></div>';
+    }
+    panelDetail.innerHTML = html;
+    panelDetail.querySelectorAll('.detail-dep').forEach(link => {
+      link.addEventListener('click', () => {
+        const nodeId = link.dataset.node;
+        const comp = allCompData[nodeId];
+        if (comp) showNodeDetail(comp, allRefs);
+      });
+    });
+    openDrawer('detail');
+  }
+
   function showFlowDetail(flowSupport) {
     if (!flowSupport) return;
     const steps = Array.isArray(flowSupport.steps) ? flowSupport.steps : [];
@@ -335,6 +372,17 @@
       if (encoded) {
         try {
           showFlowDetail(JSON.parse(decodeURIComponent(encoded)));
+        } catch {}
+      }
+      return;
+    }
+    const structSupportTrigger = target.closest('[data-struct-support-open]');
+    if (structSupportTrigger) {
+      const structRoot = structSupportTrigger.closest('[data-struct-support]');
+      const encoded = structRoot?.dataset?.structSupport;
+      if (encoded) {
+        try {
+          showStructureDetail(JSON.parse(decodeURIComponent(encoded)));
         } catch {}
       }
       return;

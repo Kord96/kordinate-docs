@@ -99,10 +99,30 @@ const supportPayload = encodeURIComponent(JSON.stringify({
         edges: (st.edges || []).map((e: any) => ({ from: e.from, to: e.to, label: e.label || '' }))
       });
       const storyRefs = JSON.stringify(storyByNode);
+      const structureSupportPayload = encodeURIComponent(JSON.stringify({
+        id: st.id || `${story.id}-structure-${si + 1}`,
+        storyId: story.id,
+        storyTitle: story.title,
+        title: st.title || `Structure View ${si + 1}`,
+        summary: st.summary || story.summary || '',
+        teaches: story.teaches || '',
+        nodes: allNodeIds.map((nid: string) => ({
+          id: nid,
+          name: compMap[nid]?.name || nid,
+          type: compMap[nid]?.type || 'worker',
+        })),
+        edges: (st.edges || []).map((e: any) => ({ from: e.from, to: e.to, label: e.label || '' })),
+      }));
       return (
-        <div class="struct">
+        <div class="struct" data-struct-support={structureSupportPayload}>
           <div class="struct-graph" id={graphId} data-graph={graphData} data-refs={storyRefs}></div>
-          <div class="struct-hint">click a node to explore</div>
+          <div class="struct-hint">
+            <button class="struct-hint-button" type="button" data-struct-support-open>
+              About this graph
+            </button>
+            <span class="struct-hint-sep">•</span>
+            <span>click a node to explore</span>
+          </div>
         </div>
       );
     })}
@@ -111,7 +131,6 @@ const supportPayload = encodeURIComponent(JSON.stringify({
       const steps = fl.steps || [];
       const finalStep = steps.length ? steps[steps.length - 1] : null;
       const flowOutcome = finalStep ? (finalStep.effect || finalStep.action || '') : '';
-      const flowSummaryHtml = fl.summary ? parseSummary(fl.summary) : '';
       const flowTrigger = fl.trigger || '';
       const flowSupportPayload = encodeURIComponent(JSON.stringify({
         id: fl.id || `${story.id}-flow-${fi + 1}`,
@@ -139,12 +158,6 @@ const supportPayload = encodeURIComponent(JSON.stringify({
             </div>
           )}
           <div class="flow-frame">
-            {flowSummaryHtml && (
-              <div class="flow-frame-card flow-frame-card-primary">
-                <div class="flow-meta-label">Why It Matters</div>
-                <div class="flow-frame-text" set:html={flowSummaryHtml} />
-              </div>
-            )}
             {flowTrigger && (
               <div class="flow-frame-card">
                 <div class="flow-meta-label">Trigger</div>
@@ -175,26 +188,26 @@ const supportPayload = encodeURIComponent(JSON.stringify({
                       </button>
                     </span>
                     {step.action && (
-                      <span class="flow-separator" aria-hidden="true">—</span>
                       <span class="flow-segment flow-segment-action">
                         <span class="flow-segment-label">Action</span>
                         <span class="flow-segment-name">{step.action}</span>
                       </span>
                     )}
                     {step.to && (
-                      <>
-                        <span class="flow-arrow" aria-hidden="true">→</span>
-                        <span class={`flow-segment flow-segment-target ${step.to !== step.node ? 'flow-segment-target-crossing' : ''}`}>
-                          <span class="flow-segment-label">To</span>
-                          <button class="flow-segment-name flow-node-link" type="button" data-node={step.to}>
-                            {compMap[step.to]?.name || step.to}
-                          </button>
-                        </span>
-                      </>
+                      <span class={`flow-segment flow-segment-target ${step.to !== step.node ? 'flow-segment-target-crossing' : ''}`}>
+                        <span class="flow-segment-label">To</span>
+                        <button class="flow-segment-name flow-node-link" type="button" data-node={step.to}>
+                          {compMap[step.to]?.name || step.to}
+                        </button>
+                      </span>
+                    )}
+                    {step.effect && (
+                      <span class="flow-segment flow-segment-outcome">
+                        <span class="flow-segment-label">Outcome</span>
+                        <span class="flow-segment-name">{step.effect}</span>
+                      </span>
                     )}
                   </div>
-                  {!step.action && <div class="flow-action">{step.effect}</div>}
-                  {step.effect && step.effect !== step.action && <div class="flow-effect">{step.effect}</div>}
                 </div>
               </div>
             ))}

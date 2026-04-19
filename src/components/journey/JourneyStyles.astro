@@ -500,20 +500,24 @@
     }
     .flow-route {
       margin-bottom: .4rem;
-      display: flex; align-items: center; flex-wrap: wrap; gap: .35rem;
+      display: grid;
+      gap: .38rem;
       padding: .52rem .62rem;
       border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
       border-radius: 14px;
       background: color-mix(in srgb, var(--bg) 72%, var(--bg-raised));
     }
     .flow-segment {
-      display: inline-flex; align-items: baseline; gap: .38rem;
+      display: grid;
+      grid-template-columns: 3rem minmax(0, 1fr);
+      align-items: start;
+      gap: .55rem;
       min-width: 0;
     }
     .flow-segment-label {
       font-size: .58rem; font-weight: 700; color: var(--text-4);
       text-transform: uppercase; letter-spacing: .09em;
-      flex-shrink: 0;
+      padding-top: .08rem;
     }
     .flow-segment-name {
       font-size: .79rem; line-height: 1.35;
@@ -539,22 +543,15 @@
     .flow-segment-source .flow-segment-name { color: var(--accent); }
     .flow-segment-action .flow-segment-name { color: var(--text-2); }
     .flow-segment-target-crossing .flow-segment-name { color: color-mix(in srgb, var(--accent) 76%, var(--text)); }
-    .flow-separator,
-    .flow-arrow {
-      color: var(--text-4); font-size: .82rem; font-weight: 700;
-      line-height: 1;
-      flex-shrink: 0;
-      opacity: .72;
+    .flow-segment-outcome .flow-segment-name {
+      color: var(--text-3);
+      font-weight: 560;
     }
-    .flow-action { color: var(--text); font-size: .82rem; line-height: 1.45; }
-    .flow-effect { color: var(--text-3); font-size: .76rem; line-height: 1.45; margin-top: .2rem; }
     @media (max-width: 720px) {
-      .flow-route { align-items: flex-start; }
-      .flow-separator,
-      .flow-arrow { display: none; }
       .flow-segment {
         width: 100%;
-        justify-content: space-between;
+        grid-template-columns: 1fr;
+        gap: .12rem;
       }
     }
 
