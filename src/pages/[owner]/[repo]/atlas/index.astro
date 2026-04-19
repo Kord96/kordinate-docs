@@ -97,6 +97,7 @@ function severity(s: string) {
   </div>
 
   <PillNav sections={atlasSections} />
+  <button class="atlas-focus-btn atlas-focus-global" id="atlas-focus-global" type="button">Focus ⛶</button>
 
   <div class="atlas-focus-overlay" id="atlas-focus-overlay">
     <div class="atlas-focus-header">
@@ -138,6 +139,11 @@ function severity(s: string) {
         }, 120);
       }
 
+      function findActiveSectionId() {
+        const activePill = document.querySelector('#pill-nav .pill-active');
+        return activePill?.dataset.section || sectionIds[0];
+      }
+
       function openFocus(sectionId) {
         const section = document.getElementById(sectionId);
         const nextIndex = sectionIds.indexOf(sectionId);
@@ -161,16 +167,8 @@ function severity(s: string) {
         window.dispatchEvent(new Event('resize'));
       }
 
-      sectionIds.forEach((id) => {
-        const section = document.getElementById(id);
-        if (!section) return;
-        if (section.querySelector('.atlas-focus-launch')) return;
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'atlas-focus-btn atlas-focus-launch';
-        button.textContent = 'Focus ⛶';
-        button.addEventListener('click', () => openFocus(id));
-        section.prepend(button);
+      document.getElementById('atlas-focus-global')?.addEventListener('click', () => {
+        openFocus(findActiveSectionId());
       });
 
       prevBtn?.addEventListener('click', () => {
