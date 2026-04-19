@@ -65,22 +65,6 @@ function severity(s: string) {
   />
 
   <div class="container">
-    <div class="section" id="sec-overview">
-      <h1 class="section-title">{displayProjectTitle(project, atlas.project)}</h1>
-      <p class="section-sub">{atlas.purpose}</p>
-      {dm.primary && (
-        <div>
-          <div class="dm-badge">◆ {dm.primary}</div>
-          {dm.description && <p style="font-size: .82rem; color: var(--text-2); margin-bottom: .5rem;">{dm.description}</p>}
-          {dm.entities && (
-            <div class="dm-entities">
-              {dm.entities.map((e: string) => <span class="dm-entity">{e}</span>)}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-
     <MetadataSection metadata={metadata} components={components} flows={flows} state={stateEntries} extDeps={extDeps} />
     <ContextSection domainModel={dm} actors={actors} events={events} components={components} />
     <div class="section" id="components-section">
@@ -100,7 +84,6 @@ function severity(s: string) {
   </div>
 
   <PillNav sections={[
-    { id: 'sec-overview', label: 'Overview' },
     { id: 'sec-atlas-overview', label: 'Stack' },
     { id: 'sec-context', label: 'Context' },
     { id: 'components-section', label: 'Components' },
