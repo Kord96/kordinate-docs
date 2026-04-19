@@ -288,7 +288,7 @@
     html += '<div class="detail-type"><span class="detail-type-badge">symbol</span>';
     if (symbolData.kind) html += '<span>' + escapeHtml(symbolData.kind) + '</span>';
     html += '</div></div>';
-    html += '<div class="detail-desc">Grounded mechanism reference from <code>' + escapeHtml(symbolData.file || 'unknown file') + '</code>.</div>';
+    html += '<div class="detail-desc">' + escapeHtml(symbolData.name || 'This symbol') + ' is a grounded implementation mechanism from <code>' + escapeHtml(symbolData.file || 'unknown file') + '</code>.</div>';
     html += '<div class="detail-section"><div class="detail-label">Grounding</div>';
     if (symbolData.file) html += '<div class="detail-subsection"><div class="detail-subtitle">File</div><code style="font-size:.72rem;color:var(--accent);display:block;padding:.1rem 0;">' + escapeHtml(symbolData.file) + '</code></div>';
     if (symbolData.language || symbolData.exported !== undefined) {

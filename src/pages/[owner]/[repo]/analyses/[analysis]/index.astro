@@ -59,6 +59,23 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function linkPlainSymbols(html: string): string {
+  const parts = html.split(/(<[^>]+>)/g);
+  return parts.map((part) => {
+    if (!part || part.startsWith('<')) return part;
+    let text = part;
+    for (const symbolName of symbolNames) {
+      const pattern = new RegExp(`(^|[^\\w])(${escapeRegExp(symbolName)})(?=$|[^\\w])`, 'g');
+      text = text.replace(
+        pattern,
+        (_m: string, prefix: string, match: string) =>
+          `${prefix}<span class="ref" data-kind="symbol" data-symbol="${symbolName}">${match}</span>`
+      );
+    }
+    return text;
+  }).join('');
+}
+
 function parseSummary(text: string): string {
   let html = text.replace(/\*\*([^*]+?)\*\*/gs, (_: string, name: string) => {
       const trimmed = name.trim();
@@ -69,10 +86,7 @@ function parseSummary(text: string): string {
       return `<span class="ref" data-kind="unresolved" data-id="${trimmed.toLowerCase().replace(/\s+/g, '-')}">${name}</span>`;
     })
   ;
-  for (const symbolName of symbolNames) {
-    const pattern = new RegExp(`(^|[^>\\w])(${escapeRegExp(symbolName)})(?=$|[^<\\w])`, 'g');
-    html = html.replace(pattern, (_m: string, prefix: string, match: string) => `${prefix}<span class="ref" data-kind="symbol" data-symbol="${symbolName}">${match}</span>`);
-  }
+  html = linkPlainSymbols(html);
   return html.replace(/\n\n/g, '<br><br>').replace(/\n/g, ' ');
 }
 ---
