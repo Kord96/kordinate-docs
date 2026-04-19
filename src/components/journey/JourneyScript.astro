@@ -148,6 +148,7 @@
   });
 
   function formatId(id) { return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
+  function labelFor(id) { return (atlasDetailData.labelsById || {})[id] || allCompData[id]?.name || formatId(id); }
 
   const projectData = JSON.parse(document.getElementById('project-data')?.textContent || '{}');
   const atlasDetailData = JSON.parse(document.getElementById('atlas-detail-data')?.textContent || '{}');
@@ -198,6 +199,10 @@
     return applied > 0;
   }
 
+  function collectCollapsedNodeIds(cy) {
+    return cy.nodes('.collapsed-parent').map((node) => node.id());
+  }
+
   function scheduleGraphLayoutSave(graphId, layout) {
     if (!projectApiBasePath || !graphId) return;
     const normalizedId = normalizeGraphId(graphId);
@@ -214,6 +219,55 @@
         });
       } catch {}
     }, 320));
+  }
+
+  function buildChildMap(nodes) {
+    const map = new Map();
+    nodes.forEach((node) => {
+      if (!node?.id) return;
+      if (!map.has(node.id)) map.set(node.id, new Set());
+      (node.children || []).forEach((childId) => {
+        if (!map.has(node.id)) map.set(node.id, new Set());
+        map.get(node.id).add(childId);
+      });
+      if (node.parent) {
+        if (!map.has(node.parent)) map.set(node.parent, new Set());
+        map.get(node.parent).add(node.id);
+      }
+    });
+    return map;
+  }
+
+  function descendantIds(childMap, nodeId, seen = new Set()) {
+    const children = childMap.get(nodeId);
+    if (!children) return [];
+    const result = [];
+    children.forEach((childId) => {
+      if (seen.has(childId)) return;
+      seen.add(childId);
+      result.push(childId);
+      result.push(...descendantIds(childMap, childId, seen));
+    });
+    return result;
+  }
+
+  function setCollapseState(cy, childMap, nodeId, collapsed) {
+    const node = cy.getElementById(nodeId);
+    if (!node || !node.length) return;
+    const descendants = descendantIds(childMap, nodeId);
+    descendants.forEach((childId) => {
+      const child = cy.getElementById(childId);
+      if (child && child.length) child.toggleClass('hidden-by-collapse', collapsed);
+    });
+    cy.edges().forEach((edge) => {
+      const src = edge.data('source');
+      const tgt = edge.data('target');
+      const hidden = descendants.includes(src) || descendants.includes(tgt);
+      if (hidden) edge.toggleClass('hidden-by-collapse', collapsed);
+    });
+    node.toggleClass('collapsed-parent', collapsed);
+    const baseLabel = node.data('baseLabel') || node.data('label');
+    node.data('label', collapsed ? `${baseLabel} [${descendants.length}]` : baseLabel);
   }
 
   function showNodeDetail(data, refs) {
@@ -243,16 +297,16 @@
       const scenario = (atlasDetailData.failureScenarioById || {})[scenarioId] || {};
       const title = scenario.name || scenarioId;
       const summary = scenario.summary || scenario.degraded_mode || '';
-      return '<li><strong>' + title + '</strong>' + (summary ? '<div style="margin-top:.18rem;color:var(--text-4);line-height:1.45;">' + summary + '</div>' : '') + '</li>';
+      return '<li><button class="detail-scenario-link" data-scenario="' + scenarioId + '"><strong>' + title + '</strong></button>' + (summary ? '<div class="detail-note">' + summary + '</div>' : '') + '</li>';
     }).join('');
     const monitoringList = (((atlasDetailData.monitoringByTarget || {})[data.id]) || []).map((item) =>
-      '<li><strong>' + (item.name || item.id) + '</strong>' + (item.summary ? '<div style="margin-top:.18rem;color:var(--text-4);line-height:1.45;">' + item.summary + '</div>' : '') + '</li>'
+      '<li><strong>' + (item.name || item.id) + '</strong>' + (item.summary ? '<div class="detail-note">' + item.summary + '</div>' : '') + '</li>'
     ).join('');
     const gapList = (((atlasDetailData.gapsByTarget || {})[data.id]) || []).map((item) =>
       '<li><strong>' + (item.title || item.id) + '</strong>'
       + (item.kind ? '<span class="detail-type-badge" style="margin-left:.35rem;">' + item.kind + '</span>' : '')
-      + (item.summary ? '<div style="margin-top:.18rem;color:var(--text-4);line-height:1.45;">' + item.summary + '</div>' : '')
-      + (item.recommendation ? '<div style="margin-top:.18rem;color:var(--accent);line-height:1.45;">→ ' + item.recommendation + '</div>' : '')
+      + (item.summary ? '<div class="detail-note">' + item.summary + '</div>' : '')
+      + (item.recommendation ? '<div class="detail-rec">→ ' + item.recommendation + '</div>' : '')
       + '</li>'
     ).join('');
     const summaryText = data.summary || data.purpose || data.description || '';
@@ -269,16 +323,24 @@
     html += '</div>';
 
     if (summaryText) html += '<div class="detail-desc">' + summaryText + '</div>';
-    if (purposeText) html += '<div class="detail-section"><div class="detail-label">Why It Matters</div><div class="detail-desc" style="margin:0;padding-bottom:0;border-bottom:none;">' + purposeText + '</div></div>';
-    if (children) html += '<div class="detail-section"><div class="detail-label">Subcomponents</div><div class="detail-links">' + children + '</div></div>';
-    if (modules) html += '<div class="detail-section"><div class="detail-label">Files</div>' + modules + '</div>';
-    if (depList) html += '<div class="detail-section"><div class="detail-label">Dependencies</div><div class="detail-links">' + depList + '</div></div>';
-    if (usedByList) html += '<div class="detail-section"><div class="detail-label">Used By</div><div class="detail-links">' + usedByList + '</div></div>';
-    if (healthCriteria) html += '<div class="detail-section"><div class="detail-label">Healthy When</div><ul>' + healthCriteria + '</ul></div>';
-    if (scenarioList) html += '<div class="detail-section"><div class="detail-label">Failure Scenarios</div><ul>' + scenarioList + '</ul></div>';
-    if (monitoringList) html += '<div class="detail-section"><div class="detail-label">Monitoring</div><ul>' + monitoringList + '</ul></div>';
-    if (gapList) html += '<div class="detail-section"><div class="detail-label">Gaps</div><ul>' + gapList + '</ul></div>';
-    if (storyList) html += '<div class="detail-section"><div class="detail-label">Appears in stories</div><div class="detail-links">' + storyList + '</div></div>';
+    if (purposeText) html += '<div class="detail-section"><div class="detail-label">Why It Matters</div><div class="detail-prose">' + purposeText + '</div></div>';
+    if (children || depList || usedByList) {
+      html += '<div class="detail-section"><div class="detail-label">Structure</div>';
+      if (children) html += '<div class="detail-subsection"><div class="detail-subtitle">Subcomponents</div><div class="detail-links">' + children + '</div></div>';
+      if (depList) html += '<div class="detail-subsection"><div class="detail-subtitle">Dependencies</div><div class="detail-links">' + depList + '</div></div>';
+      if (usedByList) html += '<div class="detail-subsection"><div class="detail-subtitle">Used By</div><div class="detail-links">' + usedByList + '</div></div>';
+      html += '</div>';
+    }
+    if (healthCriteria) html += '<div class="detail-section"><div class="detail-label">Health</div><div class="detail-subsection"><div class="detail-subtitle">Healthy When</div><ul class="detail-list">' + healthCriteria + '</ul></div></div>';
+    if (scenarioList) html += '<div class="detail-section"><div class="detail-label">Risks</div><div class="detail-subsection"><div class="detail-subtitle">Failure Scenarios</div><ul class="detail-list">' + scenarioList + '</ul></div></div>';
+    if (monitoringList) html += '<div class="detail-section"><div class="detail-label">Monitoring</div><ul class="detail-list">' + monitoringList + '</ul></div>';
+    if (gapList) html += '<div class="detail-section"><div class="detail-label">Gaps</div><ul class="detail-list">' + gapList + '</ul></div>';
+    if (storyList || modules) {
+      html += '<div class="detail-section"><div class="detail-label">References</div>';
+      if (storyList) html += '<div class="detail-subsection"><div class="detail-subtitle">Appears In Stories</div><div class="detail-links">' + storyList + '</div></div>';
+      if (modules) html += '<div class="detail-subsection"><div class="detail-subtitle">Files</div>' + modules + '</div>';
+      html += '</div>';
+    }
 
     panelDetail.innerHTML = html;
 
@@ -289,7 +351,59 @@
         if (comp) showNodeDetail(comp, allRefs);
       });
     });
+    panelDetail.querySelectorAll('.detail-scenario-link').forEach((link) => {
+      link.addEventListener('click', () => {
+        const scenarioId = link.dataset.scenario;
+        if (scenarioId) showFailureScenarioDetail(scenarioId, data.id);
+      });
+    });
 
+    openDrawer('detail');
+  }
+
+  function showFailureScenarioDetail(scenarioId, originNodeId = '') {
+    const scenario = (atlasDetailData.failureScenarioById || {})[scenarioId];
+    if (!scenario) return;
+    const startsAt = (scenario.starts_at || []).map((id) => '<span class="detail-link">' + labelFor(id) + '</span>').join(' ');
+    const involves = (scenario.involves || []).map((id) => '<span class="detail-link">' + labelFor(id) + '</span>').join(' ');
+    const chain = (scenario.chain || []).map((step, index) =>
+      '<li><div class="detail-chain-step"><span class="detail-chain-index">' + (index + 1) + '</span><div><div class="detail-chain-line"><strong>' + labelFor(step.from) + '</strong> → <strong>' + labelFor(step.to) + '</strong></div>'
+      + (step.effect ? '<div class="detail-note">' + step.effect + '</div>' : '')
+      + '</div></div></li>'
+    ).join('');
+    const impacts = (scenario.user_visible_impact || []).map((item) => '<li>' + item + '</li>').join('');
+    const mitigations = (scenario.mitigations || []).map((item) => '<li>' + item + '</li>').join('');
+    const gaps = (scenario.gaps || []).map((item) => '<li>' + item + '</li>').join('');
+    const signals = (scenario.signals || []).map((item) => '<span class="detail-type-badge">' + item + '</span>').join('');
+    const grounded = (scenario.grounded_in || []).map((item) => '<code style="font-size:.7rem;color:var(--accent);display:block;padding:.1rem 0;">' + item + '</code>').join('');
+
+    let html = '<div class="detail-header">';
+    if (originNodeId) html += '<button class="detail-back-link" data-node="' + originNodeId + '">← Back to component</button>';
+    html += '<div class="detail-name">' + (scenario.name || scenario.id) + '</div>';
+    html += '<div class="detail-type"><span class="detail-type-badge">' + (scenario.scope || 'failure scenario') + '</span></div>';
+    html += '</div>';
+    if (scenario.degraded_mode) html += '<div class="detail-desc">' + scenario.degraded_mode + '</div>';
+    if (startsAt || involves) {
+      html += '<div class="detail-section"><div class="detail-label">Scope</div>';
+      if (startsAt) html += '<div class="detail-subsection"><div class="detail-subtitle">Starts At</div><div class="detail-links">' + startsAt + '</div></div>';
+      if (involves) html += '<div class="detail-subsection"><div class="detail-subtitle">Involves</div><div class="detail-links">' + involves + '</div></div>';
+      html += '</div>';
+    }
+    if (chain) html += '<div class="detail-section"><div class="detail-label">Cascade Chain</div><ol class="detail-list detail-chain-list">' + chain + '</ol></div>';
+    if (signals) html += '<div class="detail-section"><div class="detail-label">Signals</div><div class="detail-links">' + signals + '</div></div>';
+    if (impacts) html += '<div class="detail-section"><div class="detail-label">User / Operator Impact</div><ul class="detail-list">' + impacts + '</ul></div>';
+    if (mitigations) html += '<div class="detail-section"><div class="detail-label">Mitigations</div><ul class="detail-list">' + mitigations + '</ul></div>';
+    if (gaps) html += '<div class="detail-section"><div class="detail-label">Gaps</div><ul class="detail-list">' + gaps + '</ul></div>';
+    if (grounded) html += '<div class="detail-section"><div class="detail-label">Grounded In</div>' + grounded + '</div>';
+
+    panelDetail.innerHTML = html;
+    panelDetail.querySelectorAll('.detail-back-link').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const nodeId = btn.dataset.node;
+        const comp = allCompData[nodeId];
+        if (comp) showNodeDetail(comp, allRefs);
+      });
+    });
     openDrawer('detail');
   }
 
@@ -302,6 +416,7 @@
   async function initGraph(container) {
     const data = JSON.parse(container.dataset.graph);
     const refs = JSON.parse(container.dataset.refs || '{}');
+    const childMap = buildChildMap(data.nodes || []);
 
     const elements = [];
     data.nodes.forEach(n => {
@@ -310,6 +425,7 @@
         data: {
           id: n.id,
           label: n.name,
+          baseLabel: n.name,
           nodeType: n.type,
           childCount: (n.children || []).length,
           parent: n.parent || undefined,
@@ -375,6 +491,10 @@
           'color': graphTheme.parentText,
           'text-margin-y': '-8px',
         }},
+        { selector: 'node.collapsed-parent', style: {
+          'background-opacity': 0.18,
+          'border-width': 2,
+        }},
         { selector: 'edge', style: {
           'width': 1.5, 'line-color': graphTheme.edge,
           'target-arrow-color': graphTheme.edge, 'target-arrow-shape': 'triangle',
@@ -392,6 +512,7 @@
         { selector: 'edge.highlighted', style: { 'width': 2.5, 'line-color': graphTheme.edgeHi, 'target-arrow-color': graphTheme.edgeHi, 'color': graphTheme.edgeText }},
         { selector: 'node.dimmed', style: { 'opacity': 0.25 }},
         { selector: 'edge.dimmed', style: { 'opacity': 0.12 }},
+        { selector: '.hidden-by-collapse', style: { 'display': 'none' }},
         { selector: 'node.hovered', style: { 'border-width': 2.5, 'border-opacity': 1, 'overlay-color': '#818cf8', 'overlay-padding': 10, 'overlay-opacity': 0.15 }},
         { selector: 'edge.hover-connected', style: { 'width': 3, 'line-color': graphTheme.edgeHover, 'target-arrow-color': graphTheme.edgeHover, 'color': graphTheme.edgeText, 'z-index': 10 }},
       ],
@@ -417,6 +538,9 @@
         }).run();
       } catch { cy.layout({ name: 'grid', padding: 30 }).run(); }
     }
+    (savedLayout?.collapsed_nodes || []).forEach((nodeId) => {
+      if (cy.getElementById(nodeId).length) setCollapseState(cy, childMap, nodeId, true);
+    });
     cy.fit(undefined, 30);
 
     cy.on('mouseover', 'node', function(evt) {
@@ -455,6 +579,17 @@
     cy.on('tap', 'node', function(evt) {
       const n = evt.target;
       const d = n.data();
+      if (Number(d.childCount || 0) > 0) {
+        const shouldCollapse = !n.hasClass('collapsed-parent');
+        setCollapseState(cy, childMap, d.id, shouldCollapse);
+        cy.nodes().removeClass('selected');
+        cy.edges().removeClass('highlighted');
+        scheduleGraphLayoutSave(graphId, {
+          positions: captureGraphPositions(cy),
+          collapsed_nodes: collectCollapsedNodeIds(cy),
+        });
+        return;
+      }
       cy.nodes().removeClass('selected');
       cy.edges().removeClass('highlighted');
       n.addClass('selected');
@@ -471,7 +606,10 @@
     });
 
     cy.on('dragfree', 'node', function() {
-      scheduleGraphLayoutSave(graphId, { positions: captureGraphPositions(cy) });
+      scheduleGraphLayoutSave(graphId, {
+        positions: captureGraphPositions(cy),
+        collapsed_nodes: collectCollapsedNodeIds(cy),
+      });
     });
 
     container._cy = cy;

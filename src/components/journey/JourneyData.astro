@@ -17,6 +17,12 @@ function uniqueStrings(values: any[]) {
 const failureScenarioById = Object.fromEntries(
   (atlas.failure_scenarios || []).filter((item: any) => item?.id).map((item: any) => [item.id, item]),
 );
+const labelsById = Object.fromEntries([
+  ...(atlas.components || []).filter((item: any) => item?.id).map((item: any) => [item.id, item.name || item.id]),
+  ...(atlas.external_dependencies || []).filter((item: any) => item?.id).map((item: any) => [item.id, item.name || item.id]),
+  ...(atlas.flows || []).filter((item: any) => item?.id).map((item: any) => [item.id, item.name || item.id]),
+  ...(atlas.state || []).filter((item: any) => item?.id).map((item: any) => [item.id, item.name || item.id]),
+]);
 const failureScenariosByTarget = (atlas.failure_scenarios || []).reduce((acc: Record<string, any[]>, item: any) => {
   const targets = uniqueStrings([...(item?.starts_at || []), ...(item?.involves || [])]);
   for (const target of targets) {
@@ -73,4 +79,5 @@ const gapsByTarget = (atlas.gaps || []).reduce((acc: Record<string, any[]>, item
   failureScenariosByTarget,
   monitoringByTarget,
   gapsByTarget,
+  labelsById,
 })} />
