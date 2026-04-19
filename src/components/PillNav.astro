@@ -99,23 +99,32 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     gap: 2px;
     min-width: 0;
   }
+  .pill-page-row {
+    justify-content: center;
+    padding: 0 .15rem .15rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
   .pill-section-row {
     overflow-x: auto;
     scrollbar-width: none;
+    padding-top: .05rem;
   }
   .pill-section-row::-webkit-scrollbar { display: none; }
   .pill-page-group {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: .15rem;
     flex-shrink: 0;
+  }
+  .pill-page-group::before {
+    content: '';
   }
   .pill-page-link {
     display: inline-flex;
     align-items: center;
-    padding: .3rem .65rem;
-    border-radius: 99px;
-    font-size: .65rem;
+    padding: .1rem .35rem;
+    border-radius: 6px;
+    font-size: .6rem;
     font-weight: 600;
     color: var(--text-3);
     background: transparent;
@@ -123,14 +132,18 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     text-decoration: none;
     transition: all .18s ease;
   }
+  .pill-page-link + .pill-page-link::before {
+    content: '/';
+    margin-right: .3rem;
+    color: var(--text-4);
+  }
   .pill-page-link:hover {
     color: var(--text-2);
-    background: rgba(39,39,42,0.6);
+    background: transparent;
   }
   .pill-page-link-active {
     color: var(--accent);
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
+    background: transparent;
     font-weight: 600;
   }
   .pill {
@@ -162,16 +175,21 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     color: #71717a;
   }
   [data-theme='light'] .pill-page-link {
-    color: #52525b;
+    color: #71717a;
+  }
+  [data-theme='light'] .pill-page-link + .pill-page-link::before {
+    color: #a1a1aa;
   }
   [data-theme='light'] .pill-page-link:hover {
-    color: #18181b;
-    background: rgba(24,24,27,.05);
+    color: #27272a;
+    background: transparent;
   }
   [data-theme='light'] .pill-page-link-active {
     color: #3730a3;
-    background: rgba(79,70,229,.08);
-    border-color: rgba(79,70,229,.18);
+    background: transparent;
+  }
+  [data-theme='light'] .pill-page-row {
+    border-bottom-color: rgba(24,24,27,0.08);
   }
   [data-theme='light'] .pill:hover {
     color: #18181b;
