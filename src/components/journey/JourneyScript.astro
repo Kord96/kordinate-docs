@@ -244,6 +244,68 @@
     openDrawer('detail');
   }
 
+  function showFlowDetail(flowSupport) {
+    if (!flowSupport) return;
+    const steps = Array.isArray(flowSupport.steps) ? flowSupport.steps : [];
+    let html = '<div class="detail-header">';
+    html += '<div class="detail-name">' + escapeHtml(flowSupport.title || 'Flow') + '</div>';
+    html += '<div class="detail-type"><span class="detail-type-badge">flow</span>';
+    if (flowSupport.storyTitle) html += '<span>' + escapeHtml(flowSupport.storyTitle) + '</span>';
+    html += '</div></div>';
+    if (flowSupport.summary) html += '<div class="detail-desc">' + renderInlineMarkup(flowSupport.summary) + '</div>';
+    if (flowSupport.trigger || flowSupport.outcome || flowSupport.severity) {
+      html += '<div class="detail-section"><div class="detail-label">Flow Framing</div>';
+      if (flowSupport.trigger) html += '<div class="detail-subsection"><div class="detail-subtitle">Trigger</div><div class="detail-prose">' + escapeHtml(flowSupport.trigger) + '</div></div>';
+      if (flowSupport.outcome) html += '<div class="detail-subsection"><div class="detail-subtitle">Outcome</div><div class="detail-prose">' + escapeHtml(flowSupport.outcome) + '</div></div>';
+      if (flowSupport.severity) html += '<div class="detail-subsection"><div class="detail-subtitle">Severity</div><div class="detail-links"><span class="detail-type-badge">' + escapeHtml(flowSupport.severity) + '</span></div></div>';
+      html += '</div>';
+    }
+    if (steps.length) {
+      html += '<div class="detail-section"><div class="detail-label">Stages</div><ol class="detail-list detail-list-compact">';
+      html += steps.map((step) => {
+        const fromName = labelFor(step.node || step.component || '');
+        const toName = step.to ? labelFor(step.to) : '';
+        const action = step.action || step.effect || '';
+        const effect = step.effect && step.effect !== step.action ? step.effect : '';
+        const meta = [
+          step.actor ? `actor:${step.actor}` : '',
+          step.technology || '',
+          step.data || '',
+          step.transform || '',
+          step.condition || '',
+          step.gate || '',
+          step.topic || '',
+          step.delivery || '',
+          step.from_state || '',
+          step.to_state || '',
+          step.resource || '',
+          step.operation || '',
+        ].filter(Boolean);
+        return '<li>'
+          + '<div class="detail-prose"><strong>' + escapeHtml(fromName) + '</strong>'
+          + (action ? ' — ' + escapeHtml(action) : '')
+          + (toName ? ' → <strong>' + escapeHtml(toName) + '</strong>' : '')
+          + '</div>'
+          + (effect ? '<div class="detail-note">' + escapeHtml(effect) + '</div>' : '')
+          + (meta.length ? '<div class="detail-inline-meta">' + meta.map((item) => '<span class="detail-inline-chip">' + escapeHtml(item) + '</span>').join('') + '</div>' : '')
+          + '</li>';
+      }).join('');
+      html += '</ol></div>';
+    }
+    if ((flowSupport.detection || []).length) {
+      html += '<div class="detail-section"><div class="detail-label">Detection</div><ul class="detail-list">';
+      html += flowSupport.detection.map((item) => '<li>' + escapeHtml(item) + '</li>').join('');
+      html += '</ul></div>';
+    }
+    if ((flowSupport.recovery || []).length) {
+      html += '<div class="detail-section"><div class="detail-label">Recovery</div><ul class="detail-list">';
+      html += flowSupport.recovery.map((item) => '<li>' + escapeHtml(item) + '</li>').join('');
+      html += '</ul></div>';
+    }
+    panelDetail.innerHTML = html;
+    openDrawer('detail');
+  }
+
   fab?.addEventListener('click', (event) => {
     event.stopPropagation();
     updateFabMenu();
@@ -263,6 +325,17 @@
       const support = getCurrentStorySupport();
       if (support) {
         showStorySupportDetail(support);
+      }
+      return;
+    }
+    const flowSupportTrigger = target.closest('[data-flow-support-open]');
+    if (flowSupportTrigger) {
+      const flowRoot = flowSupportTrigger.closest('[data-flow-support]');
+      const encoded = flowRoot?.dataset?.flowSupport;
+      if (encoded) {
+        try {
+          showFlowDetail(JSON.parse(decodeURIComponent(encoded)));
+        } catch {}
       }
       return;
     }

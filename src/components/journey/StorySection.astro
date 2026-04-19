@@ -121,10 +121,29 @@ const supportPayload = encodeURIComponent(JSON.stringify({
       const flowOutcome = finalStep ? (finalStep.effect || finalStep.action || '') : '';
       const flowSummaryHtml = fl.summary ? parseSummary(fl.summary) : '';
       const flowTrigger = fl.trigger || '';
+      const flowSupportPayload = encodeURIComponent(JSON.stringify({
+        id: fl.id || `${story.id}-flow-${fi + 1}`,
+        storyId: story.id,
+        storyTitle: story.title,
+        title: fl.title || `Flow ${fi + 1}`,
+        summary: fl.summary || '',
+        trigger: flowTrigger,
+        outcome: flowOutcome,
+        severity: fl.severity || '',
+        detection: fl.detection || [],
+        recovery: fl.recovery || [],
+        steps,
+      }));
       return (
-        <div class="flow">
+        <div class="flow" data-flow-support={flowSupportPayload}>
           <div class="story-block-label">{fi === 0 && (inferredPrimaryMode === 'flow' || inferredPrimaryMode === 'failure' || inferredPrimaryMode === 'state') ? (primaryModeLabels[inferredPrimaryMode] || 'Primary Flow') : 'Supporting Flow'}</div>
-          {fl.title && <div class="flow-head">{fl.title}</div>}
+          {fl.title && (
+            <div class="flow-head">
+              <button class="flow-head-button" type="button" data-flow-support-open>
+                {fl.title}
+              </button>
+            </div>
+          )}
           <div class="flow-frame">
             {flowSummaryHtml && (
               <div class="flow-frame-card flow-frame-card-primary">
@@ -155,35 +174,29 @@ const supportPayload = encodeURIComponent(JSON.stringify({
                 </div>
                 <div class="flow-step-body">
                   <div class="flow-route">
-                    <span class="flow-endpoint flow-endpoint-source">
-                      <span class="flow-endpoint-label">From</span>
-                      <span class="flow-endpoint-name">{compMap[step.node]?.name || step.node}</span>
+                    <span class="flow-segment flow-segment-source">
+                      <span class="flow-segment-label">From</span>
+                      <span class="flow-segment-name">{compMap[step.node]?.name || step.node}</span>
                     </span>
                     {step.action && (
-                      <span class="flow-transition">
-                        <span class="flow-transition-label">Action</span>
-                        <span class="flow-transition-name">{step.action}</span>
+                      <span class="flow-separator" aria-hidden="true">—</span>
+                      <span class="flow-segment flow-segment-action">
+                        <span class="flow-segment-label">Action</span>
+                        <span class="flow-segment-name">{step.action}</span>
                       </span>
                     )}
                     {step.to && (
                       <>
                         <span class="flow-arrow" aria-hidden="true">→</span>
-                        <span class={`flow-endpoint flow-endpoint-target ${step.to !== step.node ? 'flow-endpoint-target-crossing' : ''}`}>
-                          <span class="flow-endpoint-label">To</span>
-                          <span class="flow-endpoint-name">{compMap[step.to]?.name || step.to}</span>
+                        <span class={`flow-segment flow-segment-target ${step.to !== step.node ? 'flow-segment-target-crossing' : ''}`}>
+                          <span class="flow-segment-label">To</span>
+                          <span class="flow-segment-name">{compMap[step.to]?.name || step.to}</span>
                         </span>
                       </>
                     )}
                   </div>
                   {!step.action && <div class="flow-action">{step.effect}</div>}
                   {step.effect && step.effect !== step.action && <div class="flow-effect">{step.effect}</div>}
-                  {(step.technology || step.data || step.transform) && (
-                    <div class="flow-step-meta">
-                      {step.technology && <span class="flow-step-chip">{step.technology}</span>}
-                      {step.data && <span class="flow-step-chip">{step.data}</span>}
-                      {step.transform && <span class="flow-step-chip">{step.transform}</span>}
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
