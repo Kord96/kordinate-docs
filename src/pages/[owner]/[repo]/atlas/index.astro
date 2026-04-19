@@ -84,16 +84,16 @@ function severity(s: string) {
   </div>
 
   <PillNav sections={[
-    { id: 'sec-atlas-overview', label: 'Stack' },
-    { id: 'sec-context', label: 'Context' },
+    { id: 'sec-atlas-overview', label: 'Atlas Overview' },
+    { id: 'sec-context', label: 'Domain & Interfaces' },
     { id: 'components-section', label: 'Components' },
     { id: 'sec-flows', label: 'Flows' },
-    { id: 'sec-state', label: 'State' },
-    { id: 'sec-external', label: 'External' },
-    ...(failureScenarios.length > 0 ? [{ id: 'sec-failures', label: 'Failures' }] : []),
+    { id: 'sec-state', label: 'State & Storage' },
+    { id: 'sec-external', label: 'External Dependencies' },
+    ...(failureScenarios.length > 0 ? [{ id: 'sec-failures', label: 'Failure Scenarios' }] : []),
     ...(monitoring.length > 0 ? [{ id: 'sec-monitoring', label: 'Monitoring' }] : []),
     ...(gaps.length > 0 ? [{ id: 'sec-gaps', label: 'Gaps' }] : []),
     { id: 'sec-patterns', label: 'Concepts' },
-    { id: 'sec-tensions', label: 'Tensions' },
+    { id: 'sec-tensions', label: 'Architecture Tensions' },
   ]} />
 </Base>

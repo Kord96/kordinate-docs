@@ -61,26 +61,30 @@ const { sections } = Astro.props;
     transform: translateX(-50%);
     z-index: 200;
     display: flex;
+    align-items: center;
     gap: 2px;
     background: rgba(9,9,11,0.92);
     backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-hover);
     border-radius: 99px;
     padding: 3px;
     max-width: 90vw;
     overflow-x: auto;
     scrollbar-width: none;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.28);
   }
   .pill-nav::-webkit-scrollbar { display: none; }
   .pill {
     padding: .3rem .6rem;
     border-radius: 99px;
     font-size: .65rem;
+    font-weight: 500;
     color: var(--text-4);
     text-decoration: none;
     transition: all .2s;
     white-space: nowrap;
     cursor: pointer;
+    line-height: 1;
   }
   .pill:hover {
     color: var(--text-2);
@@ -88,6 +92,22 @@ const { sections } = Astro.props;
   }
   .pill-active {
     color: var(--text);
-    background: var(--border);
+    background: var(--border-hover);
+  }
+  [data-theme='light'] .pill-nav {
+    background: rgba(255,255,255,0.96);
+    border-color: #cbd5e1;
+    box-shadow: 0 8px 28px rgba(24,24,27,0.08);
+  }
+  [data-theme='light'] .pill {
+    color: #71717a;
+  }
+  [data-theme='light'] .pill:hover {
+    color: #18181b;
+    background: rgba(24,24,27,0.05);
+  }
+  [data-theme='light'] .pill-active {
+    color: #18181b;
+    background: #e4e4e7;
   }
 </style>
