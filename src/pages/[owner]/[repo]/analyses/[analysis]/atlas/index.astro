@@ -3,19 +3,12 @@ import Base from '../../../../../../layouts/Base.astro';
 import Header from '../../../../../../components/Header.astro';
 import PillNav from '../../../../../../components/PillNav.astro';
 import AtlasStyles from '../../../../../../components/atlas/AtlasStyles.astro';
+import AtlasSubnav from '../../../../../../components/atlas/AtlasSubnav.astro';
 import MetadataSection from '../../../../../../components/atlas/MetadataSection.astro';
-import ContextSection from '../../../../../../components/atlas/ContextSection.astro';
 import ArchGraphSection from '../../../../../../components/atlas/ArchGraphSection.astro';
-import ComponentsSection from '../../../../../../components/atlas/ComponentsSection.astro';
-import FlowsSection from '../../../../../../components/atlas/FlowsSection.astro';
-import StateSection from '../../../../../../components/atlas/StateSection.astro';
-import ExternalDepsSection from '../../../../../../components/atlas/ExternalDepsSection.astro';
-import FailuresSection from '../../../../../../components/atlas/FailuresSection.astro';
-import MonitoringSection from '../../../../../../components/atlas/MonitoringSection.astro';
-import GapsSection from '../../../../../../components/atlas/GapsSection.astro';
 import PatternsSection from '../../../../../../components/atlas/PatternsSection.astro';
 import TensionsSection from '../../../../../../components/atlas/TensionsSection.astro';
-import { displayProjectTitle, getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex, projectAnalysesRoutePath, projectAnalysisAtlasRoutePath, projectAnalysisRoutePath, projectApiPath, slugFromRouteParts } from '../../../../../../lib/docs-data';
+import { displayProjectTitle, getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex, projectAnalysesRoutePath, projectAnalysisAtlasRoutePath, projectAnalysisAtlasSubpageRoutePath, projectAnalysisRoutePath, projectApiPath, slugFromRouteParts } from '../../../../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
@@ -39,11 +32,22 @@ const extDeps = atlas.external_dependencies || [];
 const failureScenarios = atlas.failure_scenarios || [];
 const monitoring = atlas.monitoring || [];
 const gaps = atlas.gaps || [];
-const dm = atlas.domain_model || {};
-const actors = atlas.actors || [];
-const events = atlas.events || [];
 const concepts = atlas.concepts || {};
 const tensions = atlas.tensions || [];
+
+const atlasViewLinks = [
+  { label: 'Overview', href: projectAnalysisAtlasRoutePath(project, analysis), active: true },
+  { label: 'Architecture', href: projectAnalysisAtlasSubpageRoutePath(project, analysis, 'architecture') },
+  { label: 'Runtime', href: projectAnalysisAtlasSubpageRoutePath(project, analysis, 'runtime') },
+  { label: 'Health', href: projectAnalysisAtlasSubpageRoutePath(project, analysis, 'health') },
+];
+
+const atlasSections = [
+  { id: 'sec-atlas-overview', label: 'Overview' },
+  { id: 'sec-graph', label: 'Map' },
+  { id: 'sec-patterns', label: 'Concepts' },
+  { id: 'sec-tensions', label: 'Trade-offs' },
+];
 
 function severity(s: string) {
   const colors: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#22c55e' };
@@ -58,60 +62,45 @@ function severity(s: string) {
     currentProject={project}
     position="sticky"
     links={[
-      { label: 'Journey', href: projectAnalysisRoutePath(project, analysis) },
+      { label: 'Narrative', href: projectAnalysisRoutePath(project, analysis) },
       { label: 'Atlas', href: projectAnalysisAtlasRoutePath(project, analysis) },
       { label: 'History', href: projectAnalysesRoutePath(project) },
     ]}
     active="atlas"
   />
 
+  <AtlasSubnav links={atlasViewLinks} />
+
   <div class="container">
-    <div class="section" id="sec-overview">
+    <div class="section">
       <h1 class="section-title">{displayProjectTitle(project, atlas.project)}</h1>
       <p class="section-sub">{atlas.purpose}</p>
-      {dm.primary && (
-        <div>
-          <div class="dm-badge">◆ {dm.primary}</div>
-          {dm.description && <p style="font-size: .82rem; color: var(--text-2); margin-bottom: .5rem;">{dm.description}</p>}
-          {dm.entities && (
-            <div class="dm-entities">
-              {dm.entities.map((e: string) => <span class="dm-entity">{e}</span>)}
-            </div>
-          )}
-        </div>
-      )}
+      <div class="group-kicker">Snapshot · {analysisId}</div>
     </div>
-
-    <MetadataSection metadata={metadata} components={components} flows={flows} state={stateEntries} extDeps={extDeps} />
-    <ContextSection domainModel={dm} actors={actors} events={events} components={components} />
-    <div class="section" id="components-section">
-      <h2 class="section-title">Components</h2>
-      <p class="section-sub">{components.length} components arranged by top-level architecture slice, with a dependency view to show runtime relationships.</p>
-      <ArchGraphSection components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} embedded={true} projectApiPath={projectApiPath(project)} />
-      <ComponentsSection components={components} embedded={true} />
-    </div>
-    <FlowsSection flows={flows} components={components} />
-    <StateSection stateEntries={stateEntries} components={components} />
-    <ExternalDepsSection extDeps={extDeps} severity={severity} components={components} />
-    {failureScenarios.length > 0 && <FailuresSection failures={failureScenarios} severity={severity} components={components} flows={flows} stateEntries={stateEntries} extDeps={extDeps} />}
-    {monitoring.length > 0 && <MonitoringSection monitoring={monitoring} components={components} flows={flows} extDeps={extDeps} failures={failureScenarios} />}
-    {gaps.length > 0 && <GapsSection gaps={gaps} components={components} flows={flows} extDeps={extDeps} failures={failureScenarios} />}
+    <MetadataSection
+      metadata={metadata}
+      components={components}
+      flows={flows}
+      state={stateEntries}
+      extDeps={extDeps}
+      failures={failureScenarios}
+      monitoring={monitoring}
+      gaps={gaps}
+      concepts={concepts}
+      tensions={tensions}
+    />
+    <ArchGraphSection components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} projectApiPath={projectApiPath(project)} />
     <PatternsSection concepts={concepts} debt={{}} severity={severity} components={components} flows={flows} />
     <TensionsSection tensions={tensions} components={components} />
   </div>
 
-  <PillNav sections={[
-    { id: 'sec-overview', label: 'Overview' },
-    { id: 'sec-atlas-overview', label: 'Stack' },
-    { id: 'sec-context', label: 'Context' },
-    { id: 'components-section', label: 'Components' },
-    { id: 'sec-flows', label: 'Flows' },
-    { id: 'sec-state', label: 'State' },
-    { id: 'sec-external', label: 'External' },
-    ...(failureScenarios.length > 0 ? [{ id: 'sec-failures', label: 'Failures' }] : []),
-    ...(monitoring.length > 0 ? [{ id: 'sec-monitoring', label: 'Monitoring' }] : []),
-    ...(gaps.length > 0 ? [{ id: 'sec-gaps', label: 'Gaps' }] : []),
-    { id: 'sec-patterns', label: 'Concepts' },
-    { id: 'sec-tensions', label: 'Tensions' },
-  ]} />
+  <PillNav
+    sections={atlasSections}
+    pageLinks={[
+      { label: 'Narrative', href: projectAnalysisRoutePath(project, analysis) },
+      { label: 'Atlas', href: projectAnalysisAtlasRoutePath(project, analysis) },
+      { label: 'History', href: projectAnalysesRoutePath(project) },
+    ]}
+    activePage="atlas"
+  />
 </Base>

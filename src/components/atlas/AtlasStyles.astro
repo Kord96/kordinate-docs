@@ -6,6 +6,34 @@
 
 <style is:global>
   .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .atlas-subnav {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem 0;
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+  .atlas-subnav-link {
+    text-decoration: none;
+    font-size: .74rem;
+    font-weight: 700;
+    color: var(--text-3);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 999px;
+    padding: .42rem .7rem;
+    transition: all .18s ease;
+  }
+  .atlas-subnav-link:hover {
+    color: var(--text);
+    border-color: var(--border-hover);
+  }
+  .atlas-subnav-link-active {
+    color: var(--accent);
+    background: var(--accent-dim);
+    border-color: var(--accent-border);
+  }
 
   .section { margin-bottom: 3rem; position: relative; }
   .section-title { font-size: 1.2rem; font-weight: 700; margin-bottom: .25rem; letter-spacing: -.02em; }
@@ -295,6 +323,7 @@
   .card-highlight { border-color: var(--accent) !important; box-shadow: 0 0 0 2px var(--accent-dim); transition: border-color .3s, box-shadow .3s; }
 
   @media (max-width: 720px) {
+    .atlas-subnav { padding-top: .85rem; }
     .flow-header, .group-name-row { flex-direction: column; align-items: flex-start; }
     .detail-grid { grid-template-columns: 1fr; }
   }
@@ -331,6 +360,20 @@
   [data-theme='light'] .graph-counter,
   [data-theme='light'] .atlas-index-item {
     color: #3f3f46;
+  }
+  [data-theme='light'] .atlas-subnav-link {
+    background: rgba(255,255,255,0.92);
+    border-color: #d4d4d8;
+    color: #52525b;
+  }
+  [data-theme='light'] .atlas-subnav-link:hover {
+    color: #18181b;
+    border-color: #a1a1aa;
+  }
+  [data-theme='light'] .atlas-subnav-link-active {
+    color: #3730a3;
+    background: rgba(79,70,229,0.08);
+    border-color: rgba(79,70,229,0.18);
   }
   [data-theme='light'] .atlas-focus-btn {
     background: rgba(255,255,255,0.92);

@@ -1,6 +1,6 @@
 ---
 /**
- * Landing section — hero with project name, purpose, journey buttons, stats.
+ * Landing section — hero with project name, purpose, and stats.
  */
 interface Props {
   project: string;
@@ -26,13 +26,7 @@ const landingTitle = owner && repo ? repo : project;
         ◆ {dm.primary} · {dm.entities?.length || 0} entities · {dm.relationships?.length || 0} relationships
       </div>
     )}
-    <div class="landing-journeys">
-      {journeys.map((j: any) => (
-        <a class={`landing-journey-btn ${j.id === defaultJourney.id ? 'primary' : ''}`} href="#chapter0" data-journey={j.id}>
-          {j.title}
-        </a>
-      ))}
-    </div>
+    <a class="landing-cta" href="#chapter0">Open narrative overview →</a>
     <div class="landing-stats">
       <span>{Astro.props.componentCount || '?'} components</span>
       <span>{Astro.props.flowCount || '?'} flows</span>

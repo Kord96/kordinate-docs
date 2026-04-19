@@ -43,6 +43,10 @@ export function projectAtlasRoutePath(project: string) {
   return `${projectRoutePath(project)}atlas/`;
 }
 
+export function projectAtlasSubpageRoutePath(project: string, subpage: string) {
+  return `${projectAtlasRoutePath(project)}${subpage}/`;
+}
+
 export function projectAnalysesRoutePath(project: string) {
   return `${projectRoutePath(project)}analyses/`;
 }
@@ -53,6 +57,10 @@ export function projectAnalysisRoutePath(project: string, analysisId: string) {
 
 export function projectAnalysisAtlasRoutePath(project: string, analysisId: string) {
   return `${projectAnalysisRoutePath(project, analysisId)}atlas/`;
+}
+
+export function projectAnalysisAtlasSubpageRoutePath(project: string, analysisId: string, subpage: string) {
+  return `${projectAnalysisAtlasRoutePath(project, analysisId)}${subpage}/`;
 }
 
 export function displayProjectTitle(project: string, title?: string | null) {

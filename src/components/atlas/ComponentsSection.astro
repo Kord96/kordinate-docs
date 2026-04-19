@@ -1,6 +1,6 @@
 ---
-interface Props { components: any[]; embedded?: boolean; }
-const { components, embedded = false } = Astro.props;
+interface Props { components: any[]; embedded?: boolean; title?: string; subtitle?: string; }
+const { components, embedded = false, title = 'Components', subtitle = `${components.length} components arranged by top-level architecture slice` } = Astro.props;
 
 const roots = components.filter((component: any) => !component.parent);
 const childrenByParent = new Map<string, any[]>();
@@ -29,8 +29,8 @@ function list(values: any): string[] {
 <div class={embedded ? '' : 'section'} id={embedded ? undefined : 'components-section'}>
   {!embedded && (
     <>
-      <h2 class="section-title">Components</h2>
-      <p class="section-sub">{components.length} components arranged by top-level architecture slice</p>
+      <h2 class="section-title">{title}</h2>
+      <p class="section-sub">{subtitle}</p>
     </>
   )}
 

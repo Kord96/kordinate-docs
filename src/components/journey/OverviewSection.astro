@@ -55,13 +55,27 @@ const overviewEdges = Array.from(
         })),
         edges: overviewEdges
       })} data-refs={JSON.stringify(storyByNode)}></div>
-      <div class="struct-hint">click a node to explore</div>
     </div>
 
     <div class="ch0-text" id="ch0-overview">
+      {journeys.length > 1 && (
+        <div class="ch0-narratives">
+          <div class="story-block-label">Narratives</div>
+          <div class="ch0-narrative-picks">
+            {journeys.map((j: any) => (
+              <button
+                type="button"
+                class={`ch0-narrative-btn ${j.id === defaultJourney.id ? 'ch0-narrative-btn-active' : ''}`}
+                data-journey-select={j.id}
+              >
+                {j.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {journeys.map((j: any) => (
         <div class={`ch0-journey-overview ${j.id === defaultJourney.id ? '' : 'hidden'}`} data-journey-overview={j.id}>
-          <div class="ch0-journey-title">{j.title}</div>
           {j.overview && j.overview.split(/\.\s+/).filter(Boolean).map((sentence: string, i: number) => (
             <div class="ch0-point">
               <span class="ch0-dot">{i + 1}</span>

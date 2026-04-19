@@ -1,6 +1,6 @@
 ---
 /**
- * Bottom pill nav — journey selector dropdown + story dot pills.
+ * Bottom pill nav — page switcher + overview/story pills.
  */
 interface Props {
   journeys: any[];
@@ -14,12 +14,6 @@ const { defaultJourney, stories, pageLinks = [], activePage = '' } = Astro.props
 const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === activePage) || pageLinks[0] || null;
 ---
 
-<div class="jn-picker" id="jn-picker">
-  {Astro.props.journeys?.map((j: any) => {
-    const label = j.title?.includes(':') ? j.title.split(':')[0].trim() : j.title;
-    return <div class={`jn-pick ${j.id === defaultJourney.id ? 'jn-pick-active' : ''}`} data-journey={j.id}>{label}</div>;
-  })}
-</div>
 <nav class="journey-nav" id="journey-nav" data-default-journey={defaultJourney.id}>
   {activePageLink && (
     <div class="jn-page-menu">
@@ -41,6 +35,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     </div>
   )}
   <span id="jb-dots">
+    <a class="jb-dot jb-dot-active" data-index="0" title="Overview">Overview</a>
     {stories.map((s: any, i: number) => {
       const label = s.title?.includes(':') ? s.title.split(':')[0].trim() : (s.title || `Story ${i+1}`);
       return (

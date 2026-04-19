@@ -25,7 +25,7 @@ const [atlas, analyses] = await Promise.all([
     currentProject={project}
     position="sticky"
     links={[
-      { label: 'Journey', href: projectRoutePath(project) },
+      { label: 'Narrative', href: projectRoutePath(project) },
       { label: 'Atlas', href: projectAtlasRoutePath(project) },
       { label: 'History', href: projectAnalysesRoutePath(project) },
     ]}
@@ -51,7 +51,7 @@ const [atlas, analyses] = await Promise.all([
             {analysis.status && <span>Status: {analysis.status}</span>}
           </div>
           <div class="analysis-links">
-            <a href={projectAnalysisRoutePath(project, analysis.analysisId)}>Journey Snapshot</a>
+            <a href={projectAnalysisRoutePath(project, analysis.analysisId)}>Narrative Snapshot</a>
             <a href={projectAnalysisAtlasRoutePath(project, analysis.analysisId)}>Atlas Snapshot</a>
           </div>
         </article>

@@ -12,13 +12,10 @@
 <script is:inline>
   const journeyNav = document.getElementById('journey-nav');
   const jbDots = document.getElementById('jb-dots');
-  const jnPicker = document.getElementById('jn-picker');
   const landing = document.getElementById('s0');
   const fabMenu = document.getElementById('fab-menu');
-  const fabJourneyGroup = document.getElementById('fab-journey-group');
-  const fabJourneys = document.getElementById('fab-journeys');
   let cur = 0;
-  let currentJourneyId = journeyNav?.dataset.defaultJourney || jnPicker?.querySelector('.jn-pick-active')?.dataset.journey || 'system-overview';
+  let currentJourneyId = journeyNav?.dataset.defaultJourney || 'system-overview';
 
   function getVisibleSections() {
     return [landing, ...document.querySelectorAll(`.journey-section[data-journey="${currentJourneyId}"]`)];
@@ -31,31 +28,6 @@
     });
   }, { threshold: 0.3 });
   landingObs.observe(landing);
-
-  function toggleJourneyPicker(anchorEl) {
-    if (!jnPicker || !anchorEl) return;
-    const rect = anchorEl.getBoundingClientRect();
-    jnPicker.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
-    jnPicker.style.left = Math.max(16, rect.left - Math.max(0, jnPicker.offsetWidth - rect.width)) + 'px';
-    jnPicker.classList.toggle('open');
-  }
-
-  // Journey picker toggle — position next to the section action buttons
-  document.addEventListener('click', () => jnPicker?.classList.remove('open'));
-  document.querySelectorAll('.journey-switch-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleJourneyPicker(btn);
-    });
-  });
-  jnPicker?.querySelectorAll('.jn-pick').forEach(pick => {
-    pick.addEventListener('click', (e) => {
-      e.stopPropagation();
-      jnPicker.classList.remove('open');
-      switchJourney(pick.dataset.journey);
-      jnPicker.querySelectorAll('.jn-pick').forEach(p => p.classList.toggle('jn-pick-active', p === pick));
-    });
-  });
 
   // Track current story and update dots
   function rebuildDots() {
@@ -104,7 +76,7 @@
     const secs = getVisibleSections();
     if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); secs[Math.min(cur+1, secs.length-1)]?.scrollIntoView({ behavior: 'smooth' }); }
     if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); secs[Math.max(cur-1, 0)]?.scrollIntoView({ behavior: 'smooth' }); }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); updateFabMenu(); fabMenu?.classList.toggle('open'); }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); fabMenu?.classList.toggle('open'); }
     if (e.key === 'Escape' && drawer.classList.contains('open')) { closeDrawer(); }
   });
 
@@ -175,34 +147,6 @@
 
   function closeFabMenu() {
     fabMenu?.classList.remove('open');
-  }
-
-  function updateFabMenu() {
-    if (!fabMenu) return;
-    const picks = Array.from(jnPicker?.querySelectorAll('.jn-pick') || []);
-    const hasJourneys = picks.length > 1;
-    if (fabJourneyGroup && fabJourneys) {
-      fabJourneyGroup.toggleAttribute('hidden', !hasJourneys);
-      fabJourneys.innerHTML = '';
-      if (hasJourneys) {
-        picks.forEach((pick) => {
-          const option = document.createElement('button');
-          option.type = 'button';
-          option.className = 'fab-journey-option' + (pick.classList.contains('jn-pick-active') ? ' fab-journey-option-active' : '');
-          option.dataset.journey = pick.dataset.journey || '';
-          option.textContent = pick.textContent?.trim() || (pick.dataset.journey || '');
-          option.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const jid = option.dataset.journey;
-            if (!jid) return;
-            switchJourney(jid);
-            jnPicker?.querySelectorAll('.jn-pick').forEach((p) => p.classList.toggle('jn-pick-active', p.dataset.journey === jid));
-            closeFabMenu();
-          });
-          fabJourneys.appendChild(option);
-        });
-      }
-    }
   }
 
   function showStorySupportDetail(support) {
@@ -372,7 +316,6 @@
 
   fab?.addEventListener('click', (event) => {
     event.stopPropagation();
-    updateFabMenu();
     fabMenu?.classList.toggle('open');
   });
   drawerClose?.addEventListener('click', closeDrawer);
@@ -783,16 +726,16 @@
       tooltipTitle: '#4338ca',
       tooltipMeta: '#3f3f46',
     } : {
-      edge: 'rgba(255,255,255,0.15)',
-      edgeText: 'rgba(255,255,255,0.5)',
+      edge: 'rgba(255,255,255,0.22)',
+      edgeText: 'rgba(255,255,255,0.58)',
       edgeTextBg: '#1c1c22',
-      edgeHi: 'rgba(129,140,248,0.6)',
-      edgeHover: 'rgba(129,140,248,0.7)',
-      parentBg: '#232336',
-      parentBorder: 'rgba(196,181,253,0.55)',
+      edgeHi: 'rgba(129,140,248,0.68)',
+      edgeHover: 'rgba(129,140,248,0.78)',
+      parentBg: '#282842',
+      parentBorder: 'rgba(196,181,253,0.68)',
       parentText: '#ddd6fe',
       tooltipTitle: '#c4b5fd',
-      tooltipMeta: '#a1a1aa',
+      tooltipMeta: '#d4d4d8',
     };
     const cy = cytoscape({
       container: container,
@@ -1176,6 +1119,9 @@
     document.querySelectorAll('[data-journey-overview]').forEach(o => {
       o.classList.toggle('hidden', o.dataset.journeyOverview !== currentJourneyId);
     });
+    document.querySelectorAll('[data-journey-select]').forEach((button) => {
+      button.classList.toggle('ch0-narrative-btn-active', button.dataset.journeySelect === currentJourneyId);
+    });
 
     const overviewGraph = document.getElementById('atlas-overview');
     if (overviewGraph && overviewGraph._cy) {
@@ -1202,15 +1148,11 @@
     const startBtn = document.getElementById('start-btn');
     if (startBtn) startBtn.href = '#' + currentJourneyId + '-s1';
 
-    const activeJourneyLabel = jnPicker?.querySelector('.jn-pick-active')?.textContent?.trim();
-    document.querySelectorAll('.journey-switch-btn').forEach((btn) => {
-      const activePick = jnPicker?.querySelector(`.jn-pick[data-journey="${currentJourneyId}"]`);
-      btn.textContent = activePick?.textContent?.trim() || activeJourneyLabel || btn.textContent || '';
-    });
     document.querySelectorAll('.landing-journey-btn').forEach((btn) => {
       btn.classList.toggle('primary', btn.dataset.journey === currentJourneyId);
     });
 
+    currentObs?.disconnect?.();
     currentObs = setupObserver();
     document.getElementById('chapter0')?.scrollIntoView({ behavior: 'smooth' });
 
@@ -1227,6 +1169,14 @@
         switchJourney(jid);
         document.getElementById('chapter0')?.scrollIntoView({ behavior: 'smooth' });
       }
+    });
+  });
+  document.querySelectorAll('[data-journey-select]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const jid = btn.dataset.journeySelect;
+      if (!jid || jid === currentJourneyId) return;
+      e.preventDefault();
+      switchJourney(jid);
     });
   });
 

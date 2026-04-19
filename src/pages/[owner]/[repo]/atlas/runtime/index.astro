@@ -1,0 +1,61 @@
+---
+import Base from '../../../../../layouts/Base.astro';
+import Header from '../../../../../components/Header.astro';
+import PillNav from '../../../../../components/PillNav.astro';
+import AtlasStyles from '../../../../../components/atlas/AtlasStyles.astro';
+import AtlasSubnav from '../../../../../components/atlas/AtlasSubnav.astro';
+import FlowsSection from '../../../../../components/atlas/FlowsSection.astro';
+import { displayProjectTitle, getProjectAtlas, getProjectIndex, projectAnalysesRoutePath, projectAtlasRoutePath, projectAtlasSubpageRoutePath, projectRoutePath, slugFromRouteParts } from '../../../../../lib/docs-data';
+
+export async function getStaticPaths() {
+  const projects = await getProjectIndex();
+  return projects.map(({ slug }) => {
+    const [owner, repo] = slug.split('--');
+    return { params: { owner, repo } };
+  });
+}
+
+const { owner, repo } = Astro.params;
+const project = slugFromRouteParts(owner, repo);
+const atlas = await getProjectAtlas(project);
+const components = atlas.components || [];
+const flows = atlas.flows || [];
+
+const atlasViewLinks = [
+  { label: 'Overview', href: projectAtlasRoutePath(project) },
+  { label: 'Architecture', href: projectAtlasSubpageRoutePath(project, 'architecture') },
+  { label: 'Runtime', href: projectAtlasSubpageRoutePath(project, 'runtime'), active: true },
+  { label: 'Health', href: projectAtlasSubpageRoutePath(project, 'health') },
+];
+---
+
+<Base title={`${displayProjectTitle(project, atlas.project)} — Atlas Runtime`}>
+  <AtlasStyles />
+  <Header
+    project={project}
+    currentProject={project}
+    position="sticky"
+    links={[
+      {label: "Narrative", href: projectRoutePath(project)},
+      {label: "Atlas", href: projectAtlasRoutePath(project)},
+      {label: "History", href: projectAnalysesRoutePath(project)},
+    ]}
+    active="atlas"
+  />
+
+  <AtlasSubnav links={atlasViewLinks} />
+
+  <div class="container">
+    <FlowsSection flows={flows} components={components} />
+  </div>
+
+  <PillNav
+    sections={[{ id: 'sec-flows', label: 'Flows' }]}
+    pageLinks={[
+      { label: 'Narrative', href: projectRoutePath(project) },
+      { label: 'Atlas', href: projectAtlasRoutePath(project) },
+      { label: 'History', href: projectAnalysesRoutePath(project) },
+    ]}
+    activePage="atlas"
+  />
+</Base>

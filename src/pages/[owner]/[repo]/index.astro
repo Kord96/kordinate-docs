@@ -25,7 +25,7 @@ const project = slugFromRouteParts(owner, repo);
 const { atlas, storyByNode, journeys, storyMap, symbolIndex } = await getProjectBundle(project);
 const displayProject = displayProjectTitle(project, atlas.project);
 
-const defaultJourney = journeys.find((j: any) => j.id === 'system-overview') || journeys[0] || { id: 'default', title: 'Journey', stories: [] };
+const defaultJourney = journeys.find((j: any) => j.id === 'system-overview') || journeys[0] || { id: 'default', title: 'Narrative', stories: [] };
 
 const journeyData: Record<string, { stories: any[]; bridgeMap: Record<string, any>; total: number }> = {};
 for (const j of journeys) {
@@ -100,11 +100,11 @@ function parseSummary(text: string): string {
     currentProject={project}
     position="sticky"
     links={[
-      {label: "Journey", href: projectRoutePath(project)},
+      {label: "Narrative", href: projectRoutePath(project)},
       {label: "Atlas", href: projectAtlasRoutePath(project)},
       {label: "History", href: projectAnalysesRoutePath(project)},
     ]}
-    active="journey"
+    active="narrative"
   />
 
   <JourneyNav
@@ -112,11 +112,11 @@ function parseSummary(text: string): string {
     defaultJourney={defaultJourney}
     stories={stories}
     pageLinks={[
-      { label: 'Journey', href: projectRoutePath(project) },
+      { label: 'Narrative', href: projectRoutePath(project) },
       { label: 'Atlas', href: projectAtlasRoutePath(project) },
       { label: 'History', href: projectAnalysesRoutePath(project) },
     ]}
-    activePage="journey"
+    activePage="narrative"
   />
 
   <LandingSection

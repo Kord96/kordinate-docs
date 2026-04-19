@@ -178,31 +178,31 @@ const supportPayload = encodeURIComponent(JSON.stringify({
                 </div>
                 <div class="flow-step-body">
                   <div class="flow-route">
-                    <span class="flow-segment flow-segment-source">
+                    <div class="flow-segment flow-segment-source">
                       <span class="flow-segment-label">From</span>
                       <button class="flow-segment-name flow-node-link" type="button" data-node={step.node}>
                         {compMap[step.node]?.name || step.node}
                       </button>
-                    </span>
+                    </div>
                     {step.action && (
-                      <span class="flow-segment flow-segment-action">
+                      <div class="flow-segment flow-segment-action">
                         <span class="flow-segment-label">Action</span>
                         <span class="flow-segment-name">{step.action}</span>
-                      </span>
+                      </div>
                     )}
                     {step.to && (
-                      <span class={`flow-segment flow-segment-target ${step.to !== step.node ? 'flow-segment-target-crossing' : ''}`}>
+                      <div class={`flow-segment flow-segment-target ${step.to !== step.node ? 'flow-segment-target-crossing' : ''}`}>
                         <span class="flow-segment-label">To</span>
                         <button class="flow-segment-name flow-node-link" type="button" data-node={step.to}>
                           {compMap[step.to]?.name || step.to}
                         </button>
-                      </span>
+                      </div>
                     )}
                     {step.effect && (
-                      <span class="flow-segment flow-segment-outcome">
+                      <div class="flow-segment flow-segment-outcome">
                         <span class="flow-segment-label">Outcome</span>
                         <span class="flow-segment-name">{step.effect}</span>
-                      </span>
+                      </div>
                     )}
                   </div>
                 </div>
