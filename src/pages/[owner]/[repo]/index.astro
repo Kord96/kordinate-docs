@@ -81,7 +81,7 @@ function parseSummary(text: string): string {
     flowCount={atlas.flows?.length}
   />
 
-  <OverviewSection atlas={atlas} journeys={journeys} defaultJourney={defaultJourney} storyByNode={storyByNode} />
+  <OverviewSection atlas={atlas} journeys={journeys} defaultJourney={defaultJourney} storyByNode={storyByNode} parseSummary={parseSummary} />
 
   {journeys.map((journey: any) => {
     const jd = journeyData[journey.id];

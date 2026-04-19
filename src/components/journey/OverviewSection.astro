@@ -7,9 +7,10 @@ interface Props {
   journeys: any[];
   defaultJourney: any;
   storyByNode: Record<string, string[]>;
+  parseSummary: (text: string) => string;
 }
 
-const { atlas, journeys, defaultJourney, storyByNode } = Astro.props;
+const { atlas, journeys, defaultJourney, storyByNode, parseSummary } = Astro.props;
 ---
 
 <section class="snap" id="chapter0">
@@ -41,7 +42,7 @@ const { atlas, journeys, defaultJourney, storyByNode } = Astro.props;
           {j.overview && j.overview.split(/\.\s+/).filter(Boolean).map((sentence: string, i: number) => (
             <div class="ch0-point">
               <span class="ch0-dot">{i + 1}</span>
-              <span>{sentence.trim()}{sentence.trim().endsWith('.') ? '' : '.'}</span>
+              <span set:html={parseSummary(`${sentence.trim()}${sentence.trim().endsWith('.') ? '' : '.'}`)} />
             </div>
           ))}
         </div>
