@@ -64,6 +64,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
   function closeMenu() {
     menu.classList.remove('open');
     button.setAttribute('aria-expanded', 'false');
+    nav.classList.remove('page-menu-open');
   }
 
   button.addEventListener('click', (event) => {
@@ -75,6 +76,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     }
     menu.classList.add('open');
     button.setAttribute('aria-expanded', 'true');
+    nav.classList.add('page-menu-open');
   });
 
   document.addEventListener('click', (event) => {
