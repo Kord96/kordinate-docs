@@ -115,41 +115,62 @@ const supportPayload = encodeURIComponent(JSON.stringify({
       );
     })}
 
-    {(story.flows || []).map((fl: any, fi: number) => (
-      <div class="flow">
-        <div class="story-block-label">{fi === 0 && (inferredPrimaryMode === 'flow' || inferredPrimaryMode === 'failure' || inferredPrimaryMode === 'state') ? (primaryModeLabels[inferredPrimaryMode] || 'Primary Flow') : 'Supporting Flow'}</div>
-        {fl.title && <div class="flow-head">{fl.title}</div>}
-        {fl.summary && <div class="flow-summary" set:html={parseSummary(fl.summary)} />}
-        {fl.trigger && (
-          <div class="flow-meta">
-            <div class="flow-meta-item">
-              <span class="flow-meta-label">Trigger</span>
-              <span class="flow-meta-value">{fl.trigger}</span>
-            </div>
-            {fl.steps?.length > 0 && (fl.steps[fl.steps.length - 1]?.effect || fl.steps[fl.steps.length - 1]?.action) && (
-              <div class="flow-meta-item">
-                <span class="flow-meta-label">Outcome</span>
-                <span class="flow-meta-value">{fl.steps[fl.steps.length - 1]?.effect || fl.steps[fl.steps.length - 1]?.action}</span>
+    {(story.flows || []).map((fl: any, fi: number) => {
+      const steps = fl.steps || [];
+      const finalStep = steps.length ? steps[steps.length - 1] : null;
+      const flowOutcome = finalStep ? (finalStep.effect || finalStep.action || '') : '';
+      const flowSummaryHtml = fl.summary ? parseSummary(fl.summary) : '';
+      const flowTrigger = fl.trigger || '';
+      return (
+        <div class="flow">
+          <div class="story-block-label">{fi === 0 && (inferredPrimaryMode === 'flow' || inferredPrimaryMode === 'failure' || inferredPrimaryMode === 'state') ? (primaryModeLabels[inferredPrimaryMode] || 'Primary Flow') : 'Supporting Flow'}</div>
+          {fl.title && <div class="flow-head">{fl.title}</div>}
+          <div class="flow-frame">
+            {flowSummaryHtml && (
+              <div class="flow-frame-card flow-frame-card-primary">
+                <div class="flow-meta-label">Why It Matters</div>
+                <div class="flow-frame-text" set:html={flowSummaryHtml} />
+              </div>
+            )}
+            {flowTrigger && (
+              <div class="flow-frame-card">
+                <div class="flow-meta-label">Trigger</div>
+                <div class="flow-frame-text">{flowTrigger}</div>
+              </div>
+            )}
+            {flowOutcome && (
+              <div class="flow-frame-card">
+                <div class="flow-meta-label">Outcome</div>
+                <div class="flow-frame-text">{flowOutcome}</div>
               </div>
             )}
           </div>
-        )}
-        <div class="flow-steps">
-          {(fl.steps || []).map((step: any, si: number) => (
-            <div class="flow-step">
-              <span class="flow-n">{si+1}</span>
-              <div>
-                <div class="flow-route">
-                  <span class="flow-from">{compMap[step.node]?.name || step.node}</span>
-                  {step.to && <span class="flow-arrow"> → {compMap[step.to]?.name || step.to}</span>}
+          <div class="flow-steps-label">Flow Stages</div>
+          <div class="flow-steps">
+            {steps.map((step: any, si: number) => (
+              <div class={`flow-step ${step.to && step.to !== step.node ? 'flow-step-crossing' : ''}`}>
+                <span class="flow-n">{si+1}</span>
+                <div class="flow-step-body">
+                  <div class="flow-route">
+                    <span class="flow-from">{compMap[step.node]?.name || step.node}</span>
+                    {step.to && <span class="flow-arrow"> → {compMap[step.to]?.name || step.to}</span>}
+                  </div>
+                  <div class="flow-action">{step.action || step.effect}</div>
+                  {step.effect && step.effect !== step.action && <div class="flow-effect">{step.effect}</div>}
+                  {(step.technology || step.data || step.transform) && (
+                    <div class="flow-step-meta">
+                      {step.technology && <span class="flow-step-chip">{step.technology}</span>}
+                      {step.data && <span class="flow-step-chip">{step.data}</span>}
+                      {step.transform && <span class="flow-step-chip">{step.transform}</span>}
+                    </div>
+                  )}
                 </div>
-                <div class="flow-action">{step.action || step.effect}</div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-    ))}
+      );
+    })}
 
     <div class="next">
       {index < total - 1

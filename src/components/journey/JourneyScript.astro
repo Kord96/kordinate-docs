@@ -159,6 +159,7 @@
 
   function openDrawer(tab) {
     drawer?.classList.add('open');
+    document.body.classList.add('drawer-open');
     fab?.classList.add('hidden');
     drawerTabs.forEach(t => t.classList.toggle('active', t.dataset.panel === tab));
     panelDetail?.classList.toggle('active', tab === 'detail');
@@ -168,6 +169,7 @@
 
   function closeDrawer() {
     drawer?.classList.remove('open');
+    document.body.classList.remove('drawer-open');
     fab?.classList.remove('hidden');
   }
 

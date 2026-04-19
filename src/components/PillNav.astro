@@ -130,6 +130,11 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     scrollbar-width: none;
     box-shadow: var(--floating-nav-shadow);
   }
+  body.drawer-open .pill-nav {
+    z-index: 100 !important;
+    opacity: .08;
+    pointer-events: none;
+  }
   .pill-nav::-webkit-scrollbar { display: none; }
   .pill-strip {
     display: inline-flex;
