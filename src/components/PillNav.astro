@@ -16,16 +16,21 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
 <nav class="pill-nav" aria-label="Section navigation" id="pill-nav">
   {activePageLink && (
     <div class="pill-page-menu" aria-label="Page navigation">
-      <label class="pill-page-select-wrap">
-        <span class="sr-only">Page</span>
-        <select class="pill-page-select" onchange="window.location.href=this.value">
-          {pageLinks.map((link) => (
-            <option value={link.href} selected={activePage === link.label.toLowerCase()}>
-              {link.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <button class="pill-page-button" type="button" aria-haspopup="true" aria-expanded="false">
+        <span>{activePageLink.label}</span>
+        <span class="pill-page-caret">▾</span>
+      </button>
+      <div class="pill-page-popover" role="menu" hidden>
+        {pageLinks.map((link) => (
+          <a
+            href={link.href}
+            class:list={['pill-page-option', activePage === link.label.toLowerCase() && 'pill-page-option-active']}
+            role="menuitem"
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
     </div>
   )}
   <div class="pill-strip">
@@ -69,6 +74,39 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
+
+  const pageMenu = nav.querySelector('.pill-page-menu');
+  const pageButton = nav.querySelector('.pill-page-button');
+  const pagePopover = nav.querySelector('.pill-page-popover');
+  if (pageMenu && pageButton && pagePopover) {
+    const closePageMenu = () => {
+      pageMenu.classList.remove('open');
+      pageButton.setAttribute('aria-expanded', 'false');
+      pagePopover.hidden = true;
+    };
+
+    pageButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const nextOpen = !pageMenu.classList.contains('open');
+      if (!nextOpen) {
+        closePageMenu();
+        return;
+      }
+      pageMenu.classList.add('open');
+      pageButton.setAttribute('aria-expanded', 'true');
+      pagePopover.hidden = false;
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!(e.target instanceof Element)) return;
+      if (e.target.closest('.pill-page-menu')) return;
+      closePageMenu();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePageMenu();
+    });
+  }
 })();
 </script>
 
@@ -106,35 +144,64 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
   .pill-strip::-webkit-scrollbar { display: none; }
   .pill-page-menu {
     flex-shrink: 0;
+    position: relative;
   }
-  .pill-page-select-wrap {
+  .pill-page-button {
     display: inline-flex;
     align-items: center;
+    gap: .35rem;
     border-radius: 99px;
     background: var(--accent-dim);
     border: 1px solid var(--accent-border);
-    position: relative;
-  }
-  .pill-page-select-wrap::after {
-    content: '▾';
-    position: absolute;
-    right: .55rem;
-    font-size: .5rem;
-    color: currentColor;
-    pointer-events: none;
-  }
-  .pill-page-select {
-    appearance: none;
-    -webkit-appearance: none;
-    border: none;
-    background: transparent;
     color: var(--accent);
+    border-radius: 99px;
+    cursor: pointer;
+    padding: .3rem .7rem;
     font-size: .65rem;
     font-weight: 700;
     line-height: 1;
-    padding: .3rem 1.35rem .3rem .65rem;
-    border-radius: 99px;
-    cursor: pointer;
+    transition: background .18s, border-color .18s, color .18s;
+  }
+  .pill-page-button:hover {
+    background: rgba(129,140,248,0.14);
+  }
+  .pill-page-caret {
+    font-size: .5rem;
+    opacity: .7;
+  }
+  .pill-page-popover {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + .5rem);
+    min-width: 9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: .3rem;
+    border-radius: 14px;
+    background: rgba(9,9,11,0.96);
+    border: 1px solid var(--border-hover);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+    backdrop-filter: blur(16px) saturate(180%);
+  }
+  .pill-page-option {
+    text-decoration: none;
+    color: var(--accent);
+    font-size: .65rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: .55rem .7rem;
+    border-radius: 10px;
+    white-space: nowrap;
+    transition: background .18s, color .18s;
+  }
+  .pill-page-option:hover {
+    background: rgba(129,140,248,0.12);
+    color: var(--text);
+  }
+  .pill-page-option-active {
+    background: rgba(129,140,248,0.14);
+    color: var(--text);
   }
   .pill {
     padding: .3rem .6rem;
@@ -164,13 +231,26 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
   [data-theme='light'] .pill {
     color: #71717a;
   }
-  [data-theme='light'] .pill-page-select-wrap {
+  [data-theme='light'] .pill-page-button {
     background: rgba(79,70,229,0.08);
     border-color: rgba(79,70,229,0.18);
     color: #3730a3;
   }
-  [data-theme='light'] .pill-page-select {
+  [data-theme='light'] .pill-page-button:hover {
+    background: rgba(79,70,229,0.14);
+  }
+  [data-theme='light'] .pill-page-popover {
+    background: rgba(255,255,255,0.98);
+    border-color: #d4d4d8;
+    box-shadow: 0 12px 32px rgba(24,24,27,0.12);
+  }
+  [data-theme='light'] .pill-page-option {
     color: #3730a3;
+  }
+  [data-theme='light'] .pill-page-option:hover,
+  [data-theme='light'] .pill-page-option-active {
+    background: rgba(79,70,229,0.1);
+    color: #18181b;
   }
   [data-theme='light'] .pill:hover {
     color: #18181b;

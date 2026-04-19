@@ -23,16 +23,21 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
 <nav class="journey-nav" id="journey-nav" data-default-journey={defaultJourney.id}>
   {activePageLink && (
     <div class="jn-page-menu">
-      <label class="jn-page-select-wrap">
-        <span class="sr-only">Page</span>
-        <select class="jn-page-select" onchange="window.location.href=this.value">
-          {pageLinks.map((link) => (
-            <option value={link.href} selected={activePage === link.label.toLowerCase()}>
-              {link.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <button class="jn-page-button" type="button" aria-haspopup="true" aria-expanded="false">
+        <span>{activePageLink.label}</span>
+        <span class="jn-page-caret">▾</span>
+      </button>
+      <div class="jn-page-popover" role="menu" hidden>
+        {pageLinks.map((link) => (
+          <a
+            href={link.href}
+            class={`jn-page-option ${activePage === link.label.toLowerCase() ? 'jn-page-option-active' : ''}`}
+            role="menuitem"
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
     </div>
   )}
   <span id="jb-dots">
@@ -46,3 +51,42 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     })}
   </span>
 </nav>
+
+<script is:inline>
+(function() {
+  const nav = document.getElementById('journey-nav');
+  if (!nav) return;
+  const menu = nav.querySelector('.jn-page-menu');
+  const button = nav.querySelector('.jn-page-button');
+  const popover = nav.querySelector('.jn-page-popover');
+  if (!menu || !button || !popover) return;
+
+  function closeMenu() {
+    menu.classList.remove('open');
+    button.setAttribute('aria-expanded', 'false');
+    popover.hidden = true;
+  }
+
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const nextOpen = !menu.classList.contains('open');
+    if (!nextOpen) {
+      closeMenu();
+      return;
+    }
+    menu.classList.add('open');
+    button.setAttribute('aria-expanded', 'true');
+    popover.hidden = false;
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest('.jn-page-menu')) return;
+    closeMenu();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeMenu();
+  });
+})();
+</script>

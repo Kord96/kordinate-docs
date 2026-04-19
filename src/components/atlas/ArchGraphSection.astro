@@ -100,7 +100,7 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
     backdrop-filter: blur(12px);
     border: 1px solid rgba(129,140,248,0.2);
     border-radius: 10px;
-    padding: 1.2rem;
+    padding: 1.3rem 1.3rem 1.15rem;
     z-index: 100;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
@@ -111,27 +111,27 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
     font-size: 1rem; padding: 0.2rem;
   }
   .detail-close:hover { color: #fff; }
-  .detail-name { font-size: 1rem; font-weight: 700; color: #fff; margin: 0 0 0.3rem; }
+  .detail-name { font-size: 1rem; font-weight: 700; color: #fff; margin: 0 1.3rem 0.35rem 0; line-height: 1.3; }
   .detail-type {
     display: inline-block; font-size: 0.6rem; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.05em;
     padding: 0.1rem 0.4rem; border-radius: 3px;
     background: rgba(129,140,248,0.15); color: #818cf8;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.75rem;
   }
-  .detail-desc { font-size: 0.75rem; color: #d4d4d8; line-height: 1.5; margin: 0.5rem 0; }
+  .detail-desc { font-size: 0.75rem; color: #d4d4d8; line-height: 1.6; margin: 0 0 0.9rem; }
   .detail-deps, .detail-patterns, .detail-files {
-    margin-top: 0.6rem; font-size: 0.7rem;
+    margin-top: 0.85rem; font-size: 0.7rem;
   }
   .detail-deps h4, .detail-patterns h4, .detail-files h4 {
     font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
-    color: #a1a1aa; margin: 0 0 0.3rem;
+    color: #a1a1aa; margin: 0 0 0.4rem;
   }
   .detail-deps ul, .detail-patterns ul, .detail-files ul {
     list-style: none; padding: 0; margin: 0;
   }
   .detail-deps li, .detail-patterns li, .detail-files li {
-    padding: 0.15rem 0; color: #e4e4e7;
+    padding: 0.2rem 0; color: #e4e4e7; line-height: 1.5;
   }
 
   #cy-tooltip {
