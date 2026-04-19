@@ -15,6 +15,8 @@
   const jnPicker = document.getElementById('jn-picker');
   const landing = document.getElementById('s0');
   const fabMenu = document.getElementById('fab-menu');
+  const fabJourneyGroup = document.getElementById('fab-journey-group');
+  const fabJourneys = document.getElementById('fab-journeys');
   let cur = 0;
   let currentJourneyId = journeyNav?.dataset.defaultJourney || jnPicker?.querySelector('.jn-pick-active')?.dataset.journey || 'system-overview';
 
@@ -175,50 +177,66 @@
 
   function updateFabMenu() {
     if (!fabMenu) return;
-    const support = getCurrentStorySupport();
-    const hasJourneys = (jnPicker?.querySelectorAll('.jn-pick').length || 0) > 1;
-    fabMenu.querySelector('[data-fab-action="journey"]')?.toggleAttribute('hidden', !hasJourneys);
-    fabMenu.querySelector('[data-fab-action="evidence"]')?.toggleAttribute('hidden', !(support && (support.anchor || (support.observations || []).length)));
-    fabMenu.querySelector('[data-fab-action="decisions"]')?.toggleAttribute('hidden', !(support && (support.rationale || []).length));
+    const picks = Array.from(jnPicker?.querySelectorAll('.jn-pick') || []);
+    const hasJourneys = picks.length > 1;
+    if (fabJourneyGroup && fabJourneys) {
+      fabJourneyGroup.toggleAttribute('hidden', !hasJourneys);
+      fabJourneys.innerHTML = '';
+      if (hasJourneys) {
+        picks.forEach((pick) => {
+          const option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'fab-journey-option' + (pick.classList.contains('jn-pick-active') ? ' fab-journey-option-active' : '');
+          option.dataset.journey = pick.dataset.journey || '';
+          option.textContent = pick.textContent?.trim() || (pick.dataset.journey || '');
+          option.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const jid = option.dataset.journey;
+            if (!jid) return;
+            switchJourney(jid);
+            jnPicker?.querySelectorAll('.jn-pick').forEach((p) => p.classList.toggle('jn-pick-active', p.dataset.journey === jid));
+            closeFabMenu();
+          });
+          fabJourneys.appendChild(option);
+        });
+      }
+    }
   }
 
-  function showStorySupportDetail(kind, support) {
+  function showStorySupportDetail(support) {
     if (!support) return;
     let html = '<div class="detail-header">';
     html += '<div class="detail-name">' + escapeHtml(support.title || 'Story support') + '</div>';
-    html += '<div class="detail-type"><span class="detail-type-badge">' + (kind === 'decisions' ? 'decisions' : 'evidence') + '</span></div>';
+    html += '<div class="detail-type"><span class="detail-type-badge">story support</span></div>';
     html += '</div>';
     if (support.teaches) html += '<div class="detail-desc">' + renderInlineMarkup(support.teaches) + '</div>';
-    if (kind === 'evidence') {
-      if (support.anchor) {
-        html += '<div class="detail-section"><div class="detail-label">Start Here</div>';
-        html += '<div class="detail-subsection"><div class="detail-subtitle">' + escapeHtml((support.anchor.file || '') + ':' + (support.anchor.line || '')) + '</div>';
-        if (support.anchor.description) html += '<div class="detail-note">' + escapeHtml(support.anchor.description) + '</div>';
-        html += '</div></div>';
-      }
-      const observations = support.observations || [];
-      if (observations.length) {
-        html += '<div class="detail-section"><div class="detail-label">Evidence-backed Findings</div><ul class="detail-list">';
-        html += observations.map((obs) =>
-          '<li><div class="detail-prose">' + renderInlineMarkup(obs.finding || '') + '</div>'
-          + ((obs.evidence?.file || obs.confidence) ? '<div class="detail-note">' + escapeHtml([obs.evidence?.file ? `${obs.evidence.file}${obs.evidence.lines?.length ? ':' + obs.evidence.lines[0] : ''}` : '', obs.confidence ? `confidence: ${obs.confidence}` : ''].filter(Boolean).join(' • ')) + '</div>' : '')
-          + (obs.recommendation ? '<div class="detail-rec">→ ' + escapeHtml(obs.recommendation) + '</div>' : '')
-          + '</li>'
-        ).join('');
-        html += '</ul></div>';
-      }
-    } else {
-      const rationale = support.rationale || [];
-      if (rationale.length) {
-        html += '<div class="detail-section"><div class="detail-label">Decisions & Trade-offs</div><ul class="detail-list">';
-        html += rationale.map((entry) =>
-          '<li><div class="detail-prose"><strong>' + escapeHtml(entry.decision || '') + '</strong></div>'
-          + (entry.context ? '<div class="detail-note">' + escapeHtml(entry.context) + '</div>' : '')
-          + (entry.trade_offs ? '<div class="detail-rec">↔ ' + escapeHtml(entry.trade_offs) + '</div>' : '')
-          + '</li>'
-        ).join('');
-        html += '</ul></div>';
-      }
+    if (support.anchor) {
+      html += '<div class="detail-section"><div class="detail-label">Start Here</div>';
+      html += '<div class="detail-subsection"><div class="detail-subtitle">' + escapeHtml((support.anchor.file || '') + ':' + (support.anchor.line || '')) + '</div>';
+      if (support.anchor.description) html += '<div class="detail-note">' + escapeHtml(support.anchor.description) + '</div>';
+      html += '</div></div>';
+    }
+    const observations = support.observations || [];
+    if (observations.length) {
+      html += '<div class="detail-section"><div class="detail-label">Evidence-backed Findings</div><ul class="detail-list">';
+      html += observations.map((obs) =>
+        '<li><div class="detail-prose">' + renderInlineMarkup(obs.finding || '') + '</div>'
+        + ((obs.evidence?.file || obs.confidence) ? '<div class="detail-note">' + escapeHtml([obs.evidence?.file ? `${obs.evidence.file}${obs.evidence.lines?.length ? ':' + obs.evidence.lines[0] : ''}` : '', obs.confidence ? `confidence: ${obs.confidence}` : ''].filter(Boolean).join(' • ')) + '</div>' : '')
+        + (obs.recommendation ? '<div class="detail-rec">→ ' + escapeHtml(obs.recommendation) + '</div>' : '')
+        + '</li>'
+      ).join('');
+      html += '</ul></div>';
+    }
+    const rationale = support.rationale || [];
+    if (rationale.length) {
+      html += '<div class="detail-section"><div class="detail-label">Decisions & Trade-offs</div><ul class="detail-list">';
+      html += rationale.map((entry) =>
+        '<li><div class="detail-prose"><strong>' + escapeHtml(entry.decision || '') + '</strong></div>'
+        + (entry.context ? '<div class="detail-note">' + escapeHtml(entry.context) + '</div>' : '')
+        + (entry.trade_offs ? '<div class="detail-rec">↔ ' + escapeHtml(entry.trade_offs) + '</div>' : '')
+        + '</li>'
+      ).join('');
+      html += '</ul></div>';
     }
     panelDetail.innerHTML = html;
     openDrawer('detail');
@@ -238,6 +256,14 @@
       return;
     }
     if (target.closest('#fab-menu')) return;
+    const storySupportTrigger = target.closest('[data-story-support-open]');
+    if (storySupportTrigger) {
+      const support = getCurrentStorySupport();
+      if (support) {
+        showStorySupportDetail(support);
+      }
+      return;
+    }
     if (target.closest('#drawer-close')) {
       closeDrawer();
       return;
@@ -912,25 +938,15 @@
     btn.addEventListener('click', (event) => {
       event.stopPropagation();
       const action = btn.dataset.fabAction;
-      if (action === 'terminal') {
+      if (action === 'ask') {
         closeFabMenu();
         openDrawer('terminal');
-        return;
-      }
-      if (action === 'journey') {
-        closeFabMenu();
-        toggleJourneyPicker(fab);
         return;
       }
       if (action === 'focus') {
         closeFabMenu();
         openFocus(getCurrentSectionElement()?.id || 'chapter0');
         return;
-      }
-      const support = getCurrentStorySupport();
-      if ((action === 'evidence' || action === 'decisions') && support) {
-        closeFabMenu();
-        showStorySupportDetail(action, support);
       }
     });
   });

@@ -1,7 +1,7 @@
 ---
 /**
- * Story section — one scroll-snap section per story with bridge, summary,
- * structures (graphs), flows, observations, rationale, and next link.
+ * Story section — teaching-first journey section with one primary explainer,
+ * concise thesis/summary, and supporting detail moved into the drawer.
  */
 interface Props {
   story: any;
@@ -21,9 +21,22 @@ const anchor = story.anchor;
 const html = parseSummary(story.summary || '');
 const teachesHtml = parseSummary(story.teaches || '');
 const keyTakeaways = (story.observations || []).slice(0, 3);
+const inferredPrimaryMode = story.primary_mode
+  || ((story.flows || []).length ? 'flow'
+    : (story.structures || []).length ? 'structure'
+    : (story.rationale || []).length ? 'decision'
+    : 'structure');
+const primaryModeLabels: Record<string, string> = {
+  structure: 'Primary Structure',
+  flow: 'Primary Flow',
+  state: 'State Boundary',
+  failure: 'Failure Flow',
+  decision: 'Design Decision',
+};
 const supportPayload = encodeURIComponent(JSON.stringify({
   id: story.id,
   title: story.title,
+  primaryMode: inferredPrimaryMode,
   teaches: story.teaches || '',
   anchor: story.anchor || null,
   observations: story.observations || [],
@@ -36,7 +49,11 @@ const supportPayload = encodeURIComponent(JSON.stringify({
     {bridge && <div class="bridge">{bridge.text}</div>}
 
     <div class="story-num">Story {index+1} of {total}</div>
-    <h2 class="story-title">{story.title}</h2>
+    <h2 class="story-title">
+      <button class="story-title-button" type="button" data-story-support-open>
+        {story.title}
+      </button>
+    </h2>
     {story.teaches && <div class="story-thesis" set:html={teachesHtml} />}
 
     <div class="summary" set:html={html} />
@@ -91,16 +108,18 @@ const supportPayload = encodeURIComponent(JSON.stringify({
       const storyRefs = JSON.stringify(storyByNode);
       return (
         <div class="struct">
+          <div class="story-block-label">{si === 0 && inferredPrimaryMode === 'structure' ? (primaryModeLabels[inferredPrimaryMode] || 'Primary Structure') : 'Supporting Structure'}</div>
           <div class="struct-graph" id={graphId} data-graph={graphData} data-refs={storyRefs}></div>
           <div class="struct-hint">click a node to explore</div>
         </div>
       );
     })}
 
-    {(story.flows || []).map((fl: any) => (
+    {(story.flows || []).map((fl: any, fi: number) => (
       <div class="flow">
-        <div class="story-block-label">Operating Path</div>
+        <div class="story-block-label">{fi === 0 && (inferredPrimaryMode === 'flow' || inferredPrimaryMode === 'failure' || inferredPrimaryMode === 'state') ? (primaryModeLabels[inferredPrimaryMode] || 'Primary Flow') : 'Supporting Flow'}</div>
         {fl.title && <div class="flow-head">{fl.title}</div>}
+        {fl.summary && <div class="flow-summary" set:html={parseSummary(fl.summary)} />}
         {fl.trigger && (
           <div class="flow-meta">
             <div class="flow-meta-item">
