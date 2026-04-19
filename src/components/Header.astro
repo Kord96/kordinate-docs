@@ -18,7 +18,6 @@ const { project, currentProject, projects: explicitProjects = [], badge, links =
 const projects = explicitProjects.length > 0 || !currentProject ? explicitProjects : await getProjectIndex();
 const hasProjectSwitcher = projects.length > 0;
 const currentProjectParts = splitDisplayProjectTitle(project);
-const activeLink = links.find((link) => link.label.toLowerCase() === active) || links[0] || null;
 ---
 
 <header class:list={['site-header', position === 'sticky' && 'sticky']}>
@@ -34,23 +33,23 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
         >
           <img src="/logo_dark.png?v=2" alt="Kordinate" class="logo-dark" />
           <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
-          {(currentProjectParts.owner || badge) && (
-            <>
-              <span class="h-sep" aria-hidden="true"></span>
-              <span class="h-env">{currentProjectParts.owner || badge}</span>
-            </>
-          )}
+          <span class="h-sep" aria-hidden="true"></span>
+          <span class="h-project-id">
+            {currentProjectParts.owner && <span class="h-project-owner">{currentProjectParts.owner}</span>}
+            {currentProjectParts.owner && <span class="h-project-slash">/</span>}
+            <span class="h-project-repo">{currentProjectParts.repo}</span>
+          </span>
         </button>
       ) : (
         <a class="h-brand" href="/" title="Home">
           <img src="/logo_dark.png?v=2" alt="Kordinate" class="logo-dark" />
           <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
-          {(currentProjectParts.owner || badge) && (
-            <>
-              <span class="h-sep" aria-hidden="true"></span>
-              <span class="h-env">{currentProjectParts.owner || badge}</span>
-            </>
-          )}
+          <span class="h-sep" aria-hidden="true"></span>
+          <span class="h-project-id">
+            {currentProjectParts.owner && <span class="h-project-owner">{currentProjectParts.owner}</span>}
+            {currentProjectParts.owner && <span class="h-project-slash">/</span>}
+            <span class="h-project-repo">{currentProjectParts.repo}</span>
+          </span>
         </a>
       )}
     </div>
@@ -64,26 +63,6 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
       </a>
     </div>
   </div>
-  {activeLink && (
-    <div class="h-subnav">
-      <details class="h-route-menu">
-        <summary class="h-route-summary" title="Switch project view">
-          <span class="h-route-project">{currentProjectParts.repo}</span>
-          <span class="h-route-slash">/</span>
-          <span class="h-route-label">{activeLink.label.toLowerCase()}</span>
-        </summary>
-        <div class="h-route-list">
-          {links.map((link) => (
-            <a class:list={['h-route-item', active === link.label.toLowerCase() && 'h-route-item-active']} href={link.href}>
-              <span class="h-route-item-project">{currentProjectParts.repo}</span>
-              <span class="h-route-item-slash">/</span>
-              <span>{link.label.toLowerCase()}</span>
-            </a>
-          ))}
-        </div>
-      </details>
-    </div>
-  )}
 </header>
 
 {hasProjectSwitcher && (
@@ -221,10 +200,26 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
     background: rgba(255,255,255,0.14);
     flex-shrink: 0;
   }
-  .h-env {
-    font-size: .5rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
-    padding: .1rem .35rem; border-radius: 3px;
-    background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.2);
+  .h-project-id {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .12rem;
+    line-height: 1;
+    min-width: 0;
+  }
+  .h-project-owner {
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--text-4);
+  }
+  .h-project-slash {
+    font-size: .7rem;
+    color: var(--text-4);
+  }
+  .h-project-repo {
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--text-2);
   }
   .h-right { display: flex; gap: .4rem; align-items: center; }
   .h-brand {
@@ -237,95 +232,6 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
     border: none;
     padding: 0;
     cursor: pointer;
-  }
-  .h-route-menu {
-    position: relative;
-  }
-  .h-route-summary {
-    list-style: none;
-    display: inline-flex;
-    align-items: baseline;
-    gap: .12rem;
-    cursor: pointer;
-    padding: .18rem .55rem;
-    border-radius: 999px;
-    background: rgba(9,9,11,0.76);
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-  }
-  .h-route-summary::-webkit-details-marker { display: none; }
-  .h-subnav {
-    width: auto;
-    min-height: 0;
-    margin-left: 1.5rem;
-    margin-top: .32rem;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    background: transparent;
-  }
-  .h-route-project {
-    font-size: .68rem;
-    font-weight: 700;
-    color: var(--text-3);
-  }
-  .h-route-slash {
-    font-size: .62rem;
-    color: var(--text-4);
-  }
-  .h-route-label {
-    font-size: .68rem;
-    font-weight: 600;
-    color: var(--text-3);
-  }
-  .h-route-menu[open] .h-route-label,
-  .h-route-summary:hover .h-route-label {
-    color: var(--text-2);
-  }
-  .h-route-summary:hover {
-    border-color: rgba(255,255,255,0.14);
-  }
-  .h-route-list {
-    position: absolute;
-    top: calc(100% + .55rem);
-    left: 0;
-    min-width: 11rem;
-    padding: .35rem;
-    display: grid;
-    gap: .2rem;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: rgba(9,9,11,.96);
-    backdrop-filter: blur(16px) saturate(180%);
-    box-shadow: 0 16px 36px rgba(0,0,0,.26);
-    z-index: 120;
-  }
-  .h-route-item {
-    display: inline-flex;
-    align-items: baseline;
-    gap: .12rem;
-    text-decoration: none;
-    color: var(--text-3);
-    font-size: .74rem;
-    font-weight: 600;
-    padding: .38rem .55rem;
-    border-radius: 8px;
-    transition: all .18s ease;
-  }
-  .h-route-item:hover {
-    color: var(--text-2);
-    background: rgba(39,39,42,.7);
-  }
-  .h-route-item-active {
-    color: var(--accent);
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
-  }
-  .h-route-item-project {
-    font-weight: 700;
-  }
-  .h-route-item-slash {
-    color: var(--text-4);
   }
   .h-brand img {
     height: 32px; width: auto; max-height: 32px; opacity: 0.8;
@@ -373,40 +279,12 @@ const activeLink = links.find((link) => link.label.toLowerCase() === active) || 
   :global([data-theme='light']) .h-sep {
     background: rgba(24,24,27,0.12);
   }
-  :global([data-theme='light']) .h-subnav {
-    background: transparent;
+  :global([data-theme='light']) .h-project-owner,
+  :global([data-theme='light']) .h-project-slash {
+    color: #71717a;
   }
-  :global([data-theme='light']) .h-route-summary {
-    background: rgba(255,255,255,0.92);
-    border-color: rgba(24,24,27,0.08);
-    box-shadow: 0 8px 20px rgba(24,24,27,0.08);
-  }
-  :global([data-theme='light']) .h-route-project { color: #3f3f46; }
-  :global([data-theme='light']) .h-route-slash { color: #71717a; }
-  :global([data-theme='light']) .h-route-label { color: #52525b; }
-  :global([data-theme='light']) .h-route-menu[open] .h-route-label,
-  :global([data-theme='light']) .h-route-summary:hover .h-route-label { color: #18181b; }
-  :global([data-theme='light']) .h-route-list {
-    background: rgba(255,255,255,.98);
-    border-color: #d4d4d8;
-    box-shadow: 0 16px 36px rgba(24,24,27,.12);
-  }
-  :global([data-theme='light']) .h-route-item {
-    color: #52525b;
-  }
-  :global([data-theme='light']) .h-route-item:hover {
+  :global([data-theme='light']) .h-project-repo {
     color: #18181b;
-    background: rgba(24,24,27,.05);
-  }
-  :global([data-theme='light']) .h-route-item-active {
-    color: #3730a3;
-    background: rgba(79,70,229,.08);
-    border-color: rgba(79,70,229,.18);
-  }
-  :global([data-theme='light']) .h-env {
-    background: rgba(251,191,36,0.15);
-    color: #92400e;
-    border-color: rgba(251,191,36,0.3);
   }
   :global([data-theme='light']) .h-sep { background: #d4d4d8; }
   :global([data-theme='light']) .h-theme-toggle {

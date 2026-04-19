@@ -143,6 +143,7 @@
     const target = event.target;
     if (!(target instanceof Element)) return;
     if (target.closest('#drawer')) return;
+    if (target.closest('.ref, .struct-graph, .detail-link, .detail-dep, .flow, .obs')) return;
     closeDrawer();
   });
 

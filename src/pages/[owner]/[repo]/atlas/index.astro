@@ -96,7 +96,15 @@ function severity(s: string) {
     <TensionsSection tensions={tensions} components={components} />
   </div>
 
-  <PillNav sections={atlasSections} />
+  <PillNav
+    sections={atlasSections}
+    pageLinks={[
+      { label: 'Journey', href: projectRoutePath(project) },
+      { label: 'Atlas', href: projectAtlasRoutePath(project) },
+      { label: 'History', href: projectAnalysesRoutePath(project) },
+    ]}
+    activePage="atlas"
+  />
   <button class="atlas-focus-btn atlas-focus-global" id="atlas-focus-global" type="button">Focus ⛶</button>
 
   <div class="atlas-focus-overlay" id="atlas-focus-overlay">

@@ -6,11 +6,28 @@
  */
 interface Props {
   sections: { id: string; label: string }[];
+  pageLinks?: { label: string; href: string }[];
+  activePage?: string;
 }
-const { sections } = Astro.props;
+const { sections, pageLinks = [], activePage = '' } = Astro.props;
+const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === activePage) || pageLinks[0] || null;
 ---
 
 <nav class="pill-nav" aria-label="Section navigation" id="pill-nav">
+  {activePageLink && (
+    <details class="pill-context-menu">
+      <summary class="pill-context-summary">
+        <span class="pill-context-label">{activePageLink.label.toLowerCase()}</span>
+      </summary>
+      <div class="pill-context-list">
+        {pageLinks.map((link) => (
+          <a class:list={['pill-context-item', activePage === link.label.toLowerCase() && 'pill-context-item-active']} href={link.href}>
+            {link.label.toLowerCase()}
+          </a>
+        ))}
+      </div>
+    </details>
+  )}
   {sections.map((s, i) => (
     <a class:list={['pill', i === 0 && 'pill-active']} href={`#${s.id}`} data-section={s.id}>
       <span class="pill-label">{s.label}</span>
@@ -74,6 +91,63 @@ const { sections } = Astro.props;
     box-shadow: 0 10px 28px rgba(0,0,0,0.28);
   }
   .pill-nav::-webkit-scrollbar { display: none; }
+  .pill-context-menu {
+    position: relative;
+    flex-shrink: 0;
+  }
+  .pill-context-summary {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    padding: .3rem .65rem;
+    border-radius: 99px;
+    font-size: .65rem;
+    font-weight: 700;
+    color: var(--text-2);
+    background: rgba(255,255,255,0.04);
+    line-height: 1;
+  }
+  .pill-context-summary::-webkit-details-marker { display: none; }
+  .pill-context-summary::after {
+    content: '▾';
+    font-size: .5rem;
+    margin-left: .35rem;
+    color: var(--text-4);
+  }
+  .pill-context-list {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + .55rem);
+    min-width: 8rem;
+    padding: .35rem;
+    display: grid;
+    gap: .2rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(9,9,11,.96);
+    backdrop-filter: blur(16px) saturate(180%);
+    box-shadow: 0 16px 36px rgba(0,0,0,.26);
+    z-index: 220;
+  }
+  .pill-context-item {
+    text-decoration: none;
+    color: var(--text-3);
+    font-size: .74rem;
+    font-weight: 600;
+    padding: .38rem .55rem;
+    border-radius: 8px;
+    transition: all .18s ease;
+  }
+  .pill-context-item:hover {
+    color: var(--text-2);
+    background: rgba(39,39,42,.7);
+  }
+  .pill-context-item-active {
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
+  }
   .pill {
     padding: .3rem .6rem;
     border-radius: 99px;
@@ -101,6 +175,30 @@ const { sections } = Astro.props;
   }
   [data-theme='light'] .pill {
     color: #71717a;
+  }
+  [data-theme='light'] .pill-context-summary {
+    color: #18181b;
+    background: rgba(24,24,27,0.04);
+  }
+  [data-theme='light'] .pill-context-summary::after {
+    color: #71717a;
+  }
+  [data-theme='light'] .pill-context-list {
+    background: rgba(255,255,255,.98);
+    border-color: #d4d4d8;
+    box-shadow: 0 16px 36px rgba(24,24,27,.12);
+  }
+  [data-theme='light'] .pill-context-item {
+    color: #52525b;
+  }
+  [data-theme='light'] .pill-context-item:hover {
+    color: #18181b;
+    background: rgba(24,24,27,.05);
+  }
+  [data-theme='light'] .pill-context-item-active {
+    color: #3730a3;
+    background: rgba(79,70,229,.08);
+    border-color: rgba(79,70,229,.18);
   }
   [data-theme='light'] .pill:hover {
     color: #18181b;

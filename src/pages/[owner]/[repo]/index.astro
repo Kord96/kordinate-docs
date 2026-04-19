@@ -68,7 +68,17 @@ function parseSummary(text: string): string {
     active="journey"
   />
 
-  <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
+  <JourneyNav
+    journeys={journeys}
+    defaultJourney={defaultJourney}
+    stories={stories}
+    pageLinks={[
+      { label: 'Journey', href: projectRoutePath(project) },
+      { label: 'Atlas', href: projectAtlasRoutePath(project) },
+      { label: 'History', href: projectAnalysesRoutePath(project) },
+    ]}
+    activePage="journey"
+  />
 
   <LandingSection
     project={displayProject}
