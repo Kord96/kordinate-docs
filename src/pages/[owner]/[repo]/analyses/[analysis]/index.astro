@@ -11,7 +11,7 @@ import FocusOverlay from '../../../../../components/journey/FocusOverlay.astro';
 import Drawer from '../../../../../components/journey/Drawer.astro';
 import JourneyData from '../../../../../components/journey/JourneyData.astro';
 import JourneyScript from '../../../../../components/journey/JourneyScript.astro';
-import { getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex, projectAnalysesRoutePath, projectAnalysisAtlasRoutePath, projectAnalysisRoutePath, slugFromRouteParts } from '../../../../../lib/docs-data';
+import { displayProjectTitle, getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex, projectAnalysesRoutePath, projectAnalysisAtlasRoutePath, projectAnalysisRoutePath, slugFromRouteParts } from '../../../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
@@ -26,6 +26,7 @@ export async function getStaticPaths() {
 const { owner, repo, analysis } = Astro.params;
 const project = slugFromRouteParts(owner, repo);
 const { atlas, storyByNode, journeys, storyMap, analysisId } = await getProjectAnalysisBundle(project, analysis);
+const displayProject = displayProjectTitle(project, atlas.project);
 
 const defaultJourney = journeys.find((j: any) => j.id === 'system-overview') || journeys[0] || { id: 'default', title: 'Journey', stories: [] };
 const journeyData: Record<string, { stories: any[]; bridgeMap: Record<string, any>; total: number }> = {};
@@ -55,15 +56,17 @@ function parseSummary(text: string): string {
 <Base title={`${defaultJourney.title} — ${analysisId}`}>
   <JourneyStyles />
   <Header project={project} currentProject={project} badge="snapshot" position="sticky" />
-  <PageNav tabs={[
-    { label: 'Journey', href: projectAnalysisRoutePath(project, analysis), active: true },
-    { label: 'Atlas', href: projectAnalysisAtlasRoutePath(project, analysis) },
-    { label: 'History', href: projectAnalysesRoutePath(project) },
-  ]} />
+  <div class="page-mode-shell">
+    <PageNav tabs={[
+      { label: 'Journey', href: projectAnalysisRoutePath(project, analysis), active: true },
+      { label: 'Atlas', href: projectAnalysisAtlasRoutePath(project, analysis) },
+      { label: 'History', href: projectAnalysesRoutePath(project) },
+    ]} />
+  </div>
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
   <LandingSection
-    project={`${project} · ${analysisId}`}
+    project={`${displayProject} · ${analysisId}`}
     purpose={atlas.purpose || ''}
     journeys={journeys}
     defaultJourney={defaultJourney}
@@ -95,3 +98,16 @@ function parseSummary(text: string): string {
   <Drawer project={project} />
   <JourneyScript />
 </Base>
+
+<style>
+  .page-mode-shell {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: .65rem 1.5rem 0;
+  }
+  @media (max-width: 640px) {
+    .page-mode-shell {
+      padding: .65rem 1rem 0;
+    }
+  }
+</style>

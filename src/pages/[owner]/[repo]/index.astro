@@ -11,7 +11,7 @@ import FocusOverlay from '../../../components/journey/FocusOverlay.astro';
 import Drawer from '../../../components/journey/Drawer.astro';
 import JourneyData from '../../../components/journey/JourneyData.astro';
 import JourneyScript from '../../../components/journey/JourneyScript.astro';
-import { getProjectBundle, getProjectIndex, projectAnalysesRoutePath, projectAtlasRoutePath, projectRoutePath, slugFromRouteParts } from '../../../lib/docs-data';
+import { displayProjectTitle, getProjectBundle, getProjectIndex, projectAnalysesRoutePath, projectAtlasRoutePath, projectRoutePath, slugFromRouteParts } from '../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
@@ -24,6 +24,7 @@ export async function getStaticPaths() {
 const { owner, repo } = Astro.params;
 const project = slugFromRouteParts(owner, repo);
 const { atlas, storyByNode, journeys, storyMap } = await getProjectBundle(project);
+const displayProject = displayProjectTitle(project, atlas.project);
 
 const defaultJourney = journeys.find((j: any) => j.id === 'system-overview') || journeys[0] || { id: 'default', title: 'Journey', stories: [] };
 
@@ -57,16 +58,18 @@ function parseSummary(text: string): string {
   <JourneyStyles />
 
   <Header project={project} currentProject={project} badge="dev" position="sticky" />
-  <PageNav tabs={[
-    {label: "Journey", href: projectRoutePath(project), active: true},
-    {label: "Atlas", href: projectAtlasRoutePath(project)},
-    {label: "History", href: projectAnalysesRoutePath(project)},
-  ]} />
+  <div class="page-mode-shell">
+    <PageNav tabs={[
+      {label: "Journey", href: projectRoutePath(project), active: true},
+      {label: "Atlas", href: projectAtlasRoutePath(project)},
+      {label: "History", href: projectAnalysesRoutePath(project)},
+    ]} />
+  </div>
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
 
   <LandingSection
-    project={project}
+    project={displayProject}
     purpose={purpose}
     journeys={journeys}
     defaultJourney={defaultJourney}
@@ -101,3 +104,16 @@ function parseSummary(text: string): string {
   <Drawer project={project} />
   <JourneyScript />
 </Base>
+
+<style>
+  .page-mode-shell {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: .65rem 1.5rem 0;
+  }
+  @media (max-width: 640px) {
+    .page-mode-shell {
+      padding: .65rem 1rem 0;
+    }
+  }
+</style>
