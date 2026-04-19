@@ -282,6 +282,34 @@
     .struct { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden; }
     .struct > .story-block-label,
     .flow > .story-block-label { padding: .8rem .9rem 0; margin-bottom: .4rem; }
+    .struct-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: .75rem .85rem .35rem;
+    }
+    .struct-head-button {
+      appearance: none;
+      border: none;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      color: var(--text);
+      font: inherit;
+      font-size: .82rem;
+      font-weight: 700;
+      letter-spacing: .01em;
+      cursor: pointer;
+      text-align: left;
+      line-height: 1.35;
+      transition: color .18s ease;
+    }
+    .struct-head-button:hover { color: var(--accent); }
+    .struct-head-button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
     .struct-graph { width: 100%; height: 280px; cursor: grab; }
     .struct-legend {
       display: flex; flex-wrap: wrap; gap: .4rem; padding: .3rem .6rem;
@@ -290,7 +318,6 @@
     .legend-item { display: flex; align-items: center; gap: .25rem; }
     .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
     .struct-graph:active { cursor: grabbing; }
-    .struct-hint { text-align: center; font-size: .6rem; color: var(--text-4); padding: .35rem; }
     .flow-summary { color: var(--text-2); font-size: .82rem; line-height: 1.6; margin: 0 0 .75rem; }
 
     /* ─── Floating terminal button ─── */

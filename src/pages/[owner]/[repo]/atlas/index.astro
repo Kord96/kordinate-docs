@@ -43,17 +43,17 @@ const events = atlas.events || [];
 const concepts = atlas.concepts || {};
 const tensions = atlas.tensions || [];
 const atlasSections = [
-  { id: 'sec-atlas-overview', label: 'Atlas Overview' },
-  { id: 'sec-context', label: 'Domain & Interfaces' },
+  { id: 'sec-atlas-overview', label: 'Overview' },
+  { id: 'sec-context', label: 'Domain' },
   { id: 'components-section', label: 'Components' },
   { id: 'sec-flows', label: 'Flows' },
-  { id: 'sec-state', label: 'State & Storage' },
-  { id: 'sec-external', label: 'External Dependencies' },
-  ...(failureScenarios.length > 0 ? [{ id: 'sec-failures', label: 'Failure Scenarios' }] : []),
+  { id: 'sec-state', label: 'State' },
+  { id: 'sec-external', label: 'Dependencies' },
+  ...(failureScenarios.length > 0 ? [{ id: 'sec-failures', label: 'Failures' }] : []),
   ...(monitoring.length > 0 ? [{ id: 'sec-monitoring', label: 'Monitoring' }] : []),
   ...(gaps.length > 0 ? [{ id: 'sec-gaps', label: 'Gaps' }] : []),
   { id: 'sec-patterns', label: 'Concepts' },
-  { id: 'sec-tensions', label: 'Architecture Tensions' },
+  { id: 'sec-tensions', label: 'Tensions' },
 ];
 
 function severity(s: string) {
@@ -78,7 +78,18 @@ function severity(s: string) {
   />
 
   <div class="container">
-    <MetadataSection metadata={metadata} components={components} flows={flows} state={stateEntries} extDeps={extDeps} />
+    <MetadataSection
+      metadata={metadata}
+      components={components}
+      flows={flows}
+      state={stateEntries}
+      extDeps={extDeps}
+      failures={failureScenarios}
+      monitoring={monitoring}
+      gaps={gaps}
+      concepts={concepts}
+      tensions={tensions}
+    />
     <ContextSection domainModel={dm} actors={actors} events={events} components={components} />
     <div class="section" id="components-section">
       <h2 class="section-title">Components</h2>
@@ -105,7 +116,20 @@ function severity(s: string) {
     ]}
     activePage="atlas"
   />
-  <button class="atlas-focus-btn atlas-focus-global" id="atlas-focus-global" type="button">Focus ⛶</button>
+  <button class="fab" id="atlas-fab" title="Open page actions" aria-label="Open page actions">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <rect x="3" y="3" width="5" height="5" rx="1.3" fill="currentColor"/>
+      <rect x="12" y="3" width="5" height="5" rx="1.3" fill="currentColor"/>
+      <rect x="3" y="12" width="5" height="5" rx="1.3" fill="currentColor"/>
+      <rect x="12" y="12" width="5" height="5" rx="1.3" fill="currentColor"/>
+    </svg>
+  </button>
+  <div class="fab-menu" id="atlas-fab-menu" aria-label="Atlas actions">
+    <button class="fab-menu-item" type="button" data-atlas-action="focus">
+      <span class="fab-menu-icon" aria-hidden="true">⛶</span>
+      <span>Focus</span>
+    </button>
+  </div>
 
   <div class="atlas-focus-overlay" id="atlas-focus-overlay">
     <div class="atlas-focus-header">
@@ -126,6 +150,8 @@ function severity(s: string) {
       const nextBtn = document.getElementById('atlas-focus-next');
       const closeBtn = document.getElementById('atlas-focus-close');
       const pos = document.getElementById('atlas-focus-pos');
+      const fab = document.getElementById('atlas-fab');
+      const fabMenu = document.getElementById('atlas-fab-menu');
       const sectionIds = atlasSections.map((section) => section.id);
       const labelById = Object.fromEntries(atlasSections.map((section) => [section.id, section.label]));
       let focusIndex = -1;
@@ -175,8 +201,26 @@ function severity(s: string) {
         window.dispatchEvent(new Event('resize'));
       }
 
-      document.getElementById('atlas-focus-global')?.addEventListener('click', () => {
+      function closeFabMenu() {
+        fabMenu?.classList.remove('open');
+      }
+
+      fab?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        fabMenu?.classList.toggle('open');
+      });
+
+      fabMenu?.querySelector('[data-atlas-action=\"focus\"]')?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        closeFabMenu();
         openFocus(findActiveSectionId());
+      });
+
+      document.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest('#atlas-fab-menu') || target.closest('#atlas-fab')) return;
+        closeFabMenu();
       });
 
       prevBtn?.addEventListener('click', () => {

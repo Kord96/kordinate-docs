@@ -1,11 +1,46 @@
 ---
-interface Props { metadata: any; components?: any[]; flows?: any[]; state?: any[]; extDeps?: any[]; }
-const { metadata = {}, components = [], flows = [], state = [], extDeps = [] } = Astro.props;
+interface Props {
+  metadata: any;
+  components?: any[];
+  flows?: any[];
+  state?: any[];
+  extDeps?: any[];
+  failures?: any[];
+  monitoring?: any[];
+  gaps?: any[];
+  concepts?: any;
+  tensions?: any[];
+}
+const {
+  metadata = {},
+  components = [],
+  flows = [],
+  state = [],
+  extDeps = [],
+  failures = [],
+  monitoring = [],
+  gaps = [],
+  concepts = {},
+  tensions = [],
+} = Astro.props;
 
 const frameworks = Array.isArray(metadata.frameworks) ? metadata.frameworks : [];
 const technologies = Array.isArray(metadata.technologies) ? metadata.technologies : [];
 const languages = Array.isArray(metadata.languages) ? metadata.languages : [];
 const affected = Array.isArray(metadata.affected_components) ? metadata.affected_components : [];
+const detectedPatterns = Array.isArray(concepts?.detected_patterns) ? concepts.detected_patterns : [];
+
+const indexCards = [
+  { id: 'components-section', label: 'Components', count: components.length, items: components.slice(0, 4).map((item: any) => item.name || item.id) },
+  { id: 'sec-flows', label: 'Flows', count: flows.length, items: flows.slice(0, 4).map((item: any) => item.name || item.title || item.id) },
+  { id: 'sec-state', label: 'State & Storage', count: state.length, items: state.slice(0, 4).map((item: any) => item.name || item.id) },
+  { id: 'sec-external', label: 'Dependencies', count: extDeps.length, items: extDeps.slice(0, 4).map((item: any) => item.name || item.id) },
+  ...(failures.length ? [{ id: 'sec-failures', label: 'Failure Scenarios', count: failures.length, items: failures.slice(0, 4).map((item: any) => item.name || item.id) }] : []),
+  ...(monitoring.length ? [{ id: 'sec-monitoring', label: 'Monitoring', count: monitoring.length, items: monitoring.slice(0, 4).map((item: any) => item.name || item.id) }] : []),
+  ...(gaps.length ? [{ id: 'sec-gaps', label: 'Gaps', count: gaps.length, items: gaps.slice(0, 4).map((item: any) => item.title || item.name || item.id) }] : []),
+  { id: 'sec-patterns', label: 'Concepts', count: detectedPatterns.length, items: detectedPatterns.slice(0, 4).map((item: any) => item.name || item.id) },
+  { id: 'sec-tensions', label: 'Tensions', count: tensions.length, items: tensions.slice(0, 4).map((item: any) => item.title || item.id) },
+].filter((card) => card.count > 0);
 ---
 
 <div class="section" id="sec-atlas-overview">
@@ -73,4 +108,23 @@ const affected = Array.isArray(metadata.affected_components) ? metadata.affected
       </div>
     )}
   </div>
+
+  {indexCards.length > 0 && (
+    <div class="atlas-index">
+      <div class="summary-label">Quick Index</div>
+      <div class="atlas-index-grid">
+        {indexCards.map((card) => (
+          <a href={`#${card.id}`} class="atlas-index-card">
+            <div class="atlas-index-head">
+              <div class="atlas-index-title">{card.label}</div>
+              <div class="atlas-index-count">{card.count}</div>
+            </div>
+            <div class="atlas-index-items">
+              {card.items.map((item: string) => <span class="atlas-index-item">{item}</span>)}
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  )}
 </div>

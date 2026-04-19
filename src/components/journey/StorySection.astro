@@ -115,14 +115,12 @@ const supportPayload = encodeURIComponent(JSON.stringify({
       }));
       return (
         <div class="struct" data-struct-support={structureSupportPayload}>
-          <div class="struct-graph" id={graphId} data-graph={graphData} data-refs={storyRefs}></div>
-          <div class="struct-hint">
-            <button class="struct-hint-button" type="button" data-struct-support-open>
-              About this graph
+          <div class="struct-head">
+            <button class="struct-head-button" type="button" data-struct-support-open>
+              {st.title || `Structure View ${si + 1}`}
             </button>
-            <span class="struct-hint-sep">•</span>
-            <span>click a node to explore</span>
           </div>
+          <div class="struct-graph" id={graphId} data-graph={graphData} data-refs={storyRefs}></div>
         </div>
       );
     })}
