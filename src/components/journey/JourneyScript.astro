@@ -524,25 +524,52 @@
     const data = JSON.parse(container.dataset.graph);
     const refs = JSON.parse(container.dataset.refs || '{}');
     const childMap = buildChildMap(data.nodes || []);
+    const expandedGroups = {};
 
-    const elements = [];
-    data.nodes.forEach(n => {
-      elements.push({
-        group: 'nodes',
-        data: {
-          id: n.id,
-          label: n.name,
-          baseLabel: n.name,
-          nodeType: n.type,
-          childCount: (n.children || []).length,
-          parent: n.parent || undefined,
-          ...n
-        }
+    function buildElements() {
+      const collapsedNodes = new Set(
+        Object.entries(expandedGroups)
+          .filter(([, expanded]) => expanded === false)
+          .map(([nodeId]) => nodeId)
+      );
+      const hiddenNodes = new Set();
+      collapsedNodes.forEach((nodeId) => {
+        descendantIds(childMap, nodeId).forEach((descendantId) => hiddenNodes.add(descendantId));
       });
-    });
-    data.edges.forEach(e => {
-      elements.push({ group: 'edges', data: { source: e.from, target: e.to, label: e.label || '', edgeKind: 'explicit' } });
-    });
+
+      const visibleNodeIds = new Set();
+      const elements = [];
+
+      data.nodes.forEach((n) => {
+        if (hiddenNodes.has(n.id)) return;
+        const collapsed = collapsedNodes.has(n.id);
+        const descendantCount = collapsed ? descendantIds(childMap, n.id).length : 0;
+        const parentId = !collapsed && n.parent && !hiddenNodes.has(n.parent) && !collapsedNodes.has(n.parent)
+          ? n.parent
+          : undefined;
+        visibleNodeIds.add(n.id);
+        elements.push({
+          group: 'nodes',
+          data: {
+            id: n.id,
+            label: collapsed ? `${n.name} [${descendantCount}]` : n.name,
+            baseLabel: n.name,
+            nodeType: n.type,
+            childCount: (n.children || []).length,
+            parent: parentId,
+            collapsed,
+            ...n
+          }
+        });
+      });
+
+      data.edges.forEach((e) => {
+        if (!visibleNodeIds.has(e.from) || !visibleNodeIds.has(e.to)) return;
+        elements.push({ group: 'edges', data: { source: e.from, target: e.to, label: e.label || '', edgeKind: 'explicit' } });
+      });
+
+      return elements;
+    }
 
     container._cy = null;
     const isLight = document.documentElement.dataset.theme === 'light';
@@ -571,7 +598,7 @@
     };
     const cy = cytoscape({
       container: container,
-      elements: elements,
+      elements: buildElements(),
       minZoom: 0.5, maxZoom: 2.5, wheelSensitivity: 0.3,
       style: [
         { selector: 'node', style: {
@@ -630,21 +657,47 @@
         { selector: 'edge.highlighted', style: { 'width': 2.5, 'line-color': graphTheme.edgeHi, 'target-arrow-color': graphTheme.edgeHi, 'color': graphTheme.edgeText }},
         { selector: 'node.dimmed', style: { 'opacity': 0.25 }},
         { selector: 'edge.dimmed', style: { 'opacity': 0.12 }},
-        { selector: '.hidden-by-collapse', style: { 'display': 'none' }},
         { selector: 'node.hovered', style: { 'border-width': 2.5, 'border-opacity': 1, 'overlay-color': '#818cf8', 'overlay-padding': 10, 'overlay-opacity': 0.15 }},
         { selector: 'edge.hover-connected', style: { 'width': 3, 'line-color': graphTheme.edgeHover, 'target-arrow-color': graphTheme.edgeHover, 'color': graphTheme.edgeText, 'z-index': 10 }},
       ],
     });
 
-    cy.nodes().forEach(n => {
-      const tc = typeColors[n.data('nodeType')] || typeColors.worker;
-      n.style({ 'background-color': tc.bg, 'border-color': tc.border, 'color': tc.text });
-    });
+    function applyNodeColors() {
+      cy.nodes().forEach(n => {
+        const tc = typeColors[n.data('nodeType')] || typeColors.worker;
+        n.style({ 'background-color': tc.bg, 'border-color': tc.border, 'color': tc.text });
+      });
+    }
 
+    function rebuildGraph(preserveViewport = true) {
+      const zoom = cy.zoom();
+      const pan = { ...cy.pan() };
+      cy.elements().remove();
+      cy.add(buildElements());
+      applyNodeColors();
+      if (preserveViewport) {
+        cy.zoom(zoom);
+        cy.pan(pan);
+      } else {
+        cy.fit(undefined, 30);
+      }
+    }
+
+    applyNodeColors();
     const nodeCount = data.nodes.length;
     const graphId = normalizeGraphId(container.id);
     const savedLayouts = await loadGraphLayouts();
     const savedLayout = savedLayouts[graphId];
+    (savedLayout?.collapsed_nodes || []).forEach((nodeId) => {
+      expandedGroups[nodeId] = false;
+    });
+    if (Object.keys(expandedGroups).length) {
+      rebuildGraph(false);
+    }
+    cy.nodes().forEach(n => {
+      const tc = typeColors[n.data('nodeType')] || typeColors.worker;
+      n.style({ 'background-color': tc.bg, 'border-color': tc.border, 'color': tc.text });
+    });
     if (!applySavedPositions(cy, savedLayout)) {
       const layoutName = nodeCount <= 3 ? 'grid' : nodeCount <= 8 ? 'dagre' : 'cose-bilkent';
       try {
@@ -656,9 +709,6 @@
         }).run();
       } catch { cy.layout({ name: 'grid', padding: 30 }).run(); }
     }
-    (savedLayout?.collapsed_nodes || []).forEach((nodeId) => {
-      if (cy.getElementById(nodeId).length) setCollapseState(cy, childMap, nodeId, true);
-    });
     cy.fit(undefined, 30);
 
     cy.on('mouseover', 'node', function(evt) {
@@ -698,13 +748,13 @@
       const n = evt.target;
       const d = n.data();
       if (Number(d.childCount || 0) > 0) {
-        const shouldCollapse = !n.hasClass('collapsed-parent');
-        setCollapseState(cy, childMap, d.id, shouldCollapse);
+        expandedGroups[d.id] = Boolean(d.collapsed);
+        rebuildGraph(true);
         cy.nodes().removeClass('selected');
         cy.edges().removeClass('highlighted');
         scheduleGraphLayoutSave(graphId, {
           positions: captureGraphPositions(cy),
-          collapsed_nodes: collectCollapsedNodeIds(cy),
+          collapsed_nodes: Object.entries(expandedGroups).filter(([, expanded]) => expanded === false).map(([nodeId]) => nodeId),
         });
         return;
       }
@@ -726,7 +776,7 @@
     cy.on('dragfree', 'node', function() {
       scheduleGraphLayoutSave(graphId, {
         positions: captureGraphPositions(cy),
-        collapsed_nodes: collectCollapsedNodeIds(cy),
+        collapsed_nodes: Object.entries(expandedGroups).filter(([, expanded]) => expanded === false).map(([nodeId]) => nodeId),
       });
     });
 
