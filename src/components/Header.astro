@@ -17,8 +17,8 @@ interface Props {
 const { project, currentProject, projects: explicitProjects = [], badge, links = [], position = 'fixed', active } = Astro.props;
 const projects = explicitProjects.length > 0 || !currentProject ? explicitProjects : await getProjectIndex();
 const hasProjectSwitcher = projects.length > 0;
-const displayProject = displayProjectTitle(project);
 const currentProjectParts = splitDisplayProjectTitle(project);
+const activeLink = links.find((link) => link.label.toLowerCase() === active) || links[0] || null;
 ---
 
 <header class:list={['site-header', position === 'sticky' && 'sticky']}>
@@ -35,8 +35,6 @@ const currentProjectParts = splitDisplayProjectTitle(project);
         <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
         <span class="h-sep"></span>
         <span class="h-logo">
-          {currentProjectParts.owner && <span class="h-logo-owner">{currentProjectParts.owner}</span>}
-          {currentProjectParts.owner && <span class="h-logo-slash">/</span>}
           <span class="h-logo-repo">{currentProjectParts.repo}</span>
         </span>
       </button>
@@ -46,18 +44,28 @@ const currentProjectParts = splitDisplayProjectTitle(project);
         <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
         <span class="h-sep"></span>
         <span class="h-logo">
-          {currentProjectParts.owner && <span class="h-logo-owner">{currentProjectParts.owner}</span>}
-          {currentProjectParts.owner && <span class="h-logo-slash">/</span>}
           <span class="h-logo-repo">{currentProjectParts.repo}</span>
         </span>
       </a>
     )}
-    {badge && <span class="h-env">{badge}</span>}
+    {activeLink && (
+      <details class="h-route-menu">
+        <summary class="h-route-summary" title="Switch project view">
+          <span class="h-route-slash">/</span>
+          <span class="h-route-label">{activeLink.label.toLowerCase()}</span>
+        </summary>
+        <div class="h-route-list">
+          {links.map((link) => (
+            <a class:list={['h-route-item', active === link.label.toLowerCase() && 'h-route-item-active']} href={link.href}>
+              {link.label.toLowerCase()}
+            </a>
+          ))}
+        </div>
+      </details>
+    )}
+    {(currentProjectParts.owner || badge) && <span class="h-env">{currentProjectParts.owner || badge}</span>}
   </div>
   <div class="h-right">
-    {links.map(link => (
-      <a class:list={['h-link', active === link.label.toLowerCase() && 'h-link-active']} href={link.href}>{link.label}</a>
-    ))}
     <button class="h-theme-toggle" title="Toggle theme" aria-label="Toggle dark/light theme">
       <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -184,17 +192,8 @@ const currentProjectParts = splitDisplayProjectTitle(project);
     position: sticky;
     height: 48px;
   }
-  .h-left { display: flex; align-items: center; gap: .6rem; }
+  .h-left { display: flex; align-items: center; gap: .5rem; min-width: 0; }
   .h-logo { display: inline-flex; align-items: baseline; gap: .2rem; letter-spacing: -.02em; }
-  .h-logo-owner {
-    font-size: .72rem;
-    font-weight: 600;
-    color: var(--text-4);
-  }
-  .h-logo-slash {
-    font-size: .72rem;
-    color: var(--text-4);
-  }
   .h-logo-repo {
     font-weight: 700;
     font-size: .85rem;
@@ -209,13 +208,6 @@ const currentProjectParts = splitDisplayProjectTitle(project);
     background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.2);
   }
   .h-right { display: flex; gap: .4rem; align-items: center; }
-  .h-link {
-    font-size: .7rem; color: var(--text-4); text-decoration: none;
-    padding: .2rem .5rem; border: 1px solid var(--border); border-radius: 4px;
-    transition: all .2s;
-  }
-  .h-link:hover { color: var(--text-2); }
-  .h-link-active { color: var(--text-2); }
   .h-brand {
     display: flex; align-items: center; gap: .6rem;
     color: inherit; text-decoration: none;
@@ -225,6 +217,65 @@ const currentProjectParts = splitDisplayProjectTitle(project);
     border: none;
     padding: 0;
     cursor: pointer;
+  }
+  .h-route-menu {
+    position: relative;
+  }
+  .h-route-summary {
+    list-style: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: .08rem;
+    cursor: pointer;
+    padding: 0;
+  }
+  .h-route-summary::-webkit-details-marker { display: none; }
+  .h-route-slash {
+    font-size: .72rem;
+    color: var(--text-4);
+  }
+  .h-route-label {
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--text-3);
+  }
+  .h-route-menu[open] .h-route-label,
+  .h-route-summary:hover .h-route-label {
+    color: var(--text-2);
+  }
+  .h-route-list {
+    position: absolute;
+    top: calc(100% + .55rem);
+    left: -.35rem;
+    min-width: 8rem;
+    padding: .35rem;
+    display: grid;
+    gap: .2rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(9,9,11,.96);
+    backdrop-filter: blur(16px) saturate(180%);
+    box-shadow: 0 16px 36px rgba(0,0,0,.26);
+    z-index: 120;
+  }
+  .h-route-item {
+    display: block;
+    text-decoration: none;
+    color: var(--text-3);
+    font-size: .74rem;
+    font-weight: 600;
+    padding: .38rem .55rem;
+    border-radius: 8px;
+    transition: all .18s ease;
+  }
+  .h-route-item:hover {
+    color: var(--text-2);
+    background: rgba(39,39,42,.7);
+  }
+  .h-route-item-active {
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
   }
   .h-brand img {
     height: 32px; width: auto; max-height: 32px; opacity: 0.8;
@@ -266,24 +317,34 @@ const currentProjectParts = splitDisplayProjectTitle(project);
     background: rgba(255,255,255,0.9);
     border-bottom-color: #e4e4e7;
   }
-  :global([data-theme='light']) .h-logo-owner,
-  :global([data-theme='light']) .h-logo-slash { color: #71717a; }
   :global([data-theme='light']) .h-logo-repo { color: #18181b; }
+  :global([data-theme='light']) .h-route-slash { color: #71717a; }
+  :global([data-theme='light']) .h-route-label { color: #52525b; }
+  :global([data-theme='light']) .h-route-menu[open] .h-route-label,
+  :global([data-theme='light']) .h-route-summary:hover .h-route-label { color: #18181b; }
+  :global([data-theme='light']) .h-route-list {
+    background: rgba(255,255,255,.98);
+    border-color: #d4d4d8;
+    box-shadow: 0 16px 36px rgba(24,24,27,.12);
+  }
+  :global([data-theme='light']) .h-route-item {
+    color: #52525b;
+  }
+  :global([data-theme='light']) .h-route-item:hover {
+    color: #18181b;
+    background: rgba(24,24,27,.05);
+  }
+  :global([data-theme='light']) .h-route-item-active {
+    color: #3730a3;
+    background: rgba(79,70,229,.08);
+    border-color: rgba(79,70,229,.18);
+  }
   :global([data-theme='light']) .h-env {
     background: rgba(251,191,36,0.15);
     color: #92400e;
     border-color: rgba(251,191,36,0.3);
   }
   :global([data-theme='light']) .h-sep { background: #d4d4d8; }
-  :global([data-theme='light']) .h-link {
-    color: #3f3f46;
-    border-color: #d4d4d8;
-  }
-  :global([data-theme='light']) .h-link:hover,
-  :global([data-theme='light']) .h-link-active {
-    color: #18181b;
-    border-color: #a1a1aa;
-  }
   :global([data-theme='light']) .h-theme-toggle {
     color: #52525b;
     border-color: #d4d4d8;

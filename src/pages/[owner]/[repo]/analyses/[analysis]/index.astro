@@ -1,7 +1,6 @@
 ---
 import Base from '../../../../../layouts/Base.astro';
 import Header from '../../../../../components/Header.astro';
-import PageNav from '../../../../../components/PageNav.astro';
 import JourneyStyles from '../../../../../components/journey/JourneyStyles.astro';
 import JourneyNav from '../../../../../components/journey/JourneyNav.astro';
 import LandingSection from '../../../../../components/journey/LandingSection.astro';
@@ -55,14 +54,17 @@ function parseSummary(text: string): string {
 
 <Base title={`${defaultJourney.title} — ${analysisId}`}>
   <JourneyStyles />
-  <Header project={project} currentProject={project} badge="snapshot" position="sticky" />
-  <div class="page-mode-shell">
-    <PageNav tabs={[
-      { label: 'Journey', href: projectAnalysisRoutePath(project, analysis), active: true },
+  <Header
+    project={project}
+    currentProject={project}
+    position="sticky"
+    links={[
+      { label: 'Journey', href: projectAnalysisRoutePath(project, analysis) },
       { label: 'Atlas', href: projectAnalysisAtlasRoutePath(project, analysis) },
       { label: 'History', href: projectAnalysesRoutePath(project) },
-    ]} />
-  </div>
+    ]}
+    active="journey"
+  />
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
   <LandingSection
@@ -98,16 +100,3 @@ function parseSummary(text: string): string {
   <Drawer project={project} />
   <JourneyScript />
 </Base>
-
-<style>
-  .page-mode-shell {
-    max-width: 680px;
-    margin: 0 auto;
-    padding: .65rem 1.5rem 0;
-  }
-  @media (max-width: 640px) {
-    .page-mode-shell {
-      padding: .65rem 1rem 0;
-    }
-  }
-</style>

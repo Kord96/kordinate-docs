@@ -1,7 +1,6 @@
 ---
 import Base from '../../../../layouts/Base.astro';
 import Header from '../../../../components/Header.astro';
-import PageNav from '../../../../components/PageNav.astro';
 import { getProjectAnalyses, getProjectAtlas, getProjectIndex, projectAnalysesRoutePath, projectAnalysisAtlasRoutePath, projectAnalysisRoutePath, projectAtlasRoutePath, projectRoutePath, slugFromRouteParts } from '../../../../lib/docs-data';
 
 export async function getStaticPaths() {
@@ -21,12 +20,17 @@ const [atlas, analyses] = await Promise.all([
 ---
 
 <Base title={`${atlas.project || project} — Analyses`}>
-  <Header project={project} currentProject={project} badge="dev" position="sticky" />
-  <PageNav tabs={[
-    { label: 'Journey', href: projectRoutePath(project) },
-    { label: 'Atlas', href: projectAtlasRoutePath(project) },
-    { label: 'History', href: projectAnalysesRoutePath(project), active: true },
-  ]} />
+  <Header
+    project={project}
+    currentProject={project}
+    position="sticky"
+    links={[
+      { label: 'Journey', href: projectRoutePath(project) },
+      { label: 'Atlas', href: projectAtlasRoutePath(project) },
+      { label: 'History', href: projectAnalysesRoutePath(project) },
+    ]}
+    active="history"
+  />
 
   <main class="history">
     <section class="history-hero">

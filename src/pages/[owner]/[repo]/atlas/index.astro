@@ -1,7 +1,6 @@
 ---
 import Base from '../../../../layouts/Base.astro';
 import Header from '../../../../components/Header.astro';
-import PageNav from '../../../../components/PageNav.astro';
 import PillNav from '../../../../components/PillNav.astro';
 import AtlasStyles from '../../../../components/atlas/AtlasStyles.astro';
 import MetadataSection from '../../../../components/atlas/MetadataSection.astro';
@@ -53,12 +52,17 @@ function severity(s: string) {
 <Base title={`${displayProjectTitle(project, atlas.project)} — Atlas`}>
   <AtlasStyles />
 
-  <Header project={project} currentProject={project} badge="dev" position="sticky" />
-  <PageNav tabs={[
-    {label: "Journey", href: projectRoutePath(project)},
-    {label: "Atlas", href: projectAtlasRoutePath(project), active: true},
-    {label: "History", href: projectAnalysesRoutePath(project)},
-  ]} />
+  <Header
+    project={project}
+    currentProject={project}
+    position="sticky"
+    links={[
+      {label: "Journey", href: projectRoutePath(project)},
+      {label: "Atlas", href: projectAtlasRoutePath(project)},
+      {label: "History", href: projectAnalysesRoutePath(project)},
+    ]}
+    active="atlas"
+  />
 
   <div class="container">
     <div class="section" id="sec-overview">

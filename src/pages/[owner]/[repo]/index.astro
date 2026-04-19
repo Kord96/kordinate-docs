@@ -1,7 +1,6 @@
 ---
 import Base from '../../../layouts/Base.astro';
 import Header from '../../../components/Header.astro';
-import PageNav from '../../../components/PageNav.astro';
 import JourneyStyles from '../../../components/journey/JourneyStyles.astro';
 import JourneyNav from '../../../components/journey/JourneyNav.astro';
 import LandingSection from '../../../components/journey/LandingSection.astro';
@@ -57,14 +56,17 @@ function parseSummary(text: string): string {
 <Base title={defaultJourney.title}>
   <JourneyStyles />
 
-  <Header project={project} currentProject={project} badge="dev" position="sticky" />
-  <div class="page-mode-shell">
-    <PageNav tabs={[
-      {label: "Journey", href: projectRoutePath(project), active: true},
+  <Header
+    project={project}
+    currentProject={project}
+    position="sticky"
+    links={[
+      {label: "Journey", href: projectRoutePath(project)},
       {label: "Atlas", href: projectAtlasRoutePath(project)},
       {label: "History", href: projectAnalysesRoutePath(project)},
-    ]} />
-  </div>
+    ]}
+    active="journey"
+  />
 
   <JourneyNav journeys={journeys} defaultJourney={defaultJourney} stories={stories} />
 
@@ -104,16 +106,3 @@ function parseSummary(text: string): string {
   <Drawer project={project} />
   <JourneyScript />
 </Base>
-
-<style>
-  .page-mode-shell {
-    max-width: 680px;
-    margin: 0 auto;
-    padding: .65rem 1.5rem 0;
-  }
-  @media (max-width: 640px) {
-    .page-mode-shell {
-      padding: .65rem 1rem 0;
-    }
-  }
-</style>
