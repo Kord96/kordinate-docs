@@ -3,8 +3,8 @@
  * Cytoscape component dependency view with expand/collapse roots,
  * hover tooltips, click for details, fullscreen.
  */
-interface Props { components: any[]; extDeps: any[]; patterns?: any[]; embedded?: boolean; }
-const { components, extDeps, patterns = [], embedded = false } = Astro.props;
+interface Props { components: any[]; extDeps: any[]; patterns?: any[]; embedded?: boolean; projectApiPath?: string; }
+const { components, extDeps, patterns = [], embedded = false, projectApiPath = '' } = Astro.props;
 
 const rootComponents = components.filter((component: any) => !component.parent);
 const groupedRoots = rootComponents.filter((component: any) => Array.isArray(component.children) && component.children.length > 0);
@@ -199,7 +199,7 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
   :global([data-theme='light']) .graph-counter { color: #52525b; }
 </style>
 
-<script is:inline define:vars={{ groupedRoots, standaloneRoots, components, extDeps, patterns }}>
+<script is:inline define:vars={{ groupedRoots, standaloneRoots, components, extDeps, patterns, projectApiPath }}>
 (function() {
   function loadScript(src) {
     return new Promise(function(resolve, reject) {
@@ -217,7 +217,50 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
   var totalNodes = components.length + extDeps.length;
   var expandedGroups = {};
   var componentById = {};
+  var graphId = 'atlas-component-dependency';
+  var graphLayoutsCache = null;
+  var saveTimer = null;
   components.forEach(function(component) { componentById[component.id] = component; });
+
+  function loadGraphLayouts() {
+    if (graphLayoutsCache) return Promise.resolve(graphLayoutsCache);
+    if (!projectApiPath) return Promise.resolve({});
+    return fetch('/api' + projectApiPath + '/ui/graph-layouts')
+      .then(function(response) { return response.ok ? response.json() : { graph_layouts: {} }; })
+      .then(function(payload) {
+        graphLayoutsCache = payload && payload.graph_layouts ? payload.graph_layouts : {};
+        return graphLayoutsCache;
+      })
+      .catch(function() {
+        graphLayoutsCache = {};
+        return graphLayoutsCache;
+      });
+  }
+
+  function capturePositions(cy) {
+    var result = {};
+    cy.nodes().forEach(function(node) {
+      var position = node.position();
+      result[node.id()] = { x: Number(position.x.toFixed(2)), y: Number(position.y.toFixed(2)) };
+    });
+    return result;
+  }
+
+  function scheduleSave(cy) {
+    if (!projectApiPath) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function() {
+      saveTimer = null;
+      var layout = { positions: capturePositions(cy), expanded_groups: Object.keys(expandedGroups) };
+      graphLayoutsCache = graphLayoutsCache || {};
+      graphLayoutsCache[graphId] = layout;
+      fetch('/api' + projectApiPath + '/ui/graph-layouts', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ graph_id: graphId, layout: layout })
+      }).catch(function() {});
+    }, 320);
+  }
 
   function resolveVisibleNode(componentId) {
     var component = componentById[componentId];
@@ -287,7 +330,7 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
   }
 
   function runLayout(cy, animate) {
-    cy.layout({
+    return cy.layout({
       name: 'cose-bilkent',
       quality: 'proof',
       nodeDimensionsIncludeLabels: true,
@@ -304,7 +347,19 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
       animationDuration: animate ? 400 : 0,
       fit: true,
       padding: 60
-    }).run();
+    });
+  }
+
+  function applySavedPositions(cy, saved) {
+    if (!saved || !saved.positions) return false;
+    var applied = 0;
+    cy.nodes().forEach(function(node) {
+      var position = saved.positions[node.id()];
+      if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') return;
+      node.position(position);
+      applied += 1;
+    });
+    return applied > 0;
   }
 
   function rebuildGraph(cy, animate) {
@@ -312,7 +367,12 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
     cy.elements().remove();
     cy.add(result.elements);
     updateCounter(result.visibleCount);
-    runLayout(cy, animate);
+    var saved = graphLayoutsCache && graphLayoutsCache[graphId];
+    if (!applySavedPositions(cy, saved)) {
+      runLayout(cy, animate).run();
+    } else {
+      cy.fit(undefined, 60);
+    }
   }
 
   function showDetail(nodeId, nodeType) {
@@ -424,7 +484,15 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
         { selector: 'edge.dimmed', style: { 'opacity': 0.06 } }
       ]
     });
-    rebuildGraph(cy, false);
+    loadGraphLayouts().then(function(layouts) {
+      graphLayoutsCache = layouts || {};
+      var saved = graphLayoutsCache[graphId];
+      if (saved && Array.isArray(saved.expanded_groups)) {
+        expandedGroups = {};
+        saved.expanded_groups.forEach(function(id) { expandedGroups[id] = true; });
+      }
+      rebuildGraph(cy, false);
+    });
 
     var tooltip = document.getElementById('cy-tooltip');
     var ttName = tooltip.querySelector('.tt-name');
@@ -460,6 +528,7 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
       if (node.data('hasChildren')) {
         if (expandedGroups[id]) delete expandedGroups[id]; else expandedGroups[id] = true;
         rebuildGraph(cy, true);
+        scheduleSave(cy);
         return;
       }
       showDetail(id, node.data('nodeType'));
@@ -476,12 +545,15 @@ const standaloneRoots = rootComponents.filter((component: any) => !Array.isArray
     document.getElementById('btn-expand-all').addEventListener('click', function() {
       groupedRoots.forEach(function(root) { expandedGroups[root.id] = true; });
       rebuildGraph(cy, false);
+      scheduleSave(cy);
     });
     document.getElementById('btn-collapse-all').addEventListener('click', function() {
       expandedGroups = {};
       rebuildGraph(cy, true);
+      scheduleSave(cy);
     });
     document.getElementById('btn-fit').addEventListener('click', function() { cy.fit(undefined, 60); });
+    cy.on('dragfree', 'node', function() { scheduleSave(cy); });
 
     var wrap = document.getElementById('graph-wrap');
     var fsBtn = document.getElementById('btn-fullscreen');

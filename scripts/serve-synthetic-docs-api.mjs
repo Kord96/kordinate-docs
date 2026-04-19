@@ -68,6 +68,58 @@ function overlayRoot(project, overlayId) {
   return path.join(projectRoot(project), 'overlays', overlayId);
 }
 
+function ensureDir(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function ensureLayoutOverlay(project, overlayId = 'ui-layout') {
+  const root = overlayRoot(project, overlayId);
+  ensureDir(root);
+  const metaPath = path.join(root, 'meta.json');
+  if (!fs.existsSync(metaPath)) {
+    fs.writeFileSync(metaPath, JSON.stringify({
+      overlay_id: overlayId,
+      project,
+      title: 'UI Layout',
+      description: 'Persisted graph layouts and view preferences.',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, null, 2));
+  }
+  return root;
+}
+
+function loadGraphLayouts(project, overlayId = 'ui-layout') {
+  const filePath = path.join(overlayRoot(project, overlayId), 'graph-layouts.json');
+  return readJsonIfExists(filePath) || { overlay_id: overlayId, graph_layouts: {} };
+}
+
+function saveGraphLayouts(project, payload, overlayId = 'ui-layout') {
+  const root = ensureLayoutOverlay(project, overlayId);
+  const filePath = path.join(root, 'graph-layouts.json');
+  const nextPayload = {
+    overlay_id: overlayId,
+    updated_at: new Date().toISOString(),
+    graph_layouts: payload?.graph_layouts || {},
+  };
+  fs.writeFileSync(filePath, JSON.stringify(nextPayload, null, 2));
+
+  const metaPath = path.join(root, 'meta.json');
+  const meta = readJsonIfExists(metaPath) || { overlay_id: overlayId, project, title: 'UI Layout' };
+  meta.updated_at = nextPayload.updated_at;
+  fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+
+  return nextPayload;
+}
+
+async function readJsonBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const raw = Buffer.concat(chunks).toString('utf8').trim();
+  if (!raw) return {};
+  return JSON.parse(raw);
+}
+
 function loadStoryDirectory(dirPath) {
   if (!fs.existsSync(dirPath)) return [];
   return fs.readdirSync(dirPath)
@@ -306,6 +358,31 @@ function handleProjectOverlay(req, res, project, overlayId) {
   sendJson(res, 200, loadOverlayMeta(project, overlayId));
 }
 
+function handleProjectGraphLayouts(req, res, project) {
+  sendJson(res, 200, loadGraphLayouts(project));
+}
+
+async function handleProjectGraphLayoutsUpdate(req, res, project) {
+  const body = await readJsonBody(req);
+  const graphId = String(body?.graph_id || '').trim();
+  if (!graphId) return sendJson(res, 400, { error: 'graph_id_required' });
+
+  const current = loadGraphLayouts(project);
+  const currentLayouts = current.graph_layouts || {};
+  const nextEntry = {
+    ...(currentLayouts[graphId] || {}),
+    ...(body?.layout && typeof body.layout === 'object' ? body.layout : {}),
+  };
+  const next = {
+    ...current,
+    graph_layouts: {
+      ...currentLayouts,
+      [graphId]: nextEntry,
+    },
+  };
+  sendJson(res, 200, saveGraphLayouts(project, next));
+}
+
 const server = http.createServer(async (req, res) => {
   if (!req.url) return sendText(res, 400, 'missing url');
 
@@ -319,7 +396,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && parts.length === 1 && parts[0] === 'projects') {
       return await handleProjects(req, res);
     }
-    if (req.method === 'GET' && parts[0] === 'projects' && parts.length >= 3) {
+    if (parts[0] === 'projects' && parts.length >= 3) {
       const project = slugFromParts(parts[1], parts[2]);
       const nextIndex = 3;
       if (!project) return sendJson(res, 404, { error: 'project_not_found' });
@@ -343,6 +420,10 @@ const server = http.createServer(async (req, res) => {
       }
       if (parts.length === nextIndex + 2 && parts[nextIndex] === 'overlays') {
         return handleProjectOverlay(req, res, project, parts[nextIndex + 1]);
+      }
+      if (parts.length === nextIndex + 2 && parts[nextIndex] === 'ui' && parts[nextIndex + 1] === 'graph-layouts') {
+        if (req.method === 'GET') return handleProjectGraphLayouts(req, res, project);
+        if (req.method === 'PUT') return await handleProjectGraphLayoutsUpdate(req, res, project);
       }
     }
     return sendJson(res, 404, { error: 'not_found' });

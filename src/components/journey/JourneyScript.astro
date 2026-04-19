@@ -149,6 +149,73 @@
 
   function formatId(id) { return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
 
+  const projectData = JSON.parse(document.getElementById('project-data')?.textContent || '{}');
+  const atlasDetailData = JSON.parse(document.getElementById('atlas-detail-data')?.textContent || '{}');
+  const projectApiBasePath = projectData.apiBasePath || '';
+  let graphLayoutsPromise = null;
+  let graphLayoutsCache = null;
+  const saveLayoutTimers = new Map();
+
+  function normalizeGraphId(id) {
+    return String(id || '').replace(/^focus-/, '');
+  }
+
+  async function loadGraphLayouts() {
+    if (!projectApiBasePath) return {};
+    if (!graphLayoutsPromise) {
+      graphLayoutsPromise = fetch(`${projectApiBasePath}/ui/graph-layouts`)
+        .then((response) => response.ok ? response.json() : { graph_layouts: {} })
+        .then((payload) => {
+          graphLayoutsCache = payload?.graph_layouts || {};
+          return graphLayoutsCache;
+        })
+        .catch(() => {
+          graphLayoutsCache = {};
+          return graphLayoutsCache;
+        });
+    }
+    return graphLayoutsPromise;
+  }
+
+  function captureGraphPositions(cy) {
+    return Object.fromEntries(
+      cy.nodes().map((node) => {
+        const position = node.position();
+        return [node.id(), { x: Number(position.x.toFixed(2)), y: Number(position.y.toFixed(2)) }];
+      }),
+    );
+  }
+
+  function applySavedPositions(cy, saved) {
+    if (!saved || !saved.positions) return false;
+    let applied = 0;
+    cy.nodes().forEach((node) => {
+      const position = saved.positions[node.id()];
+      if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') return;
+      node.position(position);
+      applied += 1;
+    });
+    return applied > 0;
+  }
+
+  function scheduleGraphLayoutSave(graphId, layout) {
+    if (!projectApiBasePath || !graphId) return;
+    const normalizedId = normalizeGraphId(graphId);
+    if (saveLayoutTimers.has(normalizedId)) clearTimeout(saveLayoutTimers.get(normalizedId));
+    saveLayoutTimers.set(normalizedId, setTimeout(async () => {
+      saveLayoutTimers.delete(normalizedId);
+      graphLayoutsCache = graphLayoutsCache || {};
+      graphLayoutsCache[normalizedId] = { ...(graphLayoutsCache[normalizedId] || {}), ...layout };
+      try {
+        await fetch(`${projectApiBasePath}/ui/graph-layouts`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ graph_id: normalizedId, layout }),
+        });
+      } catch {}
+    }, 320));
+  }
+
   function showNodeDetail(data, refs) {
     const storyList = (refs[data.id] || []).map(s =>
       '<a class="detail-link" href="#' + currentJourneyId + '-s1" data-story="' + s + '">' + formatId(s) + '</a>'
@@ -166,13 +233,33 @@
       '<a class="detail-link detail-dep" data-node="' + id + '">' + formatId(id) + '</a>'
     ).join(' ');
     const health = data.health || {};
-    const localFailures = ((health.local || {}).failure_modes || []).map(f =>
-      '<li>' + (f.impact || f.trigger || f.id) + '</li>'
+    const healthCriteria = (health.criteria || []).map((item) => '<li>' + item + '</li>').join('');
+    const scenarioIds = [...new Set([
+      ...(health.triggers_failure_scenarios || []),
+      ...(health.participates_in_failure_scenarios || []),
+      ...((atlasDetailData.failureScenariosByTarget || {})[data.id] || []).map((item) => item.id),
+    ])];
+    const scenarioList = scenarioIds.map((scenarioId) => {
+      const scenario = (atlasDetailData.failureScenarioById || {})[scenarioId] || {};
+      const title = scenario.name || scenarioId;
+      const summary = scenario.summary || scenario.degraded_mode || '';
+      return '<li><strong>' + title + '</strong>' + (summary ? '<div style="margin-top:.18rem;color:var(--text-4);line-height:1.45;">' + summary + '</div>' : '') + '</li>';
+    }).join('');
+    const monitoringList = (((atlasDetailData.monitoringByTarget || {})[data.id]) || []).map((item) =>
+      '<li><strong>' + (item.name || item.id) + '</strong>' + (item.summary ? '<div style="margin-top:.18rem;color:var(--text-4);line-height:1.45;">' + item.summary + '</div>' : '') + '</li>'
     ).join('');
-    const integrationFailures = ((health.integration || {}).failure_modes || []).map(f =>
-      '<li>' + (f.impact || f.trigger || f.id) + '</li>'
+    const gapList = (((atlasDetailData.gapsByTarget || {})[data.id]) || []).map((item) =>
+      '<li><strong>' + (item.title || item.id) + '</strong>'
+      + (item.kind ? '<span class="detail-type-badge" style="margin-left:.35rem;">' + item.kind + '</span>' : '')
+      + (item.summary ? '<div style="margin-top:.18rem;color:var(--text-4);line-height:1.45;">' + item.summary + '</div>' : '')
+      + (item.recommendation ? '<div style="margin-top:.18rem;color:var(--accent);line-height:1.45;">→ ' + item.recommendation + '</div>' : '')
+      + '</li>'
     ).join('');
-    const summaryText = data.summary || data.description || data.purpose || '';
+    const summaryText = data.summary || data.purpose || data.description || '';
+    const purposeText = data.purpose && data.purpose !== summaryText ? data.purpose : '';
+    const usedByList = (data.components || []).map((id) =>
+      '<a class="detail-link detail-dep" data-node="' + id + '">' + formatId(id) + '</a>'
+    ).join(' ');
 
     let html = '<div class="detail-header">';
     html += '<div class="detail-name">' + (data.name || formatId(data.id)) + '</div>';
@@ -182,15 +269,15 @@
     html += '</div>';
 
     if (summaryText) html += '<div class="detail-desc">' + summaryText + '</div>';
+    if (purposeText) html += '<div class="detail-section"><div class="detail-label">Why It Matters</div><div class="detail-desc" style="margin:0;padding-bottom:0;border-bottom:none;">' + purposeText + '</div></div>';
     if (children) html += '<div class="detail-section"><div class="detail-label">Subcomponents</div><div class="detail-links">' + children + '</div></div>';
     if (modules) html += '<div class="detail-section"><div class="detail-label">Files</div>' + modules + '</div>';
     if (depList) html += '<div class="detail-section"><div class="detail-label">Dependencies</div><div class="detail-links">' + depList + '</div></div>';
-    if (localFailures || integrationFailures) {
-      html += '<div class="detail-section"><div class="detail-label">Health</div>';
-      if (localFailures) html += '<div style="font-size:.68rem;color:var(--text-4);margin:.2rem 0 .15rem;">Local</div><ul>' + localFailures + '</ul>';
-      if (integrationFailures) html += '<div style="font-size:.68rem;color:var(--text-4);margin:.45rem 0 .15rem;">Integration</div><ul>' + integrationFailures + '</ul>';
-      html += '</div>';
-    }
+    if (usedByList) html += '<div class="detail-section"><div class="detail-label">Used By</div><div class="detail-links">' + usedByList + '</div></div>';
+    if (healthCriteria) html += '<div class="detail-section"><div class="detail-label">Healthy When</div><ul>' + healthCriteria + '</ul></div>';
+    if (scenarioList) html += '<div class="detail-section"><div class="detail-label">Failure Scenarios</div><ul>' + scenarioList + '</ul></div>';
+    if (monitoringList) html += '<div class="detail-section"><div class="detail-label">Monitoring</div><ul>' + monitoringList + '</ul></div>';
+    if (gapList) html += '<div class="detail-section"><div class="detail-label">Gaps</div><ul>' + gapList + '</ul></div>';
     if (storyList) html += '<div class="detail-section"><div class="detail-label">Appears in stories</div><div class="detail-links">' + storyList + '</div></div>';
 
     panelDetail.innerHTML = html;
@@ -212,7 +299,7 @@
   graphTooltip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.15s;max-width:260px;padding:8px 12px;border-radius:8px;background:rgba(12,12,14,0.95);border:1px solid rgba(129,140,248,0.3);color:#e4e4e7;font:12px/1.5 Inter,sans-serif;backdrop-filter:blur(8px);box-shadow:0 4px 20px rgba(0,0,0,0.5);';
   document.body.appendChild(graphTooltip);
 
-  function initGraph(container) {
+  async function initGraph(container) {
     const data = JSON.parse(container.dataset.graph);
     const refs = JSON.parse(container.dataset.refs || '{}');
 
@@ -316,15 +403,20 @@
     });
 
     const nodeCount = data.nodes.length;
-    const layoutName = nodeCount <= 3 ? 'grid' : nodeCount <= 8 ? 'dagre' : 'cose-bilkent';
-    try {
-      cy.layout({
-        name: layoutName,
-        ...(layoutName === 'dagre' ? { rankDir: 'TB', nodeSep: 60, rankSep: 100, edgeSep: 20, spacingFactor: 1.05 } :
-            layoutName === 'cose-bilkent' ? { idealEdgeLength: 140, nodeRepulsion: 7000 } :
-            { rows: 1, padding: 30 })
-      }).run();
-    } catch { cy.layout({ name: 'grid', padding: 30 }).run(); }
+    const graphId = normalizeGraphId(container.id);
+    const savedLayouts = await loadGraphLayouts();
+    const savedLayout = savedLayouts[graphId];
+    if (!applySavedPositions(cy, savedLayout)) {
+      const layoutName = nodeCount <= 3 ? 'grid' : nodeCount <= 8 ? 'dagre' : 'cose-bilkent';
+      try {
+        cy.layout({
+          name: layoutName,
+          ...(layoutName === 'dagre' ? { rankDir: 'TB', nodeSep: 60, rankSep: 100, edgeSep: 20, spacingFactor: 1.05 } :
+              layoutName === 'cose-bilkent' ? { idealEdgeLength: 140, nodeRepulsion: 7000 } :
+              { rows: 1, padding: 30 })
+        }).run();
+      } catch { cy.layout({ name: 'grid', padding: 30 }).run(); }
+    }
     cy.fit(undefined, 30);
 
     cy.on('mouseover', 'node', function(evt) {
@@ -376,6 +468,10 @@
         cy.edges().removeClass('highlighted');
         closeDrawer();
       }
+    });
+
+    cy.on('dragfree', 'node', function() {
+      scheduleGraphLayoutSave(graphId, { positions: captureGraphPositions(cy) });
     });
 
     container._cy = cy;

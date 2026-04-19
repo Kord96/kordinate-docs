@@ -15,7 +15,7 @@ import MonitoringSection from '../../../../components/atlas/MonitoringSection.as
 import GapsSection from '../../../../components/atlas/GapsSection.astro';
 import PatternsSection from '../../../../components/atlas/PatternsSection.astro';
 import TensionsSection from '../../../../components/atlas/TensionsSection.astro';
-import { displayProjectTitle, getProjectAtlas, getProjectIndex, projectAnalysesRoutePath, projectAtlasRoutePath, projectRoutePath, slugFromRouteParts } from '../../../../lib/docs-data';
+import { displayProjectTitle, getProjectAtlas, getProjectIndex, projectAnalysesRoutePath, projectApiPath, projectAtlasRoutePath, projectRoutePath, slugFromRouteParts } from '../../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
@@ -83,7 +83,7 @@ function severity(s: string) {
     <div class="section" id="components-section">
       <h2 class="section-title">Components</h2>
       <p class="section-sub">{components.length} components arranged by top-level architecture slice, with a dependency view to show runtime relationships.</p>
-      <ArchGraphSection components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} embedded={true} />
+      <ArchGraphSection components={components} extDeps={extDeps} patterns={atlas.concepts?.detected_patterns || []} embedded={true} projectApiPath={projectApiPath(project)} />
       <ComponentsSection components={components} embedded={true} />
     </div>
     <FlowsSection flows={flows} components={components} />

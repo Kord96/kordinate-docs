@@ -10,7 +10,7 @@ import FocusOverlay from '../../../../../components/journey/FocusOverlay.astro';
 import Drawer from '../../../../../components/journey/Drawer.astro';
 import JourneyData from '../../../../../components/journey/JourneyData.astro';
 import JourneyScript from '../../../../../components/journey/JourneyScript.astro';
-import { displayProjectTitle, getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex, projectAnalysesRoutePath, projectAnalysisAtlasRoutePath, projectAnalysisRoutePath, slugFromRouteParts } from '../../../../../lib/docs-data';
+import { displayProjectTitle, getProjectAnalyses, getProjectAnalysisBundle, getProjectIndex, projectAnalysesRoutePath, projectAnalysisAtlasRoutePath, projectAnalysisRoutePath, projectApiPath, slugFromRouteParts } from '../../../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
@@ -108,7 +108,7 @@ function parseSummary(text: string): string {
     ));
   })}
   <FocusOverlay />
-  <JourneyData atlas={atlas} storyByNode={storyByNode} />
+  <JourneyData atlas={atlas} storyByNode={storyByNode} projectApiPath={projectApiPath(project)} />
   <Drawer project={project} />
   <JourneyScript />
 </Base>
