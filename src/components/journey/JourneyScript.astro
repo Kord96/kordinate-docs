@@ -281,6 +281,33 @@
     openDrawer('detail');
   }
 
+  function showSymbolDetail(symbolData) {
+    if (!symbolData) return;
+    let html = '<div class="detail-header">';
+    html += '<div class="detail-name">' + escapeHtml(symbolData.name || 'Symbol') + '</div>';
+    html += '<div class="detail-type"><span class="detail-type-badge">symbol</span>';
+    if (symbolData.kind) html += '<span>' + escapeHtml(symbolData.kind) + '</span>';
+    html += '</div></div>';
+    html += '<div class="detail-desc">Grounded mechanism reference from <code>' + escapeHtml(symbolData.file || 'unknown file') + '</code>.</div>';
+    html += '<div class="detail-section"><div class="detail-label">Grounding</div>';
+    if (symbolData.file) html += '<div class="detail-subsection"><div class="detail-subtitle">File</div><code style="font-size:.72rem;color:var(--accent);display:block;padding:.1rem 0;">' + escapeHtml(symbolData.file) + '</code></div>';
+    if (symbolData.language || symbolData.exported !== undefined) {
+      html += '<div class="detail-subsection"><div class="detail-subtitle">Traits</div><div class="detail-links">';
+      if (symbolData.language) html += '<span class="detail-type-badge">' + escapeHtml(symbolData.language) + '</span>';
+      if (symbolData.kind) html += '<span class="detail-type-badge">' + escapeHtml(symbolData.kind) + '</span>';
+      if (symbolData.exported) html += '<span class="detail-type-badge">exported</span>';
+      html += '</div></div>';
+    }
+    if ((symbolData.reasons || []).length) {
+      html += '<div class="detail-subsection"><div class="detail-subtitle">Why This Is Grounded</div><div class="detail-links">';
+      html += symbolData.reasons.map((item) => '<span class="detail-type-badge">' + escapeHtml(item) + '</span>').join('');
+      html += '</div></div>';
+    }
+    html += '</div>';
+    panelDetail.innerHTML = html;
+    openDrawer('detail');
+  }
+
   function showFlowDetail(flowSupport) {
     if (!flowSupport) return;
     const steps = Array.isArray(flowSupport.steps) ? flowSupport.steps : [];
@@ -1206,10 +1233,18 @@
   // ─── Bold ref clicks → open node detail in drawer ───
   const allCompData = JSON.parse(document.getElementById('comp-data')?.textContent || '{}');
   const allRefs = JSON.parse(document.getElementById('refs-data')?.textContent || '{}');
+  const allSymbolData = JSON.parse(document.getElementById('symbol-data')?.textContent || '{}');
 
   document.addEventListener('click', e => {
     const ref = e.target.closest('.ref');
     if (!ref) return;
+    const refKind = ref.dataset.kind || 'atlas';
+    if (refKind === 'symbol') {
+      const symbolName = ref.dataset.symbol;
+      const symbol = allSymbolData[symbolName];
+      if (symbol) showSymbolDetail(symbol);
+      return;
+    }
     const nodeId = ref.dataset.id;
     const comp = allCompData[nodeId];
     if (comp) showNodeDetail(comp, allRefs);

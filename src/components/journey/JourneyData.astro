@@ -6,9 +6,10 @@ interface Props {
   atlas: any;
   storyByNode: Record<string, string[]>;
   projectApiPath: string;
+  symbolIndex?: Record<string, any>;
 }
 
-const { atlas, storyByNode, projectApiPath } = Astro.props;
+const { atlas, storyByNode, projectApiPath, symbolIndex = {} } = Astro.props;
 
 function uniqueStrings(values: any[]) {
   return [...new Set((values || []).filter((value: any) => typeof value === 'string' && value.length > 0))];
@@ -74,6 +75,7 @@ const gapsByTarget = (atlas.gaps || []).reduce((acc: Record<string, any[]>, item
   ])
 )} />
 <script id="refs-data" type="application/json" set:html={JSON.stringify(storyByNode)} />
+<script id="symbol-data" type="application/json" set:html={JSON.stringify(symbolIndex)} />
 <script id="project-data" type="application/json" set:html={JSON.stringify({ apiBasePath: `/api${projectApiPath}` })} />
 <script id="atlas-detail-data" type="application/json" set:html={JSON.stringify({
   failureScenarioById,

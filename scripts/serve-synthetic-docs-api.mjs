@@ -190,6 +190,7 @@ async function loadAugurRenderedView(project, analysisId) {
     atlas: payload?.atlas || {},
     stories: Array.isArray(payload?.stories) ? payload.stories : [],
     narratives: Array.isArray(payload?.narratives) ? payload.narratives : [],
+    symbols_seed: payload?.symbols_seed || null,
     meta: payload?.meta || {},
   };
 }

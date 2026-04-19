@@ -80,6 +80,7 @@ export interface ProjectBundle {
   storyByNode: Record<string, string[]>;
   journeys: any[];
   storyMap: Record<string, any>;
+  symbolIndex: Record<string, any>;
   analysisId?: string;
   overlayId?: string | null;
 }
@@ -100,6 +101,33 @@ interface ProjectCurrentView {
   atlas?: any;
   stories?: any[];
   narratives?: any[] | { narratives?: any[] };
+  symbols_seed?: any;
+}
+
+function deriveSymbolIndex(symbolsSeed: any) {
+  const index: Record<string, any> = {};
+  const files = Array.isArray(symbolsSeed?.files) ? symbolsSeed.files : [];
+  for (const fileEntry of files) {
+    const file = typeof fileEntry?.file === 'string' ? fileEntry.file : '';
+    const language = typeof fileEntry?.language === 'string' ? fileEntry.language : '';
+    const reasons = Array.isArray(fileEntry?.reasons) ? fileEntry.reasons.filter(Boolean) : [];
+    const symbols = Array.isArray(fileEntry?.symbols) ? fileEntry.symbols : [];
+    for (const symbol of symbols) {
+      const name = typeof symbol?.name === 'string' ? symbol.name.trim() : '';
+      if (!name) continue;
+      const existing = index[name];
+      if (existing) continue;
+      index[name] = {
+        name,
+        kind: typeof symbol?.kind === 'string' ? symbol.kind : '',
+        exported: Boolean(symbol?.exported),
+        file,
+        language,
+        reasons,
+      };
+    }
+  }
+  return index;
 }
 
 function uniqueStrings(values: any[]) {
@@ -245,6 +273,7 @@ export async function getProjectBundle(project: string): Promise<ProjectBundle> 
   const narratives = normalizeNarratives(current?.narratives);
   const journeys = narrativesToJourneys(narratives);
   const storyByNode = deriveStoryByNode(atlas, stories);
+  const symbolIndex = deriveSymbolIndex(current?.symbols_seed);
   const storyMap = Object.fromEntries(
     stories
       .filter((story: any) => story?.id)
@@ -257,6 +286,7 @@ export async function getProjectBundle(project: string): Promise<ProjectBundle> 
     storyByNode,
     journeys,
     storyMap,
+    symbolIndex,
     analysisId: current?.analysis_id,
     overlayId: current?.overlay_id ?? null,
   };
@@ -295,6 +325,7 @@ export async function getProjectAnalysisBundle(project: string, analysisId: stri
   const narratives = normalizeNarratives(view?.narratives);
   const journeys = narrativesToJourneys(narratives);
   const storyByNode = deriveStoryByNode(atlas, stories);
+  const symbolIndex = deriveSymbolIndex(view?.symbols_seed);
   const storyMap = Object.fromEntries(
     stories
       .filter((story: any) => story?.id)
@@ -307,6 +338,7 @@ export async function getProjectAnalysisBundle(project: string, analysisId: stri
     storyByNode,
     journeys,
     storyMap,
+    symbolIndex,
     analysisId: view?.analysis_id || analysisId,
     overlayId: view?.overlay_id ?? overlayId ?? null,
   };

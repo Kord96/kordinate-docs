@@ -22,7 +22,7 @@ export async function getStaticPaths() {
 
 const { owner, repo } = Astro.params;
 const project = slugFromRouteParts(owner, repo);
-const { atlas, storyByNode, journeys, storyMap } = await getProjectBundle(project);
+const { atlas, storyByNode, journeys, storyMap, symbolIndex } = await getProjectBundle(project);
 const displayProject = displayProjectTitle(project, atlas.project);
 
 const defaultJourney = journeys.find((j: any) => j.id === 'system-overview') || journeys[0] || { id: 'default', title: 'Journey', stories: [] };
@@ -42,15 +42,39 @@ const allJourneyTitles = Object.fromEntries(journeys.map((j: any) => [j.id, j.ti
 const compMap: Record<string, any> = {};
 for (const c of (atlas.components || [])) compMap[c.id] = c;
 for (const e of (atlas.external_dependencies || [])) compMap[e.id] = e;
+for (const s of (atlas.state || [])) compMap[s.id] = s;
+
+const atlasRefMap = new Map<string, { kind: string; id: string }>();
+for (const entry of [...(atlas.components || []), ...(atlas.external_dependencies || []), ...(atlas.state || []), ...(atlas.flows || []), ...(atlas.events || []), ...(atlas.concepts?.detected_patterns || []), ...(atlas.tensions || [])]) {
+  if (!entry?.id) continue;
+  const id = String(entry.id);
+  const name = String(entry.name || '').trim();
+  atlasRefMap.set(id, { kind: 'atlas', id });
+  if (name) atlasRefMap.set(name, { kind: 'atlas', id });
+}
 
 const purpose = atlas.purpose || '';
+const symbolNames = Object.keys(symbolIndex).sort((a, b) => b.length - a.length);
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function parseSummary(text: string): string {
-  return text
-    .replace(/\*\*([^*]+?)\*\*/gs, (_: string, name: string) =>
-      `<span class="ref" data-id="${name.toLowerCase().replace(/\s+/g, '-')}">${name}</span>`)
-    .replace(/\n\n/g, '<br><br>')
-    .replace(/\n/g, ' ');
+  let html = text.replace(/\*\*([^*]+?)\*\*/gs, (_: string, name: string) => {
+      const trimmed = name.trim();
+      const atlasRef = atlasRefMap.get(trimmed) || atlasRefMap.get(trimmed.toLowerCase().replace(/\s+/g, '-'));
+      if (atlasRef) return `<span class="ref" data-kind="atlas" data-id="${atlasRef.id}">${name}</span>`;
+      const symbolRef = symbolIndex[trimmed];
+      if (symbolRef) return `<span class="ref" data-kind="symbol" data-symbol="${trimmed}">${name}</span>`;
+      return `<span class="ref" data-kind="unresolved" data-id="${trimmed.toLowerCase().replace(/\s+/g, '-')}">${name}</span>`;
+    })
+  ;
+  for (const symbolName of symbolNames) {
+    const pattern = new RegExp(`(^|[^>\\w])(${escapeRegExp(symbolName)})(?=$|[^<\\w])`, 'g');
+    html = html.replace(pattern, (_m: string, prefix: string, match: string) => `${prefix}<span class="ref" data-kind="symbol" data-symbol="${symbolName}">${match}</span>`);
+  }
+  return html.replace(/\n\n/g, '<br><br>').replace(/\n/g, ' ');
 }
 ---
 
@@ -114,7 +138,7 @@ function parseSummary(text: string): string {
   })}
 
   <FocusOverlay />
-  <JourneyData atlas={atlas} storyByNode={storyByNode} projectApiPath={projectApiPath(project)} />
+  <JourneyData atlas={atlas} storyByNode={storyByNode} projectApiPath={projectApiPath(project)} symbolIndex={symbolIndex} />
   <Drawer projectLabel={displayProject} />
   <JourneyScript />
 </Base>
