@@ -485,11 +485,59 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
     }
     .flow-route {
-      margin-bottom: .22rem; font-size: .77rem;
-      display: flex; align-items: center; flex-wrap: wrap; gap: .25rem;
+      margin-bottom: .38rem;
+      display: flex; align-items: center; flex-wrap: wrap; gap: .45rem;
     }
-    .flow-from { font-weight: 650; color: var(--accent); font-size: .8rem; }
-    .flow-arrow { color: var(--text-4); font-size: .72rem; }
+    .flow-endpoint {
+      display: inline-flex; align-items: center; gap: .45rem;
+      min-height: 2rem; min-width: 0;
+      padding: .28rem .56rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--bg) 84%, var(--bg-raised));
+    }
+    .flow-endpoint-source {
+      border-color: color-mix(in srgb, var(--accent-border) 88%, var(--border));
+      background: color-mix(in srgb, var(--accent-dim) 22%, var(--bg) 78%);
+    }
+    .flow-endpoint-target-crossing {
+      border-color: var(--accent-border);
+      background: color-mix(in srgb, var(--accent-dim) 14%, var(--bg) 86%);
+    }
+    .flow-endpoint-label {
+      font-size: .58rem; font-weight: 700; color: var(--text-4);
+      text-transform: uppercase; letter-spacing: .09em;
+      flex-shrink: 0;
+    }
+    .flow-endpoint-name {
+      font-size: .77rem; line-height: 1.3;
+      font-weight: 650; color: var(--text);
+      min-width: 0;
+    }
+    .flow-endpoint-source .flow-endpoint-name { color: var(--accent); }
+    .flow-transition {
+      display: inline-flex; align-items: center; gap: .45rem;
+      min-height: 2rem; min-width: 0;
+      padding: .28rem .62rem;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--bg-raised) 82%, var(--bg));
+    }
+    .flow-transition-label {
+      font-size: .58rem; font-weight: 700; color: var(--text-4);
+      text-transform: uppercase; letter-spacing: .09em;
+      flex-shrink: 0;
+    }
+    .flow-transition-name {
+      font-size: .75rem; line-height: 1.3;
+      font-weight: 600; color: var(--text-2);
+      min-width: 0;
+    }
+    .flow-arrow {
+      color: var(--text-4); font-size: .86rem; font-weight: 700;
+      line-height: 1;
+      flex-shrink: 0;
+    }
     .flow-action { color: var(--text); font-size: .82rem; line-height: 1.45; }
     .flow-effect { color: var(--text-3); font-size: .76rem; line-height: 1.45; margin-top: .2rem; }
     .flow-step-meta { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; }
@@ -497,6 +545,22 @@
       display: inline-flex; align-items: center; min-height: 1.4rem;
       padding: .18rem .45rem; border-radius: 999px; border: 1px solid var(--border);
       background: var(--bg); color: var(--text-3); font-size: .65rem; line-height: 1.2;
+    }
+    @media (max-width: 720px) {
+      .flow-route { align-items: flex-start; }
+      .flow-endpoint {
+        width: 100%;
+        border-radius: 14px;
+        justify-content: space-between;
+      }
+      .flow-transition {
+        width: 100%;
+        border-radius: 14px;
+      }
+      .flow-arrow {
+        margin-left: .2rem;
+        transform: translateY(.15rem);
+      }
     }
 
     /* ─── Observation ─── */

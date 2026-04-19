@@ -155,10 +155,27 @@ const supportPayload = encodeURIComponent(JSON.stringify({
                 </div>
                 <div class="flow-step-body">
                   <div class="flow-route">
-                    <span class="flow-from">{compMap[step.node]?.name || step.node}</span>
-                    {step.to && <span class="flow-arrow"> → {compMap[step.to]?.name || step.to}</span>}
+                    <span class="flow-endpoint flow-endpoint-source">
+                      <span class="flow-endpoint-label">From</span>
+                      <span class="flow-endpoint-name">{compMap[step.node]?.name || step.node}</span>
+                    </span>
+                    {step.action && (
+                      <span class="flow-transition">
+                        <span class="flow-transition-label">Action</span>
+                        <span class="flow-transition-name">{step.action}</span>
+                      </span>
+                    )}
+                    {step.to && (
+                      <>
+                        <span class="flow-arrow" aria-hidden="true">→</span>
+                        <span class={`flow-endpoint flow-endpoint-target ${step.to !== step.node ? 'flow-endpoint-target-crossing' : ''}`}>
+                          <span class="flow-endpoint-label">To</span>
+                          <span class="flow-endpoint-name">{compMap[step.to]?.name || step.to}</span>
+                        </span>
+                      </>
+                    )}
                   </div>
-                  <div class="flow-action">{step.action || step.effect}</div>
+                  {!step.action && <div class="flow-action">{step.effect}</div>}
                   {step.effect && step.effect !== step.action && <div class="flow-effect">{step.effect}</div>}
                   {(step.technology || step.data || step.transform) && (
                     <div class="flow-step-meta">
