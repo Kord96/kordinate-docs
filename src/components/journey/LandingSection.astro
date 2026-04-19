@@ -13,11 +13,17 @@ interface Props {
 
 const { project, purpose, journeys, defaultJourney, totalStories, domainModel } = Astro.props;
 const dm = domainModel || {};
+const [owner, repo] = String(project || '').split('/');
+const hasOwner = Boolean(owner && repo);
 ---
 
 <section class="snap" id="s0">
   <div class="snap-inner landing">
-    <h1>{project}</h1>
+    <h1>
+      {hasOwner && <span class="landing-owner">{owner}</span>}
+      {hasOwner && <span class="landing-slash">/</span>}
+      <span class="landing-repo">{hasOwner ? repo : project}</span>
+    </h1>
     <p class="landing-sub">{purpose}</p>
     {dm.primary && (
       <div class="landing-badge">

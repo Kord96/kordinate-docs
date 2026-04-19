@@ -65,6 +65,15 @@ export function displayProjectTitle(project: string, title?: string | null) {
   return candidate;
 }
 
+export function splitDisplayProjectTitle(project: string, title?: string | null) {
+  const display = displayProjectTitle(project, title);
+  const parts = display.split('/');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return { owner: parts[0], repo: parts[1], display };
+  }
+  return { owner: '', repo: display, display };
+}
+
 export interface ProjectBundle {
   project: string;
   atlas: any;

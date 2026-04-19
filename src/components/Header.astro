@@ -3,7 +3,7 @@
  * Shared header — translucent bar with logo, badge, nav links, theme toggle.
  * Used by all custom project pages (homepage, journey, atlas, etc.).
  */
-import { displayProjectTitle, getProjectIndex, projectAnalysesRoutePath, projectAtlasRoutePath, projectRoutePath } from '../lib/docs-data';
+import { displayProjectTitle, getProjectIndex, projectAnalysesRoutePath, projectAtlasRoutePath, projectRoutePath, splitDisplayProjectTitle } from '../lib/docs-data';
 
 interface Props {
   project: string;
@@ -18,6 +18,7 @@ const { project, currentProject, projects: explicitProjects = [], badge, links =
 const projects = explicitProjects.length > 0 || !currentProject ? explicitProjects : await getProjectIndex();
 const hasProjectSwitcher = projects.length > 0;
 const displayProject = displayProjectTitle(project);
+const currentProjectParts = splitDisplayProjectTitle(project);
 ---
 
 <header class:list={['site-header', position === 'sticky' && 'sticky']}>
@@ -33,14 +34,22 @@ const displayProject = displayProjectTitle(project);
         <img src="/logo_dark.png?v=2" alt="Kordinate" class="logo-dark" />
         <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
         <span class="h-sep"></span>
-        <span class="h-logo">{displayProject}</span>
+        <span class="h-logo">
+          {currentProjectParts.owner && <span class="h-logo-owner">{currentProjectParts.owner}</span>}
+          {currentProjectParts.owner && <span class="h-logo-slash">/</span>}
+          <span class="h-logo-repo">{currentProjectParts.repo}</span>
+        </span>
       </button>
     ) : (
       <a class="h-brand" href="/" title="Home">
         <img src="/logo_dark.png?v=2" alt="Kordinate" class="logo-dark" />
         <img src="/logo_light.png?v=2" alt="Kordinate" class="logo-light" />
         <span class="h-sep"></span>
-        <span class="h-logo">{displayProject}</span>
+        <span class="h-logo">
+          {currentProjectParts.owner && <span class="h-logo-owner">{currentProjectParts.owner}</span>}
+          {currentProjectParts.owner && <span class="h-logo-slash">/</span>}
+          <span class="h-logo-repo">{currentProjectParts.repo}</span>
+        </span>
       </a>
     )}
     {badge && <span class="h-env">{badge}</span>}
@@ -73,13 +82,18 @@ const displayProject = displayProjectTitle(project);
       <div class="project-switcher-list">
         {projects.map((entry) => {
           const displayTitle = displayProjectTitle(entry.slug, entry.title);
+          const displayParts = splitDisplayProjectTitle(entry.slug, entry.title);
           const isCurrent = currentProject === entry.slug;
           if (isCurrent) {
             return (
               <details class:list={['project-switcher-item', 'project-switcher-item-active']} open>
                 <summary class="project-switcher-summary">
                   <div class="project-switcher-row">
-                    <span class="project-switcher-name">{displayTitle}</span>
+                    <span class="project-switcher-name">
+                      {displayParts.owner && <span class="project-switcher-owner">{displayParts.owner}</span>}
+                      {displayParts.owner && <span class="project-switcher-slash">/</span>}
+                      <span class="project-switcher-repo">{displayParts.repo}</span>
+                    </span>
                     <div class="project-switcher-summary-right">
                       {typeof entry.componentCount === 'number' && entry.componentCount > 0 && <span class="project-switcher-count">{entry.componentCount}</span>}
                       <span class="project-switcher-chevron">▾</span>
@@ -99,7 +113,11 @@ const displayProject = displayProjectTitle(project);
           return (
             <a class="project-switcher-card" href={projectRoutePath(entry.slug)}>
               <div class="project-switcher-row">
-                <span class="project-switcher-name">{displayTitle}</span>
+                <span class="project-switcher-name">
+                  {displayParts.owner && <span class="project-switcher-owner">{displayParts.owner}</span>}
+                  {displayParts.owner && <span class="project-switcher-slash">/</span>}
+                  <span class="project-switcher-repo">{displayParts.repo}</span>
+                </span>
                 {typeof entry.componentCount === 'number' && entry.componentCount > 0 && <span class="project-switcher-count">{entry.componentCount}</span>}
               </div>
               {entry.purpose && <div class="project-switcher-purpose">{entry.purpose}</div>}
@@ -167,7 +185,20 @@ const displayProject = displayProjectTitle(project);
     height: 48px;
   }
   .h-left { display: flex; align-items: center; gap: .6rem; }
-  .h-logo { font-weight: 700; font-size: .85rem; letter-spacing: -.02em; }
+  .h-logo { display: inline-flex; align-items: baseline; gap: .2rem; letter-spacing: -.02em; }
+  .h-logo-owner {
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--text-4);
+  }
+  .h-logo-slash {
+    font-size: .72rem;
+    color: var(--text-4);
+  }
+  .h-logo-repo {
+    font-weight: 700;
+    font-size: .85rem;
+  }
   .h-sep {
     width: 1px; height: 1.2rem;
     background: var(--border-hover);
@@ -235,7 +266,9 @@ const displayProject = displayProjectTitle(project);
     background: rgba(255,255,255,0.9);
     border-bottom-color: #e4e4e7;
   }
-  :global([data-theme='light']) .h-logo { color: #18181b; }
+  :global([data-theme='light']) .h-logo-owner,
+  :global([data-theme='light']) .h-logo-slash { color: #71717a; }
+  :global([data-theme='light']) .h-logo-repo { color: #18181b; }
   :global([data-theme='light']) .h-env {
     background: rgba(251,191,36,0.15);
     color: #92400e;
@@ -368,6 +401,20 @@ const displayProject = displayProjectTitle(project);
     flex-shrink: 0;
   }
   .project-switcher-name {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .15rem;
+  }
+  .project-switcher-owner {
+    font-size: .74rem;
+    font-weight: 600;
+    color: var(--text-4);
+  }
+  .project-switcher-slash {
+    font-size: .74rem;
+    color: var(--text-4);
+  }
+  .project-switcher-repo {
     font-weight: 700;
   }
   .project-switcher-count {
