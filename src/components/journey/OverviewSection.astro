@@ -11,6 +11,33 @@ interface Props {
 }
 
 const { atlas, journeys, defaultJourney, storyByNode, parseSummary } = Astro.props;
+const components = atlas.components || [];
+const componentIds = new Set(components.map((c: any) => c.id));
+const flowEdges = (atlas.flows || []).flatMap((flow: any) => {
+  const steps = flow.steps || [];
+  const derived: { from: string; to: string; label: string }[] = [];
+  for (let i = 0; i < steps.length - 1; i += 1) {
+    const from = String(steps[i]?.component || '').trim();
+    const to = String(steps[i + 1]?.component || '').trim();
+    if (!from || !to || from === to) continue;
+    if (!componentIds.has(from) || !componentIds.has(to)) continue;
+    derived.push({ from, to, label: flow.name || flow.id || 'flow' });
+  }
+  return derived;
+});
+const dependencyEdges = components.flatMap((c: any) =>
+  (c.depends_on || [])
+    .filter((d: string) => componentIds.has(d))
+    .map((d: string) => ({ from: c.id, to: d, label: '' }))
+);
+const overviewEdges = Array.from(
+  new Map(
+    [...dependencyEdges, ...flowEdges].map((edge) => [
+      `${edge.from}->${edge.to}`,
+      edge,
+    ])
+  ).values()
+);
 ---
 
 <section class="snap" id="chapter0">
@@ -30,14 +57,11 @@ const { atlas, journeys, defaultJourney, storyByNode, parseSummary } = Astro.pro
 
     <div class="struct">
       <div class="struct-graph" id="atlas-overview" data-graph={JSON.stringify({
-        nodes: (atlas.components || []).map((c: any) => ({
+        nodes: components.map((c: any) => ({
           id: c.id, name: c.name, type: c.type,
-          description: c.description, summary: c.summary || '', depends_on: c.depends_on || [], patterns: c.patterns || [], children: c.children || []
+          description: c.description, summary: c.summary || '', depends_on: c.depends_on || [], patterns: c.patterns || [], children: c.children || [], parent: c.parent || ''
         })),
-        edges: (atlas.components || []).flatMap((c: any) =>
-          (c.depends_on || []).filter((d: string) => (atlas.components || []).some((cc: any) => cc.id === d))
-            .map((d: string) => ({ from: c.id, to: d, label: '' }))
-        )
+        edges: overviewEdges
       })} data-refs={JSON.stringify(storyByNode)}></div>
       <div class="struct-hint">click a node to explore</div>
     </div>
