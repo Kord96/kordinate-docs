@@ -9,10 +9,12 @@ interface Props {
   pageLinks?: { label: string; href: string }[];
   activePage?: string;
 }
+import FloatingNavTheme from './FloatingNavTheme.astro';
 const { sections, pageLinks = [], activePage = '' } = Astro.props;
 const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === activePage) || pageLinks[0] || null;
 ---
 
+<FloatingNavTheme />
 <nav class="pill-nav" aria-label="Section navigation" id="pill-nav">
   {activePageLink && (
     <div class="pill-page-menu" aria-label="Page navigation">
@@ -117,16 +119,16 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     display: flex;
     align-items: center;
     gap: 2px;
-    background: rgba(9,9,11,0.92);
+    background: var(--floating-nav-bg);
     backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid var(--border-hover);
+    border: 1px solid var(--floating-nav-border);
     border-radius: 99px;
     padding: 3px;
     max-width: 90vw;
     overflow: visible;
     overflow-y: visible;
     scrollbar-width: none;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+    box-shadow: var(--floating-nav-shadow);
   }
   .pill-nav::-webkit-scrollbar { display: none; }
   .pill-strip {
@@ -149,9 +151,9 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     justify-content: center;
     gap: .35rem;
     border-radius: 99px;
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
-    color: var(--accent);
+    background: var(--floating-nav-page-bg);
+    border: 1px solid var(--floating-nav-page-border);
+    color: var(--floating-nav-page-color);
     border-radius: 99px;
     cursor: pointer;
     min-height: 2rem;
@@ -164,7 +166,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     transition: background .18s, border-color .18s, color .18s;
   }
   .pill-page-button:hover {
-    background: rgba(129,140,248,0.14);
+    background: var(--floating-nav-page-hover-bg);
   }
   .pill-page-caret {
     font-size: .5rem;
@@ -180,9 +182,9 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     gap: 2px;
     padding: .3rem;
     border-radius: 14px;
-    background: rgba(9,9,11,0.96);
-    border: 1px solid var(--border-hover);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+    background: var(--floating-nav-menu-bg);
+    border: 1px solid var(--floating-nav-menu-border);
+    box-shadow: var(--floating-nav-menu-shadow);
     backdrop-filter: blur(16px) saturate(180%);
   }
   .pill-page-menu.open .pill-page-popover {
@@ -190,7 +192,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
   }
   .pill-page-option {
     text-decoration: none;
-    color: var(--accent);
+    color: var(--floating-nav-menu-option-color);
     font-size: .65rem;
     font-weight: 600;
     line-height: 1;
@@ -200,19 +202,19 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     transition: background .18s, color .18s;
   }
   .pill-page-option:hover {
-    background: rgba(129,140,248,0.12);
-    color: var(--text);
+    background: var(--floating-nav-menu-option-hover-bg);
+    color: var(--floating-nav-menu-option-hover-color);
   }
   .pill-page-option-active {
-    background: rgba(129,140,248,0.14);
-    color: var(--text);
+    background: var(--floating-nav-menu-option-active-bg);
+    color: var(--floating-nav-menu-option-active-color);
   }
   .pill {
     padding: .3rem .6rem;
     border-radius: 99px;
     font-size: .65rem;
     font-weight: 500;
-    color: var(--text-4);
+    color: var(--floating-nav-pill-color);
     text-decoration: none;
     transition: all .2s;
     white-space: nowrap;
@@ -220,49 +222,12 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     line-height: 1;
   }
   .pill:hover {
-    color: var(--text-2);
-    background: rgba(39,39,42,0.6);
+    color: var(--floating-nav-pill-hover-color);
+    background: var(--floating-nav-pill-hover-bg);
   }
   .pill-active {
-    color: var(--text);
-    background: var(--border-hover);
-  }
-  [data-theme='light'] .pill-nav {
-    background: rgba(255,255,255,0.96);
-    border-color: #cbd5e1;
-    box-shadow: 0 8px 28px rgba(24,24,27,0.08);
-  }
-  [data-theme='light'] .pill {
-    color: #71717a;
-  }
-  [data-theme='light'] .pill-page-button {
-    background: rgba(79,70,229,0.08);
-    border-color: rgba(79,70,229,0.18);
-    color: #3730a3;
-  }
-  [data-theme='light'] .pill-page-button:hover {
-    background: rgba(79,70,229,0.14);
-  }
-  [data-theme='light'] .pill-page-popover {
-    background: rgba(255,255,255,0.98);
-    border-color: #d4d4d8;
-    box-shadow: 0 12px 32px rgba(24,24,27,0.12);
-  }
-  [data-theme='light'] .pill-page-option {
-    color: #3730a3;
-  }
-  [data-theme='light'] .pill-page-option:hover,
-  [data-theme='light'] .pill-page-option-active {
-    background: rgba(79,70,229,0.1);
-    color: #18181b;
-  }
-  [data-theme='light'] .pill:hover {
-    color: #18181b;
-    background: rgba(24,24,27,0.05);
-  }
-  [data-theme='light'] .pill-active {
-    color: #18181b;
-    background: #e4e4e7;
+    color: var(--floating-nav-pill-active-color);
+    background: var(--floating-nav-pill-active-bg);
   }
   .sr-only {
     position: absolute;

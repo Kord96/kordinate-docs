@@ -19,34 +19,40 @@ interface Props {
 const { story, index, total, journeyId, isDefault, allJourneyTitles = {}, bridge, compMap, storyByNode, parseSummary } = Astro.props;
 const anchor = story.anchor;
 const html = parseSummary(story.summary || '');
+const teachesHtml = parseSummary(story.teaches || '');
+const keyTakeaways = (story.observations || []).slice(0, 3);
+const supportPayload = encodeURIComponent(JSON.stringify({
+  id: story.id,
+  title: story.title,
+  teaches: story.teaches || '',
+  anchor: story.anchor || null,
+  observations: story.observations || [],
+  rationale: story.rationale || [],
+}));
 ---
 
-<section class={`snap journey-section ${isDefault ? '' : 'hidden'}`} id={`${journeyId}-s${index+1}`} data-journey={journeyId}>
-  <div class="section-actions">
-    {Object.keys(allJourneyTitles).length > 1 && (
-      <button class="journey-switch-btn" type="button" data-journey-switch={`${journeyId}-s${index+1}`}>
-        {allJourneyTitles[journeyId] || journeyId}
-      </button>
-    )}
-    <button class="focus-btn" data-focus={`${journeyId}-s${index+1}`}>Focus ⛶</button>
-  </div>
+<section class={`snap journey-section ${isDefault ? '' : 'hidden'}`} id={`${journeyId}-s${index+1}`} data-journey={journeyId} data-story-support={supportPayload}>
   <div class="snap-inner">
     {bridge && <div class="bridge">{bridge.text}</div>}
 
     <div class="story-num">Story {index+1} of {total}</div>
     <h2 class="story-title">{story.title}</h2>
+    {story.teaches && <div class="story-thesis" set:html={teachesHtml} />}
 
-    {anchor && (
-      <div class="anchor">
-        <span class="anchor-pin">📌</span>
-        <div>
-          <div class="anchor-file">{anchor.file}:{anchor.line}</div>
-          <div class="anchor-desc">{anchor.description}</div>
+    <div class="summary" set:html={html} />
+
+    {keyTakeaways.length > 0 && (
+      <div class="story-takeaways">
+        <div class="story-block-label">Key Takeaways</div>
+        <div class="takeaway-grid">
+          {keyTakeaways.map((obs: any) => (
+            <div class={`takeaway ${obs.recommendation ? 'takeaway-gap' : ''}`}>
+              <div class="takeaway-text" set:html={parseSummary(obs.finding || '')} />
+            </div>
+          ))}
         </div>
       </div>
     )}
-
-    <div class="summary" set:html={html} />
 
     {(story.structures || []).map((st: any, si: number) => {
       const graphId = `graph-${index}-${si}`;
@@ -93,36 +99,36 @@ const html = parseSummary(story.summary || '');
 
     {(story.flows || []).map((fl: any) => (
       <div class="flow">
+        <div class="story-block-label">Operating Path</div>
         {fl.title && <div class="flow-head">{fl.title}</div>}
-        {(fl.steps || []).map((step: any, si: number) => (
-          <div class="flow-step">
-            <span class="flow-n">{si+1}</span>
-            <div>
-              <span class="flow-from">{compMap[step.node]?.name || step.node}</span>
-              {step.to && <span class="flow-arrow"> → {compMap[step.to]?.name || step.to}</span>}
-              <div class="flow-action">{step.action || step.effect}</div>
+        {fl.trigger && (
+          <div class="flow-meta">
+            <div class="flow-meta-item">
+              <span class="flow-meta-label">Trigger</span>
+              <span class="flow-meta-value">{fl.trigger}</span>
             </div>
+            {fl.steps?.length > 0 && (fl.steps[fl.steps.length - 1]?.effect || fl.steps[fl.steps.length - 1]?.action) && (
+              <div class="flow-meta-item">
+                <span class="flow-meta-label">Outcome</span>
+                <span class="flow-meta-value">{fl.steps[fl.steps.length - 1]?.effect || fl.steps[fl.steps.length - 1]?.action}</span>
+              </div>
+            )}
           </div>
-        ))}
-      </div>
-    ))}
-
-    {(story.observations || []).map((obs: any) => (
-      <div class={`obs ${obs.recommendation ? 'gap' : 'finding'}`}>
-        <div class="obs-text" set:html={parseSummary(obs.finding || '')} />
-        <div class="obs-meta">
-          {obs.evidence?.file && <span class="obs-file">{obs.evidence.file}{obs.evidence.lines ? `:${obs.evidence.lines[0]}` : ''}</span>}
-          {obs.confidence && <span class={`obs-badge ${obs.confidence}`}>{obs.confidence}</span>}
+        )}
+        <div class="flow-steps">
+          {(fl.steps || []).map((step: any, si: number) => (
+            <div class="flow-step">
+              <span class="flow-n">{si+1}</span>
+              <div>
+                <div class="flow-route">
+                  <span class="flow-from">{compMap[step.node]?.name || step.node}</span>
+                  {step.to && <span class="flow-arrow"> → {compMap[step.to]?.name || step.to}</span>}
+                </div>
+                <div class="flow-action">{step.action || step.effect}</div>
+              </div>
+            </div>
+          ))}
         </div>
-        {obs.recommendation && <div class="obs-rec">→ {obs.recommendation}</div>}
-      </div>
-    ))}
-
-    {(story.rationale || []).map((r: any) => (
-      <div class="rat">
-        <div class="rat-dec">ℹ {r.decision}</div>
-        {r.context && <div class="rat-ctx">{r.context}</div>}
-        {r.trade_offs && <div class="rat-trade">↔ {r.trade_offs}</div>}
       </div>
     ))}
 

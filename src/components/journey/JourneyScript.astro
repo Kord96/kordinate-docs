@@ -14,6 +14,7 @@
   const jbDots = document.getElementById('jb-dots');
   const jnPicker = document.getElementById('jn-picker');
   const landing = document.getElementById('s0');
+  const fabMenu = document.getElementById('fab-menu');
   let cur = 0;
   let currentJourneyId = journeyNav?.dataset.defaultJourney || jnPicker?.querySelector('.jn-pick-active')?.dataset.journey || 'system-overview';
 
@@ -29,16 +30,20 @@
   }, { threshold: 0.3 });
   landingObs.observe(landing);
 
+  function toggleJourneyPicker(anchorEl) {
+    if (!jnPicker || !anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    jnPicker.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+    jnPicker.style.left = Math.max(16, rect.left - Math.max(0, jnPicker.offsetWidth - rect.width)) + 'px';
+    jnPicker.classList.toggle('open');
+  }
+
   // Journey picker toggle — position next to the section action buttons
   document.addEventListener('click', () => jnPicker?.classList.remove('open'));
   document.querySelectorAll('.journey-switch-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (!jnPicker) return;
-      const rect = btn.getBoundingClientRect();
-      jnPicker.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
-      jnPicker.style.left = Math.max(16, rect.left - Math.max(0, jnPicker.offsetWidth - rect.width)) + 'px';
-      jnPicker.classList.toggle('open');
+      toggleJourneyPicker(btn);
     });
   });
   jnPicker?.querySelectorAll('.jn-pick').forEach(pick => {
@@ -97,7 +102,7 @@
     const secs = getVisibleSections();
     if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); secs[Math.min(cur+1, secs.length-1)]?.scrollIntoView({ behavior: 'smooth' }); }
     if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); secs[Math.max(cur-1, 0)]?.scrollIntoView({ behavior: 'smooth' }); }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openDrawer('terminal'); }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); updateFabMenu(); fabMenu?.classList.toggle('open'); }
     if (e.key === 'Escape' && drawer.classList.contains('open')) { closeDrawer(); }
   });
 
@@ -121,6 +126,35 @@
   const panelDetail = document.getElementById('panel-detail');
   const panelTerminal = document.getElementById('panel-terminal');
 
+  function getCurrentSectionElement() {
+    const sections = getVisibleSections().filter(Boolean);
+    return sections[cur] || sections[0] || landing;
+  }
+
+  function getCurrentStorySupport() {
+    const section = getCurrentSectionElement();
+    const encoded = section?.dataset?.storySupport;
+    if (!encoded) return null;
+    try {
+      return JSON.parse(decodeURIComponent(encoded));
+    } catch {
+      return null;
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function renderInlineMarkup(value) {
+    return escapeHtml(value).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  }
+
   function openDrawer(tab) {
     drawer?.classList.add('open');
     fab?.classList.add('hidden');
@@ -135,16 +169,75 @@
     fab?.classList.remove('hidden');
   }
 
-  fab?.addEventListener('click', () => openDrawer('terminal'));
+  function closeFabMenu() {
+    fabMenu?.classList.remove('open');
+  }
+
+  function updateFabMenu() {
+    if (!fabMenu) return;
+    const support = getCurrentStorySupport();
+    const hasJourneys = (jnPicker?.querySelectorAll('.jn-pick').length || 0) > 1;
+    fabMenu.querySelector('[data-fab-action="journey"]')?.toggleAttribute('hidden', !hasJourneys);
+    fabMenu.querySelector('[data-fab-action="evidence"]')?.toggleAttribute('hidden', !(support && (support.anchor || (support.observations || []).length)));
+    fabMenu.querySelector('[data-fab-action="decisions"]')?.toggleAttribute('hidden', !(support && (support.rationale || []).length));
+  }
+
+  function showStorySupportDetail(kind, support) {
+    if (!support) return;
+    let html = '<div class="detail-header">';
+    html += '<div class="detail-name">' + escapeHtml(support.title || 'Story support') + '</div>';
+    html += '<div class="detail-type"><span class="detail-type-badge">' + (kind === 'decisions' ? 'decisions' : 'evidence') + '</span></div>';
+    html += '</div>';
+    if (support.teaches) html += '<div class="detail-desc">' + renderInlineMarkup(support.teaches) + '</div>';
+    if (kind === 'evidence') {
+      if (support.anchor) {
+        html += '<div class="detail-section"><div class="detail-label">Start Here</div>';
+        html += '<div class="detail-subsection"><div class="detail-subtitle">' + escapeHtml((support.anchor.file || '') + ':' + (support.anchor.line || '')) + '</div>';
+        if (support.anchor.description) html += '<div class="detail-note">' + escapeHtml(support.anchor.description) + '</div>';
+        html += '</div></div>';
+      }
+      const observations = support.observations || [];
+      if (observations.length) {
+        html += '<div class="detail-section"><div class="detail-label">Evidence-backed Findings</div><ul class="detail-list">';
+        html += observations.map((obs) =>
+          '<li><div class="detail-prose">' + renderInlineMarkup(obs.finding || '') + '</div>'
+          + ((obs.evidence?.file || obs.confidence) ? '<div class="detail-note">' + escapeHtml([obs.evidence?.file ? `${obs.evidence.file}${obs.evidence.lines?.length ? ':' + obs.evidence.lines[0] : ''}` : '', obs.confidence ? `confidence: ${obs.confidence}` : ''].filter(Boolean).join(' • ')) + '</div>' : '')
+          + (obs.recommendation ? '<div class="detail-rec">→ ' + escapeHtml(obs.recommendation) + '</div>' : '')
+          + '</li>'
+        ).join('');
+        html += '</ul></div>';
+      }
+    } else {
+      const rationale = support.rationale || [];
+      if (rationale.length) {
+        html += '<div class="detail-section"><div class="detail-label">Decisions & Trade-offs</div><ul class="detail-list">';
+        html += rationale.map((entry) =>
+          '<li><div class="detail-prose"><strong>' + escapeHtml(entry.decision || '') + '</strong></div>'
+          + (entry.context ? '<div class="detail-note">' + escapeHtml(entry.context) + '</div>' : '')
+          + (entry.trade_offs ? '<div class="detail-rec">↔ ' + escapeHtml(entry.trade_offs) + '</div>' : '')
+          + '</li>'
+        ).join('');
+        html += '</ul></div>';
+      }
+    }
+    panelDetail.innerHTML = html;
+    openDrawer('detail');
+  }
+
+  fab?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    updateFabMenu();
+    fabMenu?.classList.toggle('open');
+  });
   drawerClose?.addEventListener('click', closeDrawer);
   drawerTabs.forEach(t => t.addEventListener('click', () => openDrawer(t.dataset.panel)));
   document.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
     if (target.closest('#fab')) {
-      openDrawer('terminal');
       return;
     }
+    if (target.closest('#fab-menu')) return;
     if (target.closest('#drawer-close')) {
       closeDrawer();
       return;
@@ -159,6 +252,7 @@
     if (target.closest('.ref, .struct-graph, .detail-link, .detail-dep, .flow, .obs')) return;
     closeDrawer();
   });
+  document.addEventListener('click', () => closeFabMenu());
 
   function formatId(id) { return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
   function labelFor(id) { return (atlasDetailData.labelsById || {})[id] || allCompData[id]?.name || formatId(id); }
@@ -505,8 +599,19 @@
           'text-margin-y': '-8px',
         }},
         { selector: 'node.collapsed-parent', style: {
-          'background-opacity': 0.18,
+          'background-opacity': 0.92,
+          'background-color': graphTheme.parentBg,
           'border-width': 2,
+          'border-style': 'dashed',
+          'border-color': graphTheme.parentBorder,
+          'compound-sizing-wrt-labels': 'include',
+          'min-width': 180,
+          'min-height': 56,
+          'padding': 18,
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-margin-y': 0,
+          'color': graphTheme.parentText,
         }},
         { selector: 'edge', style: {
           'width': 1.5, 'line-color': graphTheme.edge,
@@ -752,6 +857,32 @@
 
   document.querySelectorAll('.focus-btn').forEach(btn => {
     btn.addEventListener('click', () => openFocus(btn.dataset.focus));
+  });
+  fabMenu?.querySelectorAll('[data-fab-action]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const action = btn.dataset.fabAction;
+      if (action === 'terminal') {
+        closeFabMenu();
+        openDrawer('terminal');
+        return;
+      }
+      if (action === 'journey') {
+        closeFabMenu();
+        toggleJourneyPicker(fab);
+        return;
+      }
+      if (action === 'focus') {
+        closeFabMenu();
+        openFocus(getCurrentSectionElement()?.id || 'chapter0');
+        return;
+      }
+      const support = getCurrentStorySupport();
+      if ((action === 'evidence' || action === 'decisions') && support) {
+        closeFabMenu();
+        showStorySupportDetail(action, support);
+      }
+    });
   });
 
   focusPrev.addEventListener('click', () => { if (focusIndex > 0) { focusIndex--; renderFocus(); } });
