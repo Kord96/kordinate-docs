@@ -20,7 +20,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
         <span>{activePageLink.label}</span>
         <span class="pill-page-caret">▾</span>
       </button>
-      <div class="pill-page-popover" role="menu" hidden>
+      <div class="pill-page-popover" role="menu">
         {pageLinks.map((link) => (
           <a
             href={link.href}
@@ -49,31 +49,30 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
   const pills = nav.querySelectorAll('.pill[data-section]');
   const ids = Array.from(pills).map(p => p.dataset.section);
   const targets = ids.map(id => document.getElementById(id)).filter(Boolean);
-  if (!targets.length) return;
 
-  let current = ids[0];
-
-  const obs = new IntersectionObserver(entries => {
-    for (const e of entries) {
-      if (e.isIntersecting) {
-        current = e.target.id;
-        pills.forEach(p => {
-          p.classList.toggle('pill-active', p.dataset.section === current);
-        });
+  if (targets.length) {
+    let current = ids[0];
+    const obs = new IntersectionObserver(entries => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          current = e.target.id;
+          pills.forEach(p => {
+            p.classList.toggle('pill-active', p.dataset.section === current);
+          });
+        }
       }
-    }
-  }, { rootMargin: '-20% 0px -70% 0px' });
+    }, { rootMargin: '-20% 0px -70% 0px' });
 
-  targets.forEach(t => obs.observe(t));
+    targets.forEach(t => obs.observe(t));
 
-  // Smooth scroll on click
-  pills.forEach(p => {
-    p.addEventListener('click', e => {
-      e.preventDefault();
-      const target = document.getElementById(p.dataset.section);
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    pills.forEach(p => {
+      p.addEventListener('click', e => {
+        e.preventDefault();
+        const target = document.getElementById(p.dataset.section);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     });
-  });
+  }
 
   const pageMenu = nav.querySelector('.pill-page-menu');
   const pageButton = nav.querySelector('.pill-page-button');
@@ -82,7 +81,6 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     const closePageMenu = () => {
       pageMenu.classList.remove('open');
       pageButton.setAttribute('aria-expanded', 'false');
-      pagePopover.hidden = true;
     };
 
     pageButton.addEventListener('click', (e) => {
@@ -94,7 +92,6 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
       }
       pageMenu.classList.add('open');
       pageButton.setAttribute('aria-expanded', 'true');
-      pagePopover.hidden = false;
     });
 
     document.addEventListener('click', (e) => {

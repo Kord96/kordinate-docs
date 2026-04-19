@@ -122,26 +122,39 @@
   const panelTerminal = document.getElementById('panel-terminal');
 
   function openDrawer(tab) {
-    drawer.classList.add('open');
-    fab.classList.add('hidden');
+    drawer?.classList.add('open');
+    fab?.classList.add('hidden');
     drawerTabs.forEach(t => t.classList.toggle('active', t.dataset.panel === tab));
-    panelDetail.classList.toggle('active', tab === 'detail');
-    panelTerminal.classList.toggle('active', tab === 'terminal');
+    panelDetail?.classList.toggle('active', tab === 'detail');
+    panelTerminal?.classList.toggle('active', tab === 'terminal');
     if (tab === 'terminal') document.getElementById('term-field')?.focus();
   }
 
   function closeDrawer() {
-    drawer.classList.remove('open');
-    fab.classList.remove('hidden');
+    drawer?.classList.remove('open');
+    fab?.classList.remove('hidden');
   }
 
-  fab.addEventListener('click', () => openDrawer('terminal'));
-  drawerClose.addEventListener('click', closeDrawer);
+  fab?.addEventListener('click', () => openDrawer('terminal'));
+  drawerClose?.addEventListener('click', closeDrawer);
   drawerTabs.forEach(t => t.addEventListener('click', () => openDrawer(t.dataset.panel)));
   document.addEventListener('click', (event) => {
-    if (!drawer.classList.contains('open')) return;
     const target = event.target;
     if (!(target instanceof Element)) return;
+    if (target.closest('#fab')) {
+      openDrawer('terminal');
+      return;
+    }
+    if (target.closest('#drawer-close')) {
+      closeDrawer();
+      return;
+    }
+    const tabButton = target.closest('.drawer-tab');
+    if (tabButton instanceof HTMLElement && tabButton.dataset.panel) {
+      openDrawer(tabButton.dataset.panel);
+      return;
+    }
+    if (!drawer?.classList.contains('open')) return;
     if (target.closest('#drawer')) return;
     if (target.closest('.ref, .struct-graph, .detail-link, .detail-dep, .flow, .obs')) return;
     closeDrawer();

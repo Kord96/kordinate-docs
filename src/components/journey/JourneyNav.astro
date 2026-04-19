@@ -27,7 +27,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
         <span>{activePageLink.label}</span>
         <span class="jn-page-caret">▾</span>
       </button>
-      <div class="jn-page-popover" role="menu" hidden>
+      <div class="jn-page-popover" role="menu">
         {pageLinks.map((link) => (
           <a
             href={link.href}
@@ -64,7 +64,6 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
   function closeMenu() {
     menu.classList.remove('open');
     button.setAttribute('aria-expanded', 'false');
-    popover.hidden = true;
   }
 
   button.addEventListener('click', (event) => {
@@ -76,7 +75,6 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     }
     menu.classList.add('open');
     button.setAttribute('aria-expanded', 'true');
-    popover.hidden = false;
   });
 
   document.addEventListener('click', (event) => {
