@@ -15,10 +15,10 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
 
 <nav class="pill-nav" aria-label="Section navigation" id="pill-nav">
   {activePageLink && (
-    <details class="pill-context-menu">
-      <summary class="pill-context-summary">
+    <div class="pill-context-menu">
+      <button class="pill-context-summary" type="button" aria-haspopup="true" aria-expanded="false">
         <span class="pill-context-label">{activePageLink.label.toLowerCase()}</span>
-      </summary>
+      </button>
       <div class="pill-context-list">
         {pageLinks.map((link) => (
           <a class:list={['pill-context-item', activePage === link.label.toLowerCase() && 'pill-context-item-active']} href={link.href}>
@@ -26,7 +26,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
           </a>
         ))}
       </div>
-    </details>
+    </div>
   )}
   {sections.map((s, i) => (
     <a class:list={['pill', i === 0 && 'pill-active']} href={`#${s.id}`} data-section={s.id}>
@@ -67,6 +67,22 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
+
+  const pageMenu = nav.querySelector('.pill-context-menu');
+  const pageToggle = nav.querySelector('.pill-context-summary');
+  if (pageMenu && pageToggle instanceof HTMLButtonElement) {
+    pageToggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const open = pageMenu.classList.toggle('open');
+      pageToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (pageMenu.contains(event.target)) return;
+      pageMenu.classList.remove('open');
+      pageToggle.setAttribute('aria-expanded', 'false');
+    });
+  }
 })();
 </script>
 
@@ -97,7 +113,6 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     flex-shrink: 0;
   }
   .pill-context-summary {
-    list-style: none;
     display: inline-flex;
     align-items: center;
     cursor: pointer;
@@ -105,16 +120,18 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     border-radius: 99px;
     font-size: .65rem;
     font-weight: 700;
-    color: var(--text-2);
-    background: rgba(255,255,255,0.04);
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
     line-height: 1;
+    appearance: none;
+    -webkit-appearance: none;
   }
-  .pill-context-summary::-webkit-details-marker { display: none; }
   .pill-context-summary::after {
     content: '▾';
     font-size: .5rem;
     margin-left: .35rem;
-    color: var(--text-4);
+    color: currentColor;
   }
   .pill-context-list {
     position: absolute;
@@ -130,6 +147,10 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     backdrop-filter: blur(16px) saturate(180%);
     box-shadow: 0 16px 36px rgba(0,0,0,.26);
     z-index: 220;
+    display: none;
+  }
+  .pill-context-menu.open .pill-context-list {
+    display: grid;
   }
   .pill-context-item {
     text-decoration: none;
@@ -178,11 +199,12 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
     color: #71717a;
   }
   [data-theme='light'] .pill-context-summary {
-    color: #18181b;
-    background: rgba(24,24,27,0.04);
+    color: #3730a3;
+    background: rgba(79,70,229,0.08);
+    border-color: rgba(79,70,229,0.18);
   }
   [data-theme='light'] .pill-context-summary::after {
-    color: #71717a;
+    color: currentColor;
   }
   [data-theme='light'] .pill-context-list {
     background: rgba(255,255,255,.98);

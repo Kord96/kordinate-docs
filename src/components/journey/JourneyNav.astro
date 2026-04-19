@@ -22,8 +22,10 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
 </div>
 <nav class="journey-nav" id="journey-nav">
   {activePageLink && (
-    <details class="jn-page-menu">
-      <summary class="jn-page-summary">{activePageLink.label.toLowerCase()}</summary>
+    <div class="jn-page-menu">
+      <button class="jn-page-summary" type="button" aria-haspopup="true" aria-expanded="false">
+        {activePageLink.label.toLowerCase()}
+      </button>
       <div class="jn-page-list">
         {pageLinks.map((link) => (
           <a class={`jn-page-item ${activePage === link.label.toLowerCase() ? 'jn-page-item-active' : ''}`} href={link.href}>
@@ -31,7 +33,7 @@ const activePageLink = pageLinks.find((link) => link.label.toLowerCase() === act
           </a>
         ))}
       </div>
-    </details>
+    </div>
   )}
   <span class="jn-journey" id="jn-journey">
     {defaultJourney.title.includes(':') ? defaultJourney.title.split(':')[0].trim() : defaultJourney.title}

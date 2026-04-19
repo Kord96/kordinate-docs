@@ -26,24 +26,25 @@
       flex-shrink: 0;
     }
     .jn-page-summary {
-      list-style: none;
       display: inline-flex;
       align-items: center;
       padding: .3rem .65rem;
       border-radius: 99px;
       font-size: .65rem;
       font-weight: 700;
-      color: var(--text-2);
-      background: rgba(255,255,255,0.04);
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
       cursor: pointer;
       line-height: 1;
+      appearance: none;
+      -webkit-appearance: none;
     }
-    .jn-page-summary::-webkit-details-marker { display: none; }
     .jn-page-summary::after {
       content: '▾';
       font-size: .5rem;
       margin-left: .35rem;
-      color: var(--text-4);
+      color: currentColor;
     }
     .jn-page-list {
       position: absolute;
@@ -51,7 +52,6 @@
       bottom: calc(100% + .55rem);
       min-width: 8rem;
       padding: .35rem;
-      display: grid;
       gap: .2rem;
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -59,6 +59,10 @@
       backdrop-filter: blur(16px) saturate(180%);
       box-shadow: 0 16px 36px rgba(0,0,0,.26);
       z-index: 220;
+      display: none;
+    }
+    .jn-page-menu.open .jn-page-list {
+      display: grid;
     }
     .jn-page-item {
       text-decoration: none;
@@ -80,12 +84,12 @@
     }
     .jn-journey {
       padding: .3rem .6rem; border-radius: 99px;
-      font-size: .65rem; font-weight: 600; color: var(--accent);
+      font-size: .65rem; font-weight: 600; color: var(--text-2);
       cursor: pointer; transition: all .2s; white-space: nowrap;
       border-right: 1px solid var(--border-hover); margin-right: 2px;
       position: relative; line-height: 1;
     }
-    .jn-journey:hover { background: var(--accent-dim); }
+    .jn-journey:hover { background: rgba(39,39,42,0.6); }
     .jn-journey::after { content: ' ▾'; font-size: .45rem; opacity: .5; vertical-align: middle; }
     .jn-picker {
       position: fixed; z-index: 210;
@@ -595,11 +599,12 @@
     box-shadow: 0 8px 28px rgba(24,24,27,0.08);
   }
   [data-theme='light'] .jn-page-summary {
-    color: #18181b;
-    background: rgba(24,24,27,0.04);
+    color: #3730a3;
+    background: rgba(79,70,229,0.08);
+    border-color: rgba(79,70,229,0.18);
   }
   [data-theme='light'] .jn-page-summary::after {
-    color: #71717a;
+    color: currentColor;
   }
   [data-theme='light'] .jn-page-list {
     background: rgba(255,255,255,.98);
@@ -619,11 +624,11 @@
     border-color: rgba(79,70,229,.18);
   }
   [data-theme='light'] .jn-journey {
-    color: #4338ca;
+    color: #3f3f46;
     border-right-color: #d4d4d8;
   }
   [data-theme='light'] .jn-journey:hover {
-    background: rgba(79,70,229,0.08);
+    background: rgba(24,24,27,0.05);
   }
   [data-theme='light'] .jn-picker {
     background: rgba(255,255,255,0.98);
