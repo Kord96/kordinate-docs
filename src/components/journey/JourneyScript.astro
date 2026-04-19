@@ -138,6 +138,13 @@
   fab.addEventListener('click', () => openDrawer('terminal'));
   drawerClose.addEventListener('click', closeDrawer);
   drawerTabs.forEach(t => t.addEventListener('click', () => openDrawer(t.dataset.panel)));
+  document.addEventListener('click', (event) => {
+    if (!drawer.classList.contains('open')) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest('#drawer')) return;
+    closeDrawer();
+  });
 
   function formatId(id) { return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
 
