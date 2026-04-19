@@ -52,7 +52,7 @@
       left: 0;
       bottom: calc(100% + .5rem);
       min-width: 9rem;
-      display: flex;
+      display: none;
       flex-direction: column;
       gap: 2px;
       padding: .3rem;
@@ -61,6 +61,9 @@
       border: 1px solid var(--border-hover);
       box-shadow: 0 12px 28px rgba(0,0,0,.28);
       backdrop-filter: blur(16px) saturate(180%);
+    }
+    .jn-page-menu.open .jn-page-popover {
+      display: flex;
     }
     .jn-page-option {
       text-decoration: none;
