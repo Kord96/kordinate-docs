@@ -212,7 +212,7 @@
 
     /* ─── Bottom Drawer ─── */
     #drawer {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 300;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 520;
       background: var(--bg); border-top: 1px solid var(--border);
       transform: translateY(100%); transition: transform .3s ease;
       height: 280px; display: flex; flex-direction: column;
@@ -370,6 +370,30 @@
       cursor: pointer; transition: all .2s;
     }
     .focus-close:hover { color: var(--text); border-color: var(--text-3); }
+    [data-theme='light'] .focus-header {
+      background: rgba(255,255,255,0.96);
+      border-bottom-color: #d4d4d8;
+      box-shadow: 0 8px 24px rgba(24,24,27,0.08);
+    }
+    [data-theme='light'] .focus-nav-btn,
+    [data-theme='light'] .focus-close {
+      color: #52525b;
+      border-color: #d4d4d8;
+      background: rgba(255,255,255,0.8);
+    }
+    [data-theme='light'] .focus-nav-btn:hover {
+      color: #3730a3;
+      border-color: rgba(79,70,229,0.28);
+      background: rgba(79,70,229,0.06);
+    }
+    [data-theme='light'] .focus-close:hover {
+      color: #18181b;
+      border-color: #a1a1aa;
+      background: rgba(24,24,27,0.04);
+    }
+    [data-theme='light'] .focus-pos {
+      color: #52525b;
+    }
 
     /* Focus content — wider, two-column for graphs */
     .focus-content {
