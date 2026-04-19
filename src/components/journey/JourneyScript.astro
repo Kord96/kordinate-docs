@@ -494,6 +494,15 @@
     const children = (data.children || []).map(id =>
       '<a class="detail-link detail-dep" data-node="' + id + '">' + formatId(id) + '</a>'
     ).join(' ');
+    const readers = (data.readers || []).map((id) =>
+      '<a class="detail-link detail-dep" data-node="' + id + '">' + formatId(id) + '</a>'
+    ).join(' ');
+    const writers = (data.writers || []).map((id) =>
+      '<a class="detail-link detail-dep" data-node="' + id + '">' + formatId(id) + '</a>'
+    ).join(' ');
+    const storesIn = (data.stores_in || []).map((item) =>
+      '<code style="font-size:.7rem;color:var(--accent);display:block;padding:.1rem 0;">' + item + '</code>'
+    ).join('');
     const health = data.health || {};
     const healthCriteria = (health.criteria || []).map((item) => '<li>' + item + '</li>').join('');
     const scenarioIds = [...new Set([
@@ -525,7 +534,7 @@
 
     let html = '<div class="detail-header">';
     html += '<div class="detail-name">' + (data.name || formatId(data.id)) + '</div>';
-    var typeColorMap = { worker: '#6366f1', service: '#3b82f6', api: '#22c55e', store: '#f59e0b', cli: '#64748b', scheduler: '#a855f7', external: '#ef4444', broker: '#f97316' };
+    var typeColorMap = { worker: '#6366f1', service: '#3b82f6', api: '#22c55e', store: '#f59e0b', cli: '#64748b', scheduler: '#a855f7', external: '#ef4444', broker: '#f97316', state: '#14b8a6' };
     var tc = typeColorMap[data.type] || '#71717a';
     html += '<div class="detail-type"><span style="color:' + tc + ';border:1px solid ' + tc + '33;background:' + tc + '15;padding:.15rem .5rem;border-radius:4px">' + (data.type || 'component') + '</span>' + (patterns ? ' ' + patterns : '') + '</div>';
     html += '</div>';
@@ -537,6 +546,19 @@
       if (children) html += '<div class="detail-subsection"><div class="detail-subtitle">Subcomponents</div><div class="detail-links">' + children + '</div></div>';
       if (depList) html += '<div class="detail-subsection"><div class="detail-subtitle">Dependencies</div><div class="detail-links">' + depList + '</div></div>';
       if (usedByList) html += '<div class="detail-subsection"><div class="detail-subtitle">Used By</div><div class="detail-links">' + usedByList + '</div></div>';
+      html += '</div>';
+    }
+    if (readers || writers || storesIn || data.durability || data.consistency) {
+      html += '<div class="detail-section"><div class="detail-label">State</div>';
+      if (readers) html += '<div class="detail-subsection"><div class="detail-subtitle">Readers</div><div class="detail-links">' + readers + '</div></div>';
+      if (writers) html += '<div class="detail-subsection"><div class="detail-subtitle">Writers</div><div class="detail-links">' + writers + '</div></div>';
+      if (storesIn) html += '<div class="detail-subsection"><div class="detail-subtitle">Stored In</div>' + storesIn + '</div>';
+      if (data.durability || data.consistency) {
+        html += '<div class="detail-subsection"><div class="detail-subtitle">Behavior</div><div class="detail-links">';
+        if (data.durability) html += '<span class="detail-type-badge">' + data.durability + '</span>';
+        if (data.consistency) html += '<span class="detail-type-badge">' + data.consistency + '</span>';
+        html += '</div></div>';
+      }
       html += '</div>';
     }
     if (healthCriteria) html += '<div class="detail-section"><div class="detail-label">Health</div><div class="detail-subsection"><div class="detail-subtitle">Healthy When</div><ul class="detail-list">' + healthCriteria + '</ul></div></div>';
@@ -1141,6 +1163,14 @@
     const ref = e.target.closest('.ref');
     if (!ref) return;
     const nodeId = ref.dataset.id;
+    const comp = allCompData[nodeId];
+    if (comp) showNodeDetail(comp, allRefs);
+  });
+
+  document.addEventListener('click', e => {
+    const link = e.target.closest('.flow-node-link');
+    if (!link) return;
+    const nodeId = link.dataset.node;
     const comp = allCompData[nodeId];
     if (comp) showNodeDetail(comp, allRefs);
   });

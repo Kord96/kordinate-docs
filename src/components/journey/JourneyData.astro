@@ -70,6 +70,7 @@ const gapsByTarget = (atlas.gaps || []).reduce((acc: Record<string, any[]>, item
   Object.fromEntries([
     ...(atlas.components || []).map((c: any) => [c.id, { id: c.id, name: c.name, type: c.type, description: c.description, summary: c.summary || '', purpose: c.purpose || '', depends_on: c.depends_on || [], patterns: c.patterns || [], modules: c.modules || [], children: c.children || [], health: c.health || {} }]),
     ...(atlas.external_dependencies || []).map((e: any) => [e.id, { id: e.id, name: e.name || e.id, type: 'external', description: e.description || '', summary: e.summary || '', depends_on: [], patterns: [], modules: [], children: [], health: e.health || {}, purpose: e.purpose || '', technology: e.technology || '', components: e.components || [] }]),
+    ...(atlas.state || []).map((s: any) => [s.id, { id: s.id, name: s.name || s.id, type: 'state', description: s.description || '', summary: s.summary || '', purpose: s.purpose || '', depends_on: [], patterns: s.patterns || [], modules: s.stores_in || [], children: [], health: s.health || {}, readers: s.readers || [], writers: s.writers || [], stores_in: s.stores_in || [], durability: s.durability || '', consistency: s.consistency || '' }]),
   ])
 )} />
 <script id="refs-data" type="application/json" set:html={JSON.stringify(storyByNode)} />
