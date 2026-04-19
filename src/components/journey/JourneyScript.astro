@@ -58,6 +58,12 @@
       const open = jnPageMenu.classList.toggle('open');
       jnPageToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
       jnPicker.classList.remove('open');
+      const pageList = jnPageMenu.querySelector('.jn-page-list');
+      if (open && pageList instanceof HTMLElement) {
+        const rect = jnPageToggle.getBoundingClientRect();
+        pageList.style.left = Math.max(16, rect.left) + 'px';
+        pageList.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+      }
     });
     document.addEventListener('click', (event) => {
       if (!(event.target instanceof Element)) return;
