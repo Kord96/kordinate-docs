@@ -1,9 +1,0 @@
-{
-  "project": "risk-engine",
-  "analysis_id": "2026-04-13T23-40-00Z-def5678",
-  "commit_sha": "def5678abc1234",
-  "commit_time": "2026-04-13T23:37:00Z",
-  "analyzed_at": "2026-04-13T23:40:00Z",
-  "source": "augur",
-  "status": "ready"
-}

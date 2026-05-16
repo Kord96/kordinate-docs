@@ -2,27 +2,32 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import yaml from 'js-yaml';
-import { resolveDocsStoreRoot } from './lib/docs-store-path.mjs';
 
-const storeRoot = process.env.SYNTHETIC_DOCS_STORE || resolveDocsStoreRoot();
-const augurApiBaseUrl = (process.env.AUGUR_API_BASE_URL || process.env.KORD_API_BASE_URL || 'http://127.0.0.1:9091').replace(/\/$/, '');
-const kordApiKey = (process.env.KORD_API_KEY || process.env.KORD_API_KEYS || '').split(',').map((value) => value.trim()).find(Boolean) || '';
-const sourceMode = process.env.DOCS_SOURCE_MODE || 'hybrid';
+const snapshotStoreRoot = process.env.SNAPSHOT_STORE_ROOT || process.env.AUGUR_OUTPUT_ROOT || '/kord/snapshot-store';
 const port = Number(process.env.SYNTHETIC_DOCS_PORT || 4010);
+const defaultUserId = process.env.DOCS_DEFAULT_USER || 'admin';
+const accessConfig = parseAccessConfig(process.env.SNAPSHOT_ACCESS || '');
 
-function slugFromParts(owner, repo) {
-  return owner && repo ? `${owner}--${repo}` : '';
+function parseAccessConfig(raw) {
+  if (!raw.trim()) return {};
+  return Object.fromEntries(raw.split(';').map((entry) => {
+    const [user, repos] = entry.split(':');
+    return [String(user || '').trim(), String(repos || '').split(',').map((repo) => repo.trim()).filter(Boolean)];
+  }).filter(([user]) => user));
 }
 
-function displayProjectTitle(project, title) {
-  const candidate = (title || project || '').trim();
-  if (!candidate) return project;
-  if (candidate === project) {
-    const [owner, repo] = project.split('--');
-    if (owner && repo) return `${owner}/${repo}`;
-  }
-  return candidate;
+function userIdFromRequest(req) {
+  const header = String(req.headers['x-user-id'] || '').trim();
+  if (header) return header;
+  const auth = String(req.headers.authorization || '').trim();
+  if (auth.startsWith('Bearer ')) return auth.slice(7).trim() || defaultUserId;
+  return defaultUserId;
+}
+
+function canAccess(userId, project) {
+  const allowed = accessConfig[userId] || accessConfig.default;
+  if (!allowed || allowed.length === 0 || allowed.includes('*')) return true;
+  return allowed.includes(project);
 }
 
 function sendJson(res, status, payload) {
@@ -43,389 +48,173 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-function readYaml(filePath) {
-  return yaml.load(fs.readFileSync(filePath, 'utf8'));
-}
-
 function listDirectories(dirPath) {
   if (!fs.existsSync(dirPath)) return [];
   return fs.readdirSync(dirPath).filter((entry) => fs.statSync(path.join(dirPath, entry)).isDirectory());
 }
 
-function projectRoot(project) {
-  return path.join(storeRoot, 'projects', project);
+function slugFromParts(owner, repo) {
+  return owner && repo ? `${owner}--${repo}` : '';
 }
 
-function projectExists(project) {
-  return fs.existsSync(projectRoot(project));
+function repoDirCandidates(project) {
+  return [
+    path.join(snapshotStoreRoot, project),
+    path.join(snapshotStoreRoot, project.replace('--', '-')),
+    path.join(snapshotStoreRoot, project.replace('--', '/')),
+  ];
 }
 
-function analysisRoot(project, analysisId) {
-  return path.join(projectRoot(project), 'analyses', analysisId);
+function findRepoDir(project) {
+  return repoDirCandidates(project).find((candidate) => fs.existsSync(candidate)) || null;
 }
 
-function overlayRoot(project, overlayId) {
-  return path.join(projectRoot(project), 'overlays', overlayId);
+function snapshotPath(repoDir, snapshotId) {
+  return path.join(repoDir, snapshotId, 'snapshot.json');
 }
 
-function ensureDir(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
+function listSnapshotIds(repoDir) {
+  return listDirectories(repoDir)
+    .filter((snapshotId) => fs.existsSync(snapshotPath(repoDir, snapshotId)))
+    .sort((left, right) => fs.statSync(snapshotPath(repoDir, right)).mtimeMs - fs.statSync(snapshotPath(repoDir, left)).mtimeMs);
 }
 
-function ensureLayoutOverlay(project, overlayId = 'ui-layout') {
-  const root = overlayRoot(project, overlayId);
-  ensureDir(root);
-  const metaPath = path.join(root, 'meta.json');
-  if (!fs.existsSync(metaPath)) {
-    fs.writeFileSync(metaPath, JSON.stringify({
-      overlay_id: overlayId,
-      project,
-      title: 'UI Layout',
-      description: 'Persisted graph layouts and view preferences.',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }, null, 2));
+function projectFromSnapshot(snapshot, fallbackDirName) {
+  const project = String(snapshot?.project || '').trim();
+  if (project.includes('/')) {
+    const [owner, repo] = project.split('/');
+    if (owner && repo) return slugFromParts(owner, repo);
   }
-  return root;
+  return fallbackDirName.includes('--') ? fallbackDirName : fallbackDirName.replace(/-([^-]+)$/, '--$1');
 }
 
-function loadGraphLayouts(project, overlayId = 'ui-layout') {
-  const filePath = path.join(overlayRoot(project, overlayId), 'graph-layouts.json');
-  return readJsonIfExists(filePath) || { overlay_id: overlayId, graph_layouts: {} };
-}
-
-function saveGraphLayouts(project, payload, overlayId = 'ui-layout') {
-  const root = ensureLayoutOverlay(project, overlayId);
-  const filePath = path.join(root, 'graph-layouts.json');
-  const nextPayload = {
-    overlay_id: overlayId,
-    updated_at: new Date().toISOString(),
-    graph_layouts: payload?.graph_layouts || {},
-  };
-  fs.writeFileSync(filePath, JSON.stringify(nextPayload, null, 2));
-
-  const metaPath = path.join(root, 'meta.json');
-  const meta = readJsonIfExists(metaPath) || { overlay_id: overlayId, project, title: 'UI Layout' };
-  meta.updated_at = nextPayload.updated_at;
-  fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
-
-  return nextPayload;
-}
-
-async function readJsonBody(req) {
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const raw = Buffer.concat(chunks).toString('utf8').trim();
-  if (!raw) return {};
-  return JSON.parse(raw);
-}
-
-function loadStoryDirectory(dirPath) {
-  if (!fs.existsSync(dirPath)) return [];
-  return fs.readdirSync(dirPath)
-    .filter((name) => name.endsWith('.yaml'))
-    .sort()
-    .map((name) => readYaml(path.join(dirPath, name)));
-}
-
-function loadNarratives(filePath) {
-  if (!fs.existsSync(filePath)) return { version: '1', narratives: [] };
-  return readYaml(filePath);
-}
-
-function loadAnalysisMeta(project, analysisId) {
-  return readJson(path.join(analysisRoot(project, analysisId), 'meta.json'));
-}
-
-function loadOverlayMeta(project, overlayId) {
-  return readJson(path.join(overlayRoot(project, overlayId), 'meta.json'));
-}
-
-function loadCurrentPointer(project) {
-  return readJson(path.join(projectRoot(project), 'published', 'current.json'));
-}
-
-function readJsonIfExists(filePath) {
-  if (!fs.existsSync(filePath)) return null;
-  return readJson(filePath);
-}
-
-function pathExists(filePath) {
-  return fs.existsSync(filePath);
-}
-
-async function fetchJson(url) {
-  const headers = { accept: 'application/json' };
-  if (kordApiKey) headers['x-api-key'] = kordApiKey;
-  const response = await fetch(url, { headers });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Failed to fetch ${url}: ${response.status} ${body}`);
-  }
-  return response.json();
-}
-
-async function listAugurProjects() {
-  const payload = await fetchJson(`${augurApiBaseUrl}/augur/projects`);
-  const projects = Array.isArray(payload?.projects) ? payload.projects : [];
-  return projects.sort((left, right) => String(left.project || '').localeCompare(String(right.project || '')));
-}
-
-async function loadAugurProject(project) {
-  const projects = await listAugurProjects();
-  return projects.find((item) => item?.project === project) || null;
-}
-
-async function loadAugurAnalysisList(project) {
-  const payload = await fetchJson(`${augurApiBaseUrl}/augur/projects/${encodeURIComponent(project)}/analyses`);
-  return Array.isArray(payload?.analyses) ? payload.analyses : [];
-}
-
-async function loadAugurRenderedView(project, analysisId) {
-  const payload = await fetchJson(`${augurApiBaseUrl}/augur/projects/${encodeURIComponent(project)}/analyses/${encodeURIComponent(analysisId)}/base`);
+function loadProjectRecord(project, userId = defaultUserId) {
+  if (!canAccess(userId, project)) return null;
+  const repoDir = findRepoDir(project);
+  if (!repoDir) return null;
+  const snapshotIds = listSnapshotIds(repoDir);
+  if (snapshotIds.length === 0) return null;
+  const latestSnapshot = readJson(snapshotPath(repoDir, snapshotIds[0]));
   return {
     project,
-    analysis_id: payload?.analysis_id || analysisId,
-    overlay_id: null,
-    atlas: payload?.atlas || {},
-    stories: Array.isArray(payload?.stories) ? payload.stories : [],
-    narratives: Array.isArray(payload?.narratives) ? payload.narratives : [],
-    symbols_seed: payload?.symbols_seed || null,
-    meta: payload?.meta || {},
+    repoDir,
+    latestSnapshotId: snapshotIds[0],
+    latestSnapshot,
   };
 }
 
-async function buildAugurProjectSummary(project) {
-  const record = await loadAugurProject(project);
-  if (!record) return null;
-  const view = await loadAugurRenderedView(project, record.latest_analysis_id);
+function listProjects(userId = defaultUserId) {
+  if (!fs.existsSync(snapshotStoreRoot)) return [];
+  const records = [];
+  for (const dirName of listDirectories(snapshotStoreRoot).sort()) {
+    const repoDir = path.join(snapshotStoreRoot, dirName);
+    const snapshotIds = listSnapshotIds(repoDir);
+    if (snapshotIds.length === 0) continue;
+    const latestSnapshot = readJson(snapshotPath(repoDir, snapshotIds[0]));
+    const project = projectFromSnapshot(latestSnapshot, dirName);
+    if (canAccess(userId, project)) records.push({ project, repoDir, latestSnapshotId: snapshotIds[0], latestSnapshot });
+  }
+  return records.sort((left, right) => left.project.localeCompare(right.project));
+}
+
+function projectSummary(record) {
   return {
-    slug: project,
-    title: displayProjectTitle(project, record.title || view.atlas?.project || project),
-    purpose: record.purpose || view.atlas?.purpose || '',
-    componentCount: Array.isArray(view.atlas?.components) ? view.atlas.components.length : 0,
-    current_analysis_id: record.latest_analysis_id,
-    current_overlay_id: null,
+    slug: record.project,
+    title: record.latestSnapshot?.project || record.project.replace('--', '/'),
+    purpose: record.latestSnapshot?.purpose || record.latestSnapshot?.summary || '',
+    componentCount: Array.isArray(record.latestSnapshot?.components) ? record.latestSnapshot.components.length : 0,
+    currentSnapshotId: record.latestSnapshotId,
+    currentSha: record.latestSnapshot?.sha || record.latestSnapshotId,
   };
 }
 
-function loadRenderedView(project, analysisId, overlayId = null) {
-  const baseRoot = analysisRoot(project, analysisId);
-  const atlas = readJson(path.join(baseRoot, 'atlas.json'));
-  const baseStories = loadStoryDirectory(path.join(baseRoot, 'stories'));
-  const baseStoryMap = Object.fromEntries(baseStories.filter((story) => story?.id).map((story) => [story.id, story]));
-  const baseNarratives = loadNarratives(path.join(baseRoot, 'narratives.yaml'));
-
-  let narratives = baseNarratives;
-  if (overlayId) {
-    const oRoot = overlayRoot(project, overlayId);
-    for (const story of loadStoryDirectory(path.join(oRoot, 'stories'))) {
-      if (story?.id) baseStoryMap[story.id] = story;
-    }
-    const overlayNarratives = path.join(oRoot, 'narratives.yaml');
-    if (fs.existsSync(overlayNarratives)) narratives = loadNarratives(overlayNarratives);
-  }
-
+function snapshotMeta(record, snapshotId) {
+  const snapshot = readJson(snapshotPath(record.repoDir, snapshotId));
   return {
-    project,
-    analysis_id: analysisId,
-    overlay_id: overlayId,
-    atlas,
-    stories: Object.values(baseStoryMap),
-    narratives: narratives.narratives || [],
+    project: record.project,
+    snapshotId,
+    sha: snapshot?.sha || snapshotId,
+    generated: snapshot?.generated || '',
+    purpose: snapshot?.purpose || '',
+    summary: snapshot?.summary || '',
+    componentCount: Array.isArray(snapshot?.components) ? snapshot.components.length : 0,
+    flowCount: Array.isArray(snapshot?.flows) ? snapshot.flows.length : 0,
+    concernCount: Array.isArray(snapshot?.concerns) ? snapshot.concerns.length : 0,
   };
 }
 
-function buildProjectSummary(project) {
-  const current = loadCurrentPointer(project);
-  const view = loadRenderedView(project, current.default_analysis_id, current.default_overlay_id || null);
+function snapshotView(record, snapshotId) {
+  const snapshot = readJson(snapshotPath(record.repoDir, snapshotId));
   return {
-    slug: project,
-    title: displayProjectTitle(project, view.atlas?.project || project),
-    purpose: view.atlas?.purpose || '',
-    componentCount: Array.isArray(view.atlas?.components) ? view.atlas.components.length : 0,
-    current_analysis_id: current.default_analysis_id,
-    current_overlay_id: current.default_overlay_id || null,
+    project: record.project,
+    snapshot_id: snapshotId,
+    sha: snapshot?.sha || snapshotId,
+    snapshot,
   };
 }
 
-async function listProjectSummaries() {
-  const summaries = new Map();
-
-  if (sourceMode !== 'store') {
-    for (const project of await listAugurProjects()) {
-      const summary = await buildAugurProjectSummary(project.project);
-      if (summary) summaries.set(project.project, summary);
-    }
-  }
-
-  if (sourceMode !== 'augur') {
-    const projectsDir = path.join(storeRoot, 'projects');
-    for (const project of listDirectories(projectsDir).sort()) {
-      if (!summaries.has(project)) summaries.set(project, buildProjectSummary(project));
-    }
-  }
-
-  return [...summaries.values()].sort((a, b) => a.slug.localeCompare(b.slug));
+function handleMe(req, res) {
+  const userId = userIdFromRequest(req);
+  sendJson(res, 200, {
+    id: userId,
+    repos: listProjects(userId).map((record) => record.project),
+  });
 }
 
-async function sourceForProject(project) {
-  if (sourceMode !== 'store' && await loadAugurProject(project)) return 'augur';
-  if (sourceMode !== 'augur' && projectExists(project)) return 'store';
-  return null;
+function handleProjects(req, res) {
+  sendJson(res, 200, listProjects(userIdFromRequest(req)).map(projectSummary));
 }
 
-async function handleProjects(req, res) {
-  sendJson(res, 200, await listProjectSummaries());
+function handleProject(req, res, project) {
+  const record = loadProjectRecord(project, userIdFromRequest(req));
+  if (!record) return sendJson(res, 404, { error: 'project_not_found' });
+  sendJson(res, 200, projectSummary(record));
 }
 
-async function handleProject(req, res, project) {
-  const source = await sourceForProject(project);
-  if (!source) return sendJson(res, 404, { error: 'project_not_found' });
-  sendJson(res, 200, source === 'augur' ? await buildAugurProjectSummary(project) : buildProjectSummary(project));
+function handleProjectCurrent(req, res, project) {
+  const record = loadProjectRecord(project, userIdFromRequest(req));
+  if (!record) return sendJson(res, 404, { error: 'project_not_found' });
+  sendJson(res, 200, snapshotView(record, record.latestSnapshotId));
 }
 
-async function handleProjectCurrent(req, res, project) {
-  const source = await sourceForProject(project);
-  if (!source) return sendJson(res, 404, { error: 'project_not_found' });
-  if (source === 'augur') {
-    const record = await loadAugurProject(project);
-    if (!record) return sendJson(res, 404, { error: 'project_not_found' });
-    return sendJson(res, 200, await loadAugurRenderedView(project, record.latest_analysis_id));
-  }
-  const current = loadCurrentPointer(project);
-  return sendJson(res, 200, loadRenderedView(project, current.default_analysis_id, current.default_overlay_id || null));
+function handleProjectSnapshots(req, res, project) {
+  const record = loadProjectRecord(project, userIdFromRequest(req));
+  if (!record) return sendJson(res, 404, { error: 'project_not_found' });
+  sendJson(res, 200, listSnapshotIds(record.repoDir).map((snapshotId) => snapshotMeta(record, snapshotId)));
 }
 
-async function handleProjectAnalyses(req, res, project) {
-  const source = await sourceForProject(project);
-  if (!source) return sendJson(res, 404, { error: 'project_not_found' });
-  if (source === 'augur') return sendJson(res, 200, await loadAugurAnalysisList(project));
-  const analyses = listDirectories(path.join(projectRoot(project), 'analyses'))
-    .sort()
-    .reverse()
-    .map((analysisId) => loadAnalysisMeta(project, analysisId));
-  return sendJson(res, 200, analyses);
+function handleProjectSnapshot(req, res, project, snapshotId) {
+  const record = loadProjectRecord(project, userIdFromRequest(req));
+  if (!record) return sendJson(res, 404, { error: 'project_not_found' });
+  if (!fs.existsSync(snapshotPath(record.repoDir, snapshotId))) return sendJson(res, 404, { error: 'snapshot_not_found' });
+  sendJson(res, 200, snapshotView(record, snapshotId));
 }
 
-async function handleProjectAnalysis(req, res, project, analysisId) {
-  const source = await sourceForProject(project);
-  if (!source) return sendJson(res, 404, { error: 'project_not_found' });
-  if (source === 'augur') {
-    try {
-      const payload = await fetchJson(`${augurApiBaseUrl}/augur/projects/${encodeURIComponent(project)}/analyses/${encodeURIComponent(analysisId)}`);
-      return sendJson(res, 200, payload?.meta || payload);
-    } catch {
-      return sendJson(res, 404, { error: 'analysis_not_found' });
-    }
-  }
-  if (!fs.existsSync(path.join(analysisRoot(project, analysisId), 'meta.json'))) {
-    return sendJson(res, 404, { error: 'analysis_not_found' });
-  }
-  return sendJson(res, 200, loadAnalysisMeta(project, analysisId));
-}
-
-async function handleProjectAnalysisView(req, res, project, analysisId, url) {
-  const source = await sourceForProject(project);
-  if (!source) return sendJson(res, 404, { error: 'project_not_found' });
-  if (source === 'augur') {
-    try {
-      return sendJson(res, 200, await loadAugurRenderedView(project, analysisId));
-    } catch {
-      return sendJson(res, 404, { error: 'analysis_not_found' });
-    }
-  }
-  if (!fs.existsSync(path.join(analysisRoot(project, analysisId), 'meta.json'))) {
-    return sendJson(res, 404, { error: 'analysis_not_found' });
-  }
-  const overlayId = url.searchParams.get('overlayId');
-  return sendJson(res, 200, loadRenderedView(project, analysisId, overlayId));
-}
-
-function handleProjectOverlays(req, res, project) {
-  if (!projectExists(project)) return sendJson(res, 200, []);
-  const overlaysDir = path.join(projectRoot(project), 'overlays');
-  const overlays = listDirectories(overlaysDir)
-    .sort()
-    .reverse()
-    .map((overlayId) => loadOverlayMeta(project, overlayId));
-  sendJson(res, 200, overlays);
-}
-
-function handleProjectOverlay(req, res, project, overlayId) {
-  if (!fs.existsSync(path.join(overlayRoot(project, overlayId), 'meta.json'))) {
-    return sendJson(res, 404, { error: 'overlay_not_found' });
-  }
-  sendJson(res, 200, loadOverlayMeta(project, overlayId));
-}
-
-function handleProjectGraphLayouts(req, res, project) {
-  sendJson(res, 200, loadGraphLayouts(project));
-}
-
-async function handleProjectGraphLayoutsUpdate(req, res, project) {
-  const body = await readJsonBody(req);
-  const graphId = String(body?.graph_id || '').trim();
-  if (!graphId) return sendJson(res, 400, { error: 'graph_id_required' });
-
-  const current = loadGraphLayouts(project);
-  const currentLayouts = current.graph_layouts || {};
-  const nextEntry = {
-    ...(currentLayouts[graphId] || {}),
-    ...(body?.layout && typeof body.layout === 'object' ? body.layout : {}),
-  };
-  const next = {
-    ...current,
-    graph_layouts: {
-      ...currentLayouts,
-      [graphId]: nextEntry,
-    },
-  };
-  sendJson(res, 200, saveGraphLayouts(project, next));
-}
-
-const server = http.createServer(async (req, res) => {
+const server = http.createServer((req, res) => {
   if (!req.url) return sendText(res, 400, 'missing url');
-
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const parts = url.pathname.split('/').filter(Boolean);
 
   try {
     if (req.method === 'GET' && parts.length === 1 && parts[0] === 'health') {
-      return sendJson(res, 200, { ok: true, storeRoot });
+      return sendJson(res, 200, { ok: true, snapshotStoreRoot });
+    }
+    if (req.method === 'GET' && parts.length === 1 && parts[0] === 'me') {
+      return handleMe(req, res);
+    }
+    if (req.method === 'GET' && parts.length === 1 && parts[0] === 'repos') {
+      return handleProjects(req, res);
     }
     if (req.method === 'GET' && parts.length === 1 && parts[0] === 'projects') {
-      return await handleProjects(req, res);
+      return handleProjects(req, res);
     }
-    if (parts[0] === 'projects' && parts.length >= 3) {
+    if (req.method === 'GET' && parts[0] === 'projects' && parts.length >= 3) {
       const project = slugFromParts(parts[1], parts[2]);
-      const nextIndex = 3;
       if (!project) return sendJson(res, 404, { error: 'project_not_found' });
-      if (parts.length === nextIndex) {
-        return await handleProject(req, res, project);
-      }
-      if (parts.length === nextIndex + 1 && parts[nextIndex] === 'current') {
-        return await handleProjectCurrent(req, res, project);
-      }
-      if (parts.length === nextIndex + 1 && parts[nextIndex] === 'analyses') {
-        return await handleProjectAnalyses(req, res, project);
-      }
-      if (parts.length === nextIndex + 2 && parts[nextIndex] === 'analyses') {
-        return await handleProjectAnalysis(req, res, project, parts[nextIndex + 1]);
-      }
-      if (parts.length === nextIndex + 3 && parts[nextIndex] === 'analyses' && parts[nextIndex + 2] === 'view') {
-        return await handleProjectAnalysisView(req, res, project, parts[nextIndex + 1], url);
-      }
-      if (parts.length === nextIndex + 1 && parts[nextIndex] === 'overlays') {
-        return handleProjectOverlays(req, res, project);
-      }
-      if (parts.length === nextIndex + 2 && parts[nextIndex] === 'overlays') {
-        return handleProjectOverlay(req, res, project, parts[nextIndex + 1]);
-      }
-      if (parts.length === nextIndex + 2 && parts[nextIndex] === 'ui' && parts[nextIndex + 1] === 'graph-layouts') {
-        if (req.method === 'GET') return handleProjectGraphLayouts(req, res, project);
-        if (req.method === 'PUT') return await handleProjectGraphLayoutsUpdate(req, res, project);
-      }
+      if (parts.length === 3) return handleProject(req, res, project);
+      if (parts.length === 4 && parts[3] === 'current') return handleProjectCurrent(req, res, project);
+      if (parts.length === 4 && parts[3] === 'snapshots') return handleProjectSnapshots(req, res, project);
+      if (parts.length === 5 && parts[3] === 'snapshots') return handleProjectSnapshot(req, res, project, parts[4]);
     }
     return sendJson(res, 404, { error: 'not_found' });
   } catch (error) {
@@ -434,8 +223,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, () => {
-  console.log(`Synthetic docs API listening on http://127.0.0.1:${port}`);
-  console.log(`Store root: ${storeRoot}`);
-  console.log(`Augur API base URL: ${augurApiBaseUrl}`);
-  console.log(`Source mode: ${sourceMode}`);
+  console.log(`Snapshot docs API listening on http://127.0.0.1:${port}`);
+  console.log(`Snapshot store root: ${snapshotStoreRoot}`);
 });

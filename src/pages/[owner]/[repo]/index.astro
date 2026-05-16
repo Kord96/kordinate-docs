@@ -1,16 +1,8 @@
 ---
 import Base from '../../../layouts/Base.astro';
 import Header from '../../../components/Header.astro';
-import JourneyStyles from '../../../components/journey/JourneyStyles.astro';
-import JourneyNav from '../../../components/journey/JourneyNav.astro';
-import LandingSection from '../../../components/journey/LandingSection.astro';
-import OverviewSection from '../../../components/journey/OverviewSection.astro';
-import StorySection from '../../../components/journey/StorySection.astro';
-import FocusOverlay from '../../../components/journey/FocusOverlay.astro';
-import Drawer from '../../../components/journey/Drawer.astro';
-import JourneyData from '../../../components/journey/JourneyData.astro';
-import JourneyScript from '../../../components/journey/JourneyScript.astro';
-import { displayProjectTitle, getProjectBundle, getProjectIndex, projectAnalysesRoutePath, projectApiPath, projectAtlasRoutePath, projectRoutePath, slugFromRouteParts } from '../../../lib/docs-data';
+import SnapshotView from '../../../components/snapshot/SnapshotView.astro';
+import { displayProjectTitle, getCurrentSnapshot, getProjectIndex, getProjectSnapshots, slugFromRouteParts } from '../../../lib/docs-data';
 
 export async function getStaticPaths() {
   const projects = await getProjectIndex();
@@ -22,137 +14,15 @@ export async function getStaticPaths() {
 
 const { owner, repo } = Astro.params;
 const project = slugFromRouteParts(owner, repo);
-const { atlas, storyByNode, journeys, storyMap, symbolIndex } = await getProjectBundle(project);
-const displayProject = displayProjectTitle(project, atlas.project);
-
-const defaultJourney = journeys.find((j: any) => j.id === 'system-overview') || journeys[0] || { id: 'default', title: 'Narrative', stories: [] };
-
-const journeyData: Record<string, { stories: any[]; bridgeMap: Record<string, any>; total: number }> = {};
-for (const j of journeys) {
-  const jStories = (j.stories || []).map((sid: string) => storyMap[sid]).filter(Boolean);
-  const jBridges: Record<string, any> = {};
-  for (const b of (j.bridges || [])) {
-    if (b && typeof b === 'object') jBridges[b.to] = b;
-  }
-  journeyData[j.id] = { stories: jStories, bridgeMap: jBridges, total: jStories.length };
-}
-
-const stories = journeyData[defaultJourney.id]?.stories || [];
-const allJourneyTitles = Object.fromEntries(journeys.map((j: any) => [j.id, j.title]));
-const compMap: Record<string, any> = {};
-for (const c of (atlas.components || [])) compMap[c.id] = c;
-for (const e of (atlas.external_dependencies || [])) compMap[e.id] = e;
-for (const s of (atlas.state || [])) compMap[s.id] = s;
-
-const atlasRefMap = new Map<string, { kind: string; id: string }>();
-for (const entry of [...(atlas.components || []), ...(atlas.external_dependencies || []), ...(atlas.state || []), ...(atlas.flows || []), ...(atlas.events || []), ...(atlas.concepts?.detected_patterns || []), ...(atlas.tensions || [])]) {
-  if (!entry?.id) continue;
-  const id = String(entry.id);
-  const name = String(entry.name || '').trim();
-  atlasRefMap.set(id, { kind: 'atlas', id });
-  if (name) atlasRefMap.set(name, { kind: 'atlas', id });
-}
-
-const purpose = atlas.purpose || '';
-const symbolNames = Object.keys(symbolIndex).sort((a, b) => b.length - a.length);
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function linkPlainSymbols(html: string): string {
-  const parts = html.split(/(<[^>]+>)/g);
-  return parts.map((part) => {
-    if (!part || part.startsWith('<')) return part;
-    let text = part;
-    for (const symbolName of symbolNames) {
-      const pattern = new RegExp(`(^|[^\\w])(${escapeRegExp(symbolName)})(?=$|[^\\w])`, 'g');
-      text = text.replace(
-        pattern,
-        (_m: string, prefix: string, match: string) =>
-          `${prefix}<span class="ref" data-kind="symbol" data-symbol="${symbolName}">${match}</span>`
-      );
-    }
-    return text;
-  }).join('');
-}
-
-function parseSummary(text: string): string {
-  let html = text.replace(/\*\*([^*]+?)\*\*/gs, (_: string, name: string) => {
-      const trimmed = name.trim();
-      const atlasRef = atlasRefMap.get(trimmed) || atlasRefMap.get(trimmed.toLowerCase().replace(/\s+/g, '-'));
-      if (atlasRef) return `<span class="ref" data-kind="atlas" data-id="${atlasRef.id}">${name}</span>`;
-      const symbolRef = symbolIndex[trimmed];
-      if (symbolRef) return `<span class="ref" data-kind="symbol" data-symbol="${trimmed}">${name}</span>`;
-      return `<span class="ref" data-kind="unresolved" data-id="${trimmed.toLowerCase().replace(/\s+/g, '-')}">${name}</span>`;
-    })
-  ;
-  html = linkPlainSymbols(html);
-  return html.replace(/\n\n/g, '<br><br>').replace(/\n/g, ' ');
-}
+const [projects, view, snapshots] = await Promise.all([
+  getProjectIndex(),
+  getCurrentSnapshot(project),
+  getProjectSnapshots(project),
+]);
+const snapshot = view.snapshot || {};
 ---
 
-<Base title={defaultJourney.title}>
-  <JourneyStyles />
-
-  <Header
-    project={project}
-    currentProject={project}
-    position="sticky"
-    links={[
-      {label: "Narrative", href: projectRoutePath(project)},
-      {label: "Atlas", href: projectAtlasRoutePath(project)},
-      {label: "History", href: projectAnalysesRoutePath(project)},
-    ]}
-    active="narrative"
-  />
-
-  <JourneyNav
-    journeys={journeys}
-    defaultJourney={defaultJourney}
-    stories={stories}
-    pageLinks={[
-      { label: 'Narrative', href: projectRoutePath(project) },
-      { label: 'Atlas', href: projectAtlasRoutePath(project) },
-      { label: 'History', href: projectAnalysesRoutePath(project) },
-    ]}
-    activePage="narrative"
-  />
-
-  <LandingSection
-    project={displayProject}
-    purpose={purpose}
-    journeys={journeys}
-    defaultJourney={defaultJourney}
-    totalStories={stories.length}
-    domainModel={atlas.domain_model}
-    componentCount={atlas.components?.length}
-    flowCount={atlas.flows?.length}
-  />
-
-  <OverviewSection atlas={atlas} journeys={journeys} defaultJourney={defaultJourney} storyByNode={storyByNode} parseSummary={parseSummary} />
-
-  {journeys.map((journey: any) => {
-    const jd = journeyData[journey.id];
-    const isDefault = journey.id === defaultJourney.id;
-    return jd.stories.map((story: any, i: number) => (
-      <StorySection
-        story={story}
-        index={i}
-        total={jd.total}
-        journeyId={journey.id}
-        isDefault={isDefault}
-        allJourneyTitles={allJourneyTitles}
-        bridge={jd.bridgeMap[story.id]}
-        compMap={compMap}
-        storyByNode={storyByNode}
-        parseSummary={parseSummary}
-      />
-    ));
-  })}
-
-  <FocusOverlay />
-  <JourneyData atlas={atlas} storyByNode={storyByNode} projectApiPath={projectApiPath(project)} symbolIndex={symbolIndex} />
-  <Drawer projectLabel={displayProject} />
-  <JourneyScript />
+<Base title={`${displayProjectTitle(project, snapshot.project)} Snapshot`}>
+  <Header project={displayProjectTitle(project, snapshot.project)} currentProject={project} projects={projects} active="snapshot" />
+  <SnapshotView project={project} snapshotId={view.snapshot_id} snapshot={snapshot} allSnapshots={snapshots} />
 </Base>

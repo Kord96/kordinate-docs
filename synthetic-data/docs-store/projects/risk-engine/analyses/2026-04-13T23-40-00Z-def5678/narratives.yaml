@@ -1,9 +1,0 @@
-version: "1"
-narratives:
-  - id: system-overview
-    title: Getting Started
-    description: Follow one transaction through scoring and persistence.
-    audience: ["onboarding"]
-    stories:
-      - id: decision-flow
-        description: Start with the single end-to-end path that defines the service.

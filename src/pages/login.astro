@@ -3,236 +3,61 @@ import Base from '../layouts/Base.astro';
 ---
 
 <Base title="Sign in">
-  <div class="login-wrap">
-    <div class="login-card">
-      <img src="/logo_dark.png" alt="Logo" class="logo" />
+  <main class="login-shell">
+    <section class="login-panel">
+      <img src="/logo_dark.png" alt="Kordinate" class="logo-dark" />
+      <img src="/logo_light.png" alt="Kordinate" class="logo-light" />
       <h1>Sign in</h1>
-      <p class="subtitle">Dev environment</p>
-
-      <div class="toggle">
-        <div class="toggle-track">
-          <div class="toggle-indicator"></div>
-          <button class="toggle-opt active" data-role="admin">Admin</button>
-          <button class="toggle-opt" data-role="guest">Guest</button>
-        </div>
-      </div>
-
-      <p class="error" style="display:none">Wrong password</p>
-
+      <p>The gateway authenticates users and forwards a stable user identity to the snapshot API. In local development, set <code>DOCS_USER_ID</code> before building.</p>
       <form method="POST" action="/login">
-        <input type="hidden" name="role" id="role" value="admin" />
-        <label for="password">Password</label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          placeholder="Enter password"
-          autofocus
-          required
-        />
+        <label for="user">User id</label>
+        <input id="user" name="user" value="admin" autocomplete="username" />
+        <label for="token">Token</label>
+        <input id="token" name="token" type="password" autocomplete="current-password" />
         <button type="submit">Continue</button>
       </form>
-    </div>
-  </div>
-
-  <script>
-    // Show error if redirected back from failed auth attempt
-    if (document.cookie.includes('dev-auth-error')) {
-      const el = document.querySelector('.error') as HTMLElement;
-      if (el) el.style.display = '';
-      document.cookie = 'dev-auth-error=; path=/; max-age=0';
-    }
-
-    // Segmented control
-    const indicator = document.querySelector('.toggle-indicator') as HTMLElement;
-    const opts = document.querySelectorAll('.toggle-opt');
-
-    opts.forEach((opt, i) => {
-      opt.addEventListener('click', () => {
-        opts.forEach(o => o.classList.remove('active'));
-        opt.classList.add('active');
-        indicator.style.transform = `translateX(${i * 100}%)`;
-        const role = (opt as HTMLElement).dataset.role!;
-        (document.getElementById('role') as HTMLInputElement).value = role;
-        (document.getElementById('password') as HTMLInputElement).placeholder =
-          role === 'guest' ? 'Enter guest password' : 'Enter password';
-      });
-    });
-  </script>
+    </section>
+  </main>
 </Base>
 
 <style>
-  .login-wrap {
+  .login-shell {
     min-height: 100dvh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
   }
-
-  .login-card {
-    width: 100%;
-    max-width: 360px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
+  .login-panel {
+    width: min(420px, 100%);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 1.25rem;
   }
-
-  .logo {
-    width: 48px;
-    height: 48px;
-    object-fit: contain;
-    margin-bottom: 0.5rem;
-    opacity: 0.9;
-  }
-
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: -0.02em;
-  }
-
-  .subtitle {
-    font-size: 0.8rem;
-    color: var(--text-3);
-    margin-bottom: 1rem;
-  }
-
-  .error {
-    font-size: 0.8rem;
-    color: var(--danger);
-    background: rgba(248, 113, 113, 0.08);
-    border: 1px solid rgba(248, 113, 113, 0.2);
-    border-radius: 6px;
-    padding: 0.5rem 0.75rem;
-    width: 100%;
-    text-align: center;
-  }
-
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    width: 100%;
-  }
-
-  label {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--text-2);
-  }
-
+  img { width: 44px; height: 44px; object-fit: contain; margin-bottom: 1rem; }
+  .logo-light { display: none; }
+  :global([data-theme='light']) .logo-dark { display: none; }
+  :global([data-theme='light']) .logo-light { display: block; }
+  h1 { font-size: 1.55rem; margin-bottom: .5rem; }
+  p { color: var(--text-2); line-height: 1.55; margin-bottom: 1rem; }
+  code { font-family: var(--mono); color: var(--accent); }
+  form { display: grid; gap: .55rem; }
+  label { color: var(--text-3); font-size: .8rem; font-weight: 700; }
   input {
     width: 100%;
-    padding: 0.6rem 0.75rem;
-    font-family: var(--font);
-    font-size: 0.875rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
     color: var(--text);
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
     border-radius: 8px;
-    outline: none;
-    transition: border-color 0.15s;
+    padding: .65rem .75rem;
   }
-
-  input::placeholder {
-    color: var(--text-4);
-  }
-
-  input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-dim);
-  }
-
   button {
-    margin-top: 0.5rem;
-    padding: 0.6rem;
-    font-family: var(--font);
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #fff;
+    margin-top: .5rem;
+    border: 0;
     background: var(--accent);
-    border: none;
+    color: #fff;
     border-radius: 8px;
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
-
-  button:hover {
-    opacity: 0.9;
-  }
-
-  button:active {
-    opacity: 0.8;
-  }
-
-  .toggle {
-    width: 100%;
-    margin-bottom: 0.25rem;
-  }
-
-  .toggle-track {
-    position: relative;
-    display: flex;
-    padding: 3px;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-  }
-
-  .toggle-indicator {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: calc(50% - 3px);
-    height: calc(100% - 6px);
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
-    border-radius: 7px;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 0 12px rgba(129, 140, 248, 0.06);
-  }
-
-  .toggle-opt {
-    position: relative;
-    z-index: 1;
-    flex: 1;
-    padding: 0.4rem 0;
-    font-family: var(--font);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    color: var(--text-4);
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: color 0.2s;
-    margin: 0;
-  }
-
-  .toggle-opt:hover {
-    color: var(--text-2);
-  }
-
-  .toggle-opt.active {
-    color: var(--accent);
-  }
-
-  .hint {
-    margin-top: 1.5rem;
-    font-size: 0.7rem;
-    color: var(--text-4);
-    text-align: center;
-  }
-
-  .hint code {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    background: var(--bg-raised);
-    padding: 0.15em 0.35em;
-    border-radius: 4px;
-    border: 1px solid var(--border);
+    padding: .7rem .8rem;
+    font-weight: 700;
   }
 </style>

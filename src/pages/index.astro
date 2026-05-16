@@ -1,12 +1,62 @@
 ---
-import { getProjectIndex, projectRoutePath } from '../lib/docs-data';
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import { displayProjectTitle, getProjectIndex, getViewer, projectRoutePath, splitDisplayProjectTitle } from '../lib/docs-data';
 
-const projects = await getProjectIndex();
-const fallback = projects[0]?.slug;
-
-if (!fallback) {
-  throw new Error('No projects available for docs redirect.');
-}
-
-return Astro.redirect(projectRoutePath(fallback));
+const [viewer, projects] = await Promise.all([getViewer(), getProjectIndex()]);
 ---
+
+<Base title="Repositories">
+  <Header project="Repositories" projects={projects} active="repos" />
+  <main class="repo-shell">
+    <section class="repo-hero">
+      <div class="eyebrow">Signed in as {viewer.id}</div>
+      <h1>Accessible repositories</h1>
+      <p>Choose a repository to inspect its latest semantic snapshot and switch between commit snapshots.</p>
+    </section>
+
+    <section class="repo-grid">
+      {projects.map((project) => {
+        const parts = splitDisplayProjectTitle(project.slug, project.title);
+        return (
+          <a class="repo-card" href={projectRoutePath(project.slug)}>
+            <div class="repo-title">
+              {parts.owner && <span>{parts.owner}/</span>}
+              <strong>{parts.repo}</strong>
+            </div>
+            <p>{project.purpose}</p>
+            <div class="repo-meta">
+              <span>{project.componentCount} components</span>
+              {project.currentSha && <code>{project.currentSha.slice(0, 12)}</code>}
+            </div>
+          </a>
+        );
+      })}
+    </section>
+  </main>
+</Base>
+
+<style>
+  .repo-shell { max-width: 1120px; margin: 0 auto; padding: 3rem 1.25rem; }
+  .repo-hero { padding: 4rem 0 2rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+  .eyebrow { color: var(--text-4); font-family: var(--mono); font-size: .78rem; margin-bottom: .8rem; }
+  h1 { font-size: clamp(2rem, 5vw, 4rem); letter-spacing: 0; }
+  .repo-hero p { color: var(--text-2); margin-top: .8rem; max-width: 680px; line-height: 1.55; }
+  .repo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .repo-card {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    padding: 1rem;
+  }
+  .repo-card:hover { border-color: var(--accent-border); background: var(--accent-dim); }
+  .repo-title { font-size: 1.1rem; margin-bottom: .5rem; }
+  .repo-title span { color: var(--text-4); }
+  .repo-card p { color: var(--text-2); line-height: 1.55; min-height: 3rem; }
+  .repo-meta { display: flex; justify-content: space-between; gap: .75rem; margin-top: 1rem; color: var(--text-3); font-size: .8rem; }
+  code { font-family: var(--mono); }
+  @media (max-width: 760px) { .repo-grid { grid-template-columns: 1fr; } }
+</style>

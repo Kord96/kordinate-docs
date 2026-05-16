@@ -1,23 +1,20 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this repository.
+This repo is the snapshot web UI for Augur output.
 
 ## Project Overview
 
-Documentation frontend for architecture walkthroughs. Built with Astro and served at the `/dev` base path.
-
-The repo no longer reads project data directly from local docs folders. It now expects a docs-facing backend API via `DOCS_DATA_BASE_URL`.
+The site reads semantic `snapshot.json` artifacts through a docs-facing gateway
+API. The artifact store is shared product state: Augur agents can write
+snapshots, and the website can later write human feedback or edits beside them.
+The website does not own the store, and Augur does not own human edits.
 
 ## Commands
 
 ```bash
-npm run dev
-npm run build
-npm run preview
 npm run synthetic-api
-npm run bootstrap-docs-store
-npm run publish-docs-store:minio
-npm run verify-docs-store:minio
+DOCS_DATA_BASE_URL=http://127.0.0.1:4010 npm run build
+npm run dev:local-api
 ```
 
 ## Required Environment
@@ -26,69 +23,64 @@ npm run verify-docs-store:minio
 DOCS_DATA_BASE_URL=https://docs.khaledkord.com/api
 ```
 
-The build should fail fast if `DOCS_DATA_BASE_URL` is missing.
+Optional build-time identity headers for local/static builds:
 
-## Frontend Data Contract
+```bash
+DOCS_USER_ID=admin
+DOCS_AUTH_TOKEN=<gateway-token>
+```
 
-The frontend currently consumes:
+## API Contract
 
+The frontend consumes:
+
+- `GET /me`
 - `GET /projects`
-- `GET /projects/:project/current`
+- `GET /projects/:owner/:repo`
+- `GET /projects/:owner/:repo/current`
+- `GET /projects/:owner/:repo/snapshots`
+- `GET /projects/:owner/:repo/snapshots/:snapshotId`
 
-The current project view payload includes:
+`GET /projects` returns only repositories the current user can access.
 
-- `atlas`
-- `stories`
-- `narratives`
-- `analysis_id`
-- optional `overlay_id`
+`GET /projects/:owner/:repo/current` returns:
 
-The frontend derives node-to-story references internally. It does not require `storyByNode`.
-
-## Upstream Data Shape
-
-Augur produces canonical analysis artifacts in this shape:
-
-- `atlas.json`
-- `stories/*.yaml`
-- `narratives.yaml`
-
-The docs backend is expected to:
-
-- index analyses by project
-- expose the current published view
-- support browsing historical analyses
-- apply editable overlays without mutating the Augur base analysis
-
-## Synthetic Harness
-
-The repo includes a synthetic docs backend in:
-
-- `scripts/serve-synthetic-docs-api.mjs`
-- `synthetic-data/docs-store/` as fixture data
-- `/kord/docs-store` as the default external local store
-- `http://127.0.0.1:9091` as the default Augur API source in hybrid mode
-
-Reader behavior:
-
-- `DOCS_SOURCE_MODE=hybrid` by default
-- canonical Augur projects are preferred when the Augur API returns accepted base analyses
-- docs-store fixture data remains the fallback source for projects not yet published by Augur
-
-Use it to validate frontend integration locally:
-
-```bash
-DOCS_DATA_BASE_URL=http://127.0.0.1:4010 npm run build
+```json
+{
+  "project": "owner--repo",
+  "snapshot_id": "<sha-or-snapshot-id>",
+  "sha": "<commit-sha>",
+  "snapshot": {}
+}
 ```
 
-Bootstrap the external store once with:
+The `snapshot` object follows the Augur semantic snapshot contract from
+`project/augur/skills/snapshot/references/snapshot.md`.
 
-```bash
-npm run bootstrap-docs-store
+## Local Harness
+
+The synthetic API reads:
+
+```text
+SNAPSHOT_STORE_ROOT=<shared-snapshot-store>
 ```
 
-Publish that store to MinIO/S3-compatible object storage with:
+Default:
+
+```text
+/kord/snapshot-store
+```
+
+The checked-in fixture at `synthetic-data/snapshot-store/` is only for local UI
+development.
+
+Tenancy in the synthetic API is controlled with:
 
 ```bash
-MINIO_ENDPOINT=127.0.0.1 MINIO_PORT=9000 MINIO_ACCESS_KEY=... MINIO_SECRET_KEY=... MINIO_BUCKET=docs npm run publish-docs-store:minio
+DOCS_DEFAULT_USER=admin
+SNAPSHOT_ACCESS="admin:*;guest:Kord96--augur"
 ```
+
+Production tenancy belongs in the gateway. The gateway should authenticate the
+user, determine accessible repos, and forward a stable user identity to this
+API.
