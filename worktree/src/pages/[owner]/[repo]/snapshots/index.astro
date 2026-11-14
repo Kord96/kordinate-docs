@@ -1,0 +1,70 @@
+---
+import Base from '../../../../layouts/Base.astro';
+import Header from '../../../../components/Header.astro';
+import { displayProjectTitle, getCurrentSnapshot, getProjectIndex, getProjectSnapshots, projectSnapshotRoutePath, slugFromRouteParts } from '../../../../lib/docs-data';
+
+export async function getStaticPaths() {
+  const projects = await getProjectIndex();
+  return projects.map(({ slug }) => {
+    const [owner, repo] = slug.split('--');
+    return { params: { owner, repo } };
+  });
+}
+
+const { owner, repo } = Astro.params;
+const project = slugFromRouteParts(owner, repo);
+const [projects, current, snapshots] = await Promise.all([
+  getProjectIndex(),
+  getCurrentSnapshot(project),
+  getProjectSnapshots(project),
+]);
+---
+
+<Base title={`${displayProjectTitle(project, current.snapshot?.project)} Snapshots`}>
+  <Header project={displayProjectTitle(project, current.snapshot?.project)} currentProject={project} projects={projects} active="snapshots" />
+  <main class="snapshots-shell">
+    <section class="snapshots-hero">
+      <h1>Snapshots</h1>
+      <p>Commit-scoped semantic snapshots available to the current user.</p>
+    </section>
+    <section class="snapshot-list">
+      {snapshots.map((snapshot) => (
+        <a class="snapshot-row" href={projectSnapshotRoutePath(project, snapshot.snapshotId)}>
+          <div>
+            <strong>{snapshot.sha || snapshot.snapshotId}</strong>
+            <p>{snapshot.summary || snapshot.purpose}</p>
+          </div>
+          <div class="snapshot-counts">
+            <span>{snapshot.componentCount || 0} components</span>
+            <span>{snapshot.flowCount || 0} flows</span>
+            <span>{snapshot.concernCount || 0} concerns</span>
+          </div>
+        </a>
+      ))}
+    </section>
+  </main>
+</Base>
+
+<style>
+  .snapshots-shell { max-width: 980px; margin: 0 auto; padding: 3rem 1.25rem; }
+  .snapshots-hero { padding: 3rem 0 1.5rem; border-bottom: 1px solid var(--border); }
+  h1 { font-size: clamp(2rem, 5vw, 4rem); letter-spacing: 0; }
+  .snapshots-hero p { color: var(--text-2); margin-top: .6rem; }
+  .snapshot-list { display: grid; gap: .75rem; margin-top: 1rem; }
+  .snapshot-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    color: inherit;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .snapshot-row:hover { border-color: var(--accent-border); background: var(--accent-dim); }
+  .snapshot-row strong { font-family: var(--mono); }
+  .snapshot-row p { color: var(--text-2); margin-top: .35rem; line-height: 1.5; }
+  .snapshot-counts { display: flex; flex-direction: column; gap: .25rem; color: var(--text-3); font-size: .8rem; text-align: right; }
+  @media (max-width: 760px) { .snapshot-row { grid-template-columns: 1fr; } .snapshot-counts { text-align: left; } }
+</style>

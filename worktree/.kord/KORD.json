@@ -1,0 +1,18 @@
+[
+  {
+    "type": "file",
+    "path": "agents/charon/memory/deployment.md",
+    "description": "Docs app split deployment — dev pod with auth gate vs static prod on GitHub Pages",
+    "owner": "charon",
+    "preload": "charon",
+    "validation": "charon"
+  },
+  {
+    "type": "file",
+    "path": "agents/charon/memory/augur-content.md",
+    "description": "How to deploy augur analysis output from scribe into the docs Astro site",
+    "owner": "charon",
+    "preload": "charon",
+    "validation": "charon"
+  }
+]
