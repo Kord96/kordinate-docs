@@ -1,0 +1,70 @@
+/* ── Theme: light mode overrides ── */
+
+:root[data-theme='light'] {
+  --bg: #fafaf9;
+  --bg-raised: #f4f4f5;
+  --bg-card: #f4f4f5;
+  --border: #d4d4d8;
+  --border-hover: #71717a;
+  --text: #09090b;
+  --text-1: #09090b;
+  --text-2: #18181b;
+  --text-3: #27272a;
+  --text-4: #3f3f46;
+  --accent: #4f46e5;
+  --accent-dim: rgba(79,70,229,0.12);
+  --accent-border: rgba(79,70,229,0.22);
+}
+
+/* ── Headings — bolder weight ── */
+h1, h2, h3, h4 {
+  font-weight: 800;
+}
+
+/* ── Mermaid diagram sizing ── */
+.mermaid svg {
+  min-height: 300px;
+  max-width: none;
+  width: 100%;
+  height: auto;
+}
+
+.mermaid .nodeLabel {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.mermaid .cluster-label .nodeLabel {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mermaid .cluster rect {
+  rx: 6px;
+  ry: 6px;
+  stroke-width: 1.5px;
+}
+
+.mermaid .edgeLabel {
+  font-size: 0.8rem;
+}
+
+[data-theme='light'] body {
+  background: var(--bg, #fafaf9);
+  color: var(--text-1, #09090b);
+}
+
+[data-theme='light'] .hero h1 { color: #09090b; }
+[data-theme='light'] .hero .subtitle { color: #52525b; }
+[data-theme='light'] .project-card {
+  background: #f4f4f5;
+  border-color: #d4d4d8;
+}
+[data-theme='light'] .project-card:hover {
+  border-color: #71717a;
+}
+[data-theme='light'] .project-card h3 { color: #18181b; }
+[data-theme='light'] .project-card p { color: #27272a; }
+[data-theme='light'] .project-card .meta { color: #3f3f46; }
