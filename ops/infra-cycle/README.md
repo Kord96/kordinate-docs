@@ -36,8 +36,26 @@ docker build -t kordinate-docs-infra-cycle .
 docker run --rm -p 4321:4321 kordinate-docs-infra-cycle
 ```
 
-The Node 22 Bookworm slim image is pinned by digest and dependency installation uses
-`npm ci --ignore-scripts` with the existing package lock. The Docker build runs `scripts/infra-cycle-check.mjs` to compile the actual site
+## Offline prepared base
+
+The base is a separately prepared Node-derived image, not the upstream Node image:
+`ghcr.io/kord96/infra-control-dashboard@sha256:e24f25d57d7d84ef7c4aedfa704be3dc0129c82eaa5d04521bfd24b6277f0a6f`.
+It derives from upstream `node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c`
+and binds the exact `package-lock.json` SHA256
+`0dfded452549c608e9b3e25c16d774cc321a6bf4fac0f8eaf06549457dfa4be5`.
+The base ENV `npm_config_cache=/opt/infra/npm-cache` selects its prepared npm
+cache. `/opt/infra/npm-source/package-lock.sha256` contains that checksum and
+filename `package-lock.json`; the Dockerfile verifies it before running
+`npm ci --offline --ignore-scripts --no-audit --no-fund`.
+Lock changes require preparation of a new base bound to the new lock and an
+explicit digest update.
+
+User-provided preparation evidence reports that root verified the full
+linux/amd64 OCI closure and actual registry manifest readback, and passed a
+separate cold, network-none candidate Astro build. This is preparation evidence,
+**not protected Infra application-build/deploy acceptance** or delivery evidence.
+
+The Docker build runs `scripts/infra-cycle-check.mjs` to compile the actual site
 against the local fixture and fails if compilation fails. The image runs as UID/GID
 10001, owns `/app`, and starts the
 real Astro UI from source; its development server renders the fixture data.
