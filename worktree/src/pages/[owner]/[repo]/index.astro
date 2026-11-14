@@ -1,0 +1,28 @@
+---
+import Base from '../../../layouts/Base.astro';
+import Header from '../../../components/Header.astro';
+import SnapshotView from '../../../components/snapshot/SnapshotView.astro';
+import { displayProjectTitle, getCurrentSnapshot, getProjectIndex, getProjectSnapshots, slugFromRouteParts } from '../../../lib/docs-data';
+
+export async function getStaticPaths() {
+  const projects = await getProjectIndex();
+  return projects.map(({ slug }) => {
+    const [owner, repo] = slug.split('--');
+    return { params: { owner, repo } };
+  });
+}
+
+const { owner, repo } = Astro.params;
+const project = slugFromRouteParts(owner, repo);
+const [projects, view, snapshots] = await Promise.all([
+  getProjectIndex(),
+  getCurrentSnapshot(project),
+  getProjectSnapshots(project),
+]);
+const snapshot = view.snapshot || {};
+---
+
+<Base title={`${displayProjectTitle(project, snapshot.project)} Snapshot`}>
+  <Header project={displayProjectTitle(project, snapshot.project)} currentProject={project} projects={projects} active="snapshot" />
+  <SnapshotView project={project} snapshotId={view.snapshot_id} snapshot={snapshot} allSnapshots={snapshots} />
+</Base>
