@@ -1,0 +1,63 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Sign in">
+  <main class="login-shell">
+    <section class="login-panel">
+      <img src="/logo_dark.png" alt="Kordinate" class="logo-dark" />
+      <img src="/logo_light.png" alt="Kordinate" class="logo-light" />
+      <h1>Sign in</h1>
+      <p>The gateway authenticates users and forwards a stable user identity to the snapshot API. In local development, set <code>DOCS_USER_ID</code> before building.</p>
+      <form method="POST" action="/login">
+        <label for="user">User id</label>
+        <input id="user" name="user" value="admin" autocomplete="username" />
+        <label for="token">Token</label>
+        <input id="token" name="token" type="password" autocomplete="current-password" />
+        <button type="submit">Continue</button>
+      </form>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .login-shell {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+  }
+  .login-panel {
+    width: min(420px, 100%);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  img { width: 44px; height: 44px; object-fit: contain; margin-bottom: 1rem; }
+  .logo-light { display: none; }
+  :global([data-theme='light']) .logo-dark { display: none; }
+  :global([data-theme='light']) .logo-light { display: block; }
+  h1 { font-size: 1.55rem; margin-bottom: .5rem; }
+  p { color: var(--text-2); line-height: 1.55; margin-bottom: 1rem; }
+  code { font-family: var(--mono); color: var(--accent); }
+  form { display: grid; gap: .55rem; }
+  label { color: var(--text-3); font-size: .8rem; font-weight: 700; }
+  input {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 8px;
+    padding: .65rem .75rem;
+  }
+  button {
+    margin-top: .5rem;
+    border: 0;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    padding: .7rem .8rem;
+    font-weight: 700;
+  }
+</style>
