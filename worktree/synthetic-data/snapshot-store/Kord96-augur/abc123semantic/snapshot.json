@@ -1,0 +1,388 @@
+{
+  "version": "6",
+  "generated": "2026-05-11",
+  "project": "Kord96/augur",
+  "sha": "abc123semantic",
+  "purpose": "Provides a repo snapshot pipeline that turns repository changes into durable architecture understanding artifacts.",
+  "summary": "Augur subscribes to repositories, runs deterministic detectors for each commit, and prepares semantic snapshots that explain current architecture, flows, observability, concerns, and reading paths.",
+  "delta": [],
+  "system_kinds": [
+    {
+      "id": "job-system",
+      "label": "Event-driven snapshot worker",
+      "role": "Runs repository analysis from queued commit events."
+    }
+  ],
+  "stack": [
+    {
+      "id": "python",
+      "label": "Python",
+      "role": "CLI and worker runtime"
+    },
+    {
+      "id": "kubernetes",
+      "label": "Kubernetes",
+      "role": "Deployment target"
+    },
+    {
+      "id": "git",
+      "label": "Git",
+      "role": "Commit materialization and source diffing"
+    }
+  ],
+  "promises": [
+    {
+      "id": "continuous-snapshots",
+      "kind": "functional",
+      "title": "Continuous Repository Snapshots",
+      "description": "Produce one commit-scoped snapshot artifact set whenever a subscribed repository branch changes."
+    }
+  ],
+  "actors": [
+    {
+      "id": "repo-owner",
+      "kind": "human",
+      "name": "Repository Owner",
+      "description": "Connects a repository and reads the resulting snapshot history.",
+      "role": "consumer"
+    },
+    {
+      "id": "github-webhook",
+      "kind": "external-system",
+      "name": "GitHub Push Webhook",
+      "description": "Supplies branch push events that identify the current and previous commits.",
+      "role": "supplier"
+    }
+  ],
+  "components": [
+    {
+      "id": "repo-subscription-cli",
+      "name": "Repository Subscription CLI",
+      "description": "Creates a durable subscription for a repository branch and queues the first snapshot job. It is the setup path that lets a user connect a repo once and let the pipeline continue from push events.",
+      "behavioral_role": "gateway",
+      "parent": null,
+      "modules": ["augur/cli.py", "augur/worker.py"],
+      "relationships": [
+        {
+          "id": "subscription-cli-queues-job",
+          "from": "repo-subscription-cli",
+          "to": "snapshot-queue",
+          "type": "writes",
+          "description": "Writes the initial snapshot job into the shared queue."
+        }
+      ],
+      "basis": {
+        "entities": {
+          "promise_ids": ["continuous-snapshots"],
+          "flow_ids": ["subscribe-and-run"]
+        },
+        "files": [
+          {
+            "path": "augur/cli.py"
+          }
+        ]
+      }
+    },
+    {
+      "id": "github-webhook-handler",
+      "name": "GitHub Webhook Handler",
+      "description": "Receives push payloads, verifies optional signatures, matches subscribed repositories, and enqueues snapshot jobs. It avoids running analysis inline so GitHub delivery is quick and retryable.",
+      "behavioral_role": "gateway",
+      "parent": null,
+      "modules": ["augur/webhook.py"],
+      "relationships": [
+        {
+          "id": "webhook-writes-queue",
+          "from": "github-webhook-handler",
+          "to": "snapshot-queue",
+          "type": "writes",
+          "description": "Turns a push event into an augur-job.v1 queue item."
+        }
+      ],
+      "basis": {
+        "entities": {
+          "promise_ids": ["continuous-snapshots"],
+          "actor_ids": ["github-webhook"],
+          "flow_ids": ["push-to-snapshot"]
+        },
+        "files": [
+          {
+            "path": "augur/webhook.py"
+          }
+        ]
+      }
+    },
+    {
+      "id": "snapshot-queue",
+      "name": "Snapshot Queue",
+      "description": "Stores pending, running, completed, and failed snapshot jobs in a shared filesystem-backed queue. It is neutral pipeline state rather than website-owned or Augur-owned content.",
+      "behavioral_role": "broker",
+      "parent": null,
+      "modules": ["augur/worker.py"],
+      "relationships": [
+        {
+          "id": "queue-feeds-worker",
+          "from": "snapshot-queue",
+          "to": "deterministic-worker",
+          "type": "delegates",
+          "description": "Hands queued jobs to the worker loop."
+        }
+      ],
+      "basis": {
+        "entities": {
+          "flow_ids": ["push-to-snapshot", "subscribe-and-run"]
+        },
+        "files": [
+          {
+            "path": "augur/worker.py"
+          }
+        ]
+      }
+    },
+    {
+      "id": "deterministic-worker",
+      "name": "Deterministic Snapshot Worker",
+      "description": "Consumes queued jobs, materializes the requested commit, runs deterministic detectors, and writes commit-scoped artifacts. The semantic agent will later consume those artifacts to produce the final snapshot.json.",
+      "behavioral_role": "executor",
+      "parent": null,
+      "modules": ["augur/worker.py", "skills/snapshot/references/detectors/module/main.py"],
+      "relationships": [
+        {
+          "id": "worker-writes-artifacts",
+          "from": "deterministic-worker",
+          "to": "shared-snapshot-store",
+          "type": "writes",
+          "description": "Writes detector output, deltas, and semantic snapshot artifacts under the commit output directory."
+        }
+      ],
+      "basis": {
+        "entities": {
+          "promise_ids": ["continuous-snapshots"],
+          "flow_ids": ["push-to-snapshot"]
+        },
+        "files": [
+          {
+            "path": "augur/worker.py"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shared-snapshot-store",
+      "name": "Shared Snapshot Store",
+      "description": "Holds commit-scoped artifacts produced by agents and deterministic workers, plus future human edits from the website. It is a shared product artifact boundary, not an implementation detail owned by either side.",
+      "behavioral_role": "store",
+      "parent": null,
+      "modules": [],
+      "relationships": [],
+      "basis": {
+        "entities": {
+          "promise_ids": ["continuous-snapshots"]
+        },
+        "files": []
+      }
+    }
+  ],
+  "flows": [
+    {
+      "id": "subscribe-and-run",
+      "name": "Subscribe Repository And Run First Snapshot",
+      "description": "A repository owner adds a repository through the CLI. The subscription is recorded, an initial job is queued, and the worker produces the first commit-scoped artifact set.",
+      "trigger": "User runs repo add with a repository URL and branch.",
+      "outcome": "The shared snapshot store contains the first deterministic output directory for the branch head.",
+      "basis": {
+        "entities": {
+          "promise_ids": ["continuous-snapshots"],
+          "actor_ids": ["repo-owner"],
+          "component_ids": ["repo-subscription-cli", "snapshot-queue", "deterministic-worker", "shared-snapshot-store"]
+        },
+        "files": [
+          {
+            "path": "augur/cli.py"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "component_id": "repo-subscription-cli",
+          "action": "records subscription and creates an initial job",
+          "target_id": "snapshot-queue",
+          "effect": "A pending job exists for the current branch head."
+        },
+        {
+          "component_id": "snapshot-queue",
+          "action": "hands the job to the worker loop",
+          "target_id": "deterministic-worker",
+          "effect": "The worker owns the job attempt."
+        },
+        {
+          "component_id": "deterministic-worker",
+          "action": "runs detectors on the checked-out commit",
+          "target_id": "shared-snapshot-store",
+          "effect": "Commit artifacts are written under the shared output root."
+        }
+      ]
+    },
+    {
+      "id": "push-to-snapshot",
+      "name": "Push Event To Snapshot Artifacts",
+      "description": "GitHub sends a push payload for a subscribed branch. The webhook enqueues a job and the worker updates the shared artifact store for the new commit.",
+      "trigger": "GitHub push webhook for a subscribed branch.",
+      "outcome": "A new commit directory is available for semantic snapshot generation and website browsing.",
+      "basis": {
+        "entities": {
+          "promise_ids": ["continuous-snapshots"],
+          "actor_ids": ["github-webhook"],
+          "component_ids": ["github-webhook-handler", "snapshot-queue", "deterministic-worker", "shared-snapshot-store"]
+        },
+        "files": [
+          {
+            "path": "augur/webhook.py"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "component_id": "github-webhook-handler",
+          "action": "accepts and normalizes the push payload",
+          "target_id": "snapshot-queue",
+          "effect": "A queue item identifies the repo, branch, current sha, and previous sha."
+        },
+        {
+          "component_id": "deterministic-worker",
+          "action": "checks out the current commit and runs detector modules",
+          "target_id": "shared-snapshot-store",
+          "effect": "The commit output directory receives detector output, diff, report, and run metadata."
+        }
+      ]
+    }
+  ],
+  "patterns": [
+    {
+      "id": "event-driven-worker-pipeline",
+      "pattern_id": "event-driven-worker",
+      "name": "Event-driven worker pipeline",
+      "summary": "Push events and setup commands enqueue jobs, while workers consume them independently and write durable artifacts."
+    }
+  ],
+  "observability": {
+    "summary": "The important operational questions are whether webhook delivery succeeds, whether the queue drains, and whether commit artifacts are produced for each subscribed branch head.",
+    "scenarios": [
+      {
+        "id": "queue-stalls",
+        "title": "Snapshot queue stalls",
+        "description": "Jobs remain pending and the website stops seeing newer commit snapshots.",
+        "basis": {
+          "entities": {
+            "component_ids": ["snapshot-queue", "deterministic-worker"],
+            "flow_ids": ["push-to-snapshot"]
+          }
+        },
+        "path": {
+          "trigger": "Worker loop is not running or cannot read the queue.",
+          "outcome": "New push events are accepted but no new snapshot artifacts appear.",
+          "steps": [
+            {
+              "component_id": "snapshot-queue",
+              "action": "keeps accumulating pending jobs",
+              "target_id": "deterministic-worker",
+              "effect": "The worker does not move jobs to done or failed."
+            }
+          ]
+        },
+        "measurements": [
+          {
+            "id": "pending-job-count",
+            "type": "gauge",
+            "name": "pending_jobs",
+            "label": "Pending Job Count",
+            "description": "Number of jobs in the pending queue."
+          }
+        ],
+        "states": [
+          {
+            "id": "queue-health",
+            "name": "queue_health",
+            "label": "Queue Health",
+            "description": "Whether the queue is draining.",
+            "values": [
+              {
+                "value": "stalled"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "concerns": [
+    {
+      "id": "semantic-stage-not-deployed",
+      "kind": "observability-gap",
+      "title": "Semantic stage is not deployed yet",
+      "summary": "The deterministic event layer works, but production semantic snapshot writing still needs a deployed agent or SDK worker.",
+      "basis": {
+        "entities": {
+          "component_ids": ["deterministic-worker", "shared-snapshot-store"],
+          "flow_ids": ["push-to-snapshot"],
+          "observability_ids": ["queue-stalls"]
+        },
+        "files": [
+          {
+            "path": "references/deployment/README.md"
+          }
+        ]
+      }
+    }
+  ],
+  "stories": [
+    {
+      "id": "continuous-snapshot-pipeline",
+      "title": "How a commit becomes snapshot artifacts",
+      "objectives": [
+        {
+          "id": "understand-event-boundary",
+          "text": "Understand why webhook delivery, queueing, and worker execution are separate responsibilities."
+        },
+        {
+          "id": "understand-shared-store",
+          "text": "Understand why snapshot artifacts live in a shared store that both agents and humans can update."
+        }
+      ],
+      "chapters": [
+        {
+          "id": "queue-first",
+          "title": "Queue first, analyze later",
+          "teaches": [
+            {
+              "objective_id": "understand-event-boundary",
+              "point": "The webhook handler only translates push events into durable jobs, keeping GitHub delivery independent from analysis runtime."
+            }
+          ],
+          "basis": {
+            "entities": {
+              "component_ids": ["github-webhook-handler", "snapshot-queue"],
+              "flow_ids": ["push-to-snapshot"]
+            }
+          }
+        },
+        {
+          "id": "shared-output",
+          "title": "Artifacts are shared product state",
+          "teaches": [
+            {
+              "objective_id": "understand-shared-store",
+              "point": "The shared snapshot store is where agent output and future human feedback meet without either Augur or the website claiming exclusive ownership."
+            }
+          ],
+          "basis": {
+            "entities": {
+              "component_ids": ["deterministic-worker", "shared-snapshot-store"],
+              "flow_ids": ["push-to-snapshot", "subscribe-and-run"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
